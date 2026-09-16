@@ -1,0 +1,3 @@
+# Archive constructeur : on versionne le contenu tel qu'il a été téléchargé,
+# y compris ce que le .gitignore de la racine écarterait (ex. .vscode/ des démos).
+!.vscode/

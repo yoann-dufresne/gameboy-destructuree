@@ -1,0 +1,216 @@
+<!doctype html>
+<html><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>RGB Matrix P3.0 64x64 - Wiki</title>
+<link rel="canonical" href="https://seengreat.com/wiki/74/rgb-matrix-p3-0-64x64" />
+<meta name="description" content="This is wiki documentation for RGB Matrix P3.0 64x64, including schematic, specifications, sample code, resources download." />
+<meta name="theme-color" content="#038A8E">
+<link href="/asset/go.css?d8" rel="stylesheet">
+<link href="/asset/font-awesome/css/font-awesome.min.css" rel="stylesheet"/>
+<script src="/asset/js/jquery-2.2.4.min.js"></script>
+<script src="/asset/js/fun.js?d12"></script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-5H56BJJB18"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-5H56BJJB18');
+
+
+</script>
+<script>(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"187116843", enableAutoSpaTracking: true};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")},n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","//bat.bing.com/bat.js","uetq");</script>
+<link href="/asset/wiki.css?e5" rel="stylesheet">
+<link href="/asset/highlight.min.css?a1" rel="stylesheet">
+<script src="/asset/js/wiki.js?a1"></script>
+<script src="/asset/js/wiki_article.js?b3"></script>
+<script src="/asset/js/clipboard.min.js"></script>
+<script src="/asset/js/highlight.min.js"></script>
+<style type="text/css">
+main{display: flex;}
+
+</style>
+
+</head>
+<body>
+
+<i id="menubar" class="fa fa-bars"></i>
+
+<header id="header">
+
+	<div id="headerbox">
+
+		<a href="/"><img id="logo" src="/image/logo.png" title="Home"></a>
+
+		<ul id="wiki_nav">
+			<li><a href="/">Home</a></li>
+			<li><a id="wiki" href="/wiki">Wiki</a></li>
+		</ul>
+
+		<div id="searchkwBox">
+			<div id="searwkinBox">
+				<input type="text" id="searchwiki" maxlength="60" value="" placeholder="Search Wiki" />
+				<i class="fa fa-search"></i>
+				<span id="clearStxt">X</span>
+			</div>
+		</div>
+
+		<i id="search" class="fa fa-search"></i>
+		<div id="wikinav" class="active">
+
+    <div id="witop">
+        <i class="fa fa-book" aria-hidden="true" /></i>
+        <a id="bar_title" href="/wiki/">WiKi</a>
+        <p id="button_menu"><i class="fa fa-arrow-left" aria-hidden="true" /></i></p>
+    </div>
+
+
+    <ul id="wul">
+        <li class="wli"><a href="/wiki/get-start">Getting Started</a></li>
+
+        <li class="wli">
+            <p>Displays <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li> <a href="/wiki/displays/lcd-10">LCD Displays</a></li>
+                <li> <a href="/wiki/displays/led-matrix-panels-12">LED Matrix Panels</a></li>
+                <li><a href="/wiki/displays/e-paper-11">E-Paper</a></li>
+                <li><a href="/wiki/displays/seg-led-13">SEG LED</a></li>
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Expansions <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/expansions/io-14">IO Boards</a></li>
+                <li><a href="/wiki/expansions/serial-15">Serial Boards</a></li>
+                <li><a href="/wiki/expansions/converter-16">Converter</a></li>
+                <li><a href="/wiki/modules/relay-34">Relay Boards</a></li>
+                <li> <a href="/wiki/expansions/pico-20">PICO Expansion Boards</a></li>
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Other Modules <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/modules/solar-power-33">Solar Power</a></li>
+                 <li> <a href="/wiki/modules/scanner-35">Scanner Modules</a></li>
+                <li> <a href="/wiki/modules/fan-38">Cooling Fans</a></li>
+
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Sensors<i class="fa fa-angle-right"></i> </p>
+            <ul class="subul">
+                <li> <a href="/wiki/sensors/human-presence-sensing-22">Human Presence Sensing</a></li>
+                <li><a href="/wiki/sensors/environmental-23">Environmental</a></li>
+                <li><a href="/wiki/sensors/thermal-24">Thermal</a></li>
+            </ul>
+
+        </li>
+
+        <li class="wli">
+            <p>Motors <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/motors/driver-27">Driver</a></li>
+                <li><a href="/wiki/motors/servo-28">Servo</a></li>
+                <li><a href="/wiki/motors/motor-29">Motor</a></li>
+
+            </ul>
+        </li>
+
+        <li class="wli"><a href="/wiki/cameras/">Cameras</a></li>
+        <li class="wli"><a href="/wiki/iot/">IoT</a></li>
+        <li class="wli"><a href="/wiki/raspberry_pi">Raspberry Pi</a></li>
+        <li class="wli"><a href="/wiki/micro-bit">Micro:bit</a></li>
+
+    </ul>
+
+</div>
+
+	</div>
+
+
+
+</header>
+
+<main id="right">
+
+    <div id="box">
+
+        <h1 id="title">RGB Matrix P3.0 64x64</h1>
+        <div id="content"><h2>Instructions</h2><h3>Overview</h3><p>This product RGB Matrix P3.0-64 x 64 is on-board 4096 full-color display LEDs with 3mm pitch, which supports the use of <span style="color:#222222;text-wrap:wrap;">Raspberry Pi, Raspberry Pi Pico</span><span style="color:#222222;text-wrap:wrap;">, </span><span style="color:#222222;text-wrap:wrap;">Arduino Mega</span><span style="color:#222222;text-wrap:wrap;">, ESP32 </span>developing board. The product is provided with open development resources, suitable for the electronic makers and the related learners to learn or DIY.</p><h3>Features</h3><ul><li>On-board 64 x 64 = 4096 full-color display LEDs</li><li>3mm pitch, displaying text, animation and colorful image</li><li>Onboard two HUB75 headers, respectively for signal input and output. It can be cascaded multi-screen</li><li>Providing open development resources and tutorials for the use of Raspberry Pi, Raspberry Pi Pico<span style="color:#222222;text-wrap:wrap;">, </span>Arduino Mega<span style="color:#222222;text-wrap:wrap;">, ESP32 </span>development boards</li></ul><h3>Specifications</h3><div class="dtable"><table class="table2 table0"><tbody><tr><td>Pixels</td><td>64 x 64</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Pitch</span></td><td>3mm</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Pixel Form</span></td><td>1R1G1B</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Viewing Angle</span></td><td>≥160°</td></tr><tr><td>Header</td><td>HUB75</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Control Type</span></td><td>synchronization</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Driving</span></td><td>1/32 scan</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Power Supply</span></td><td>5V/4A</td></tr><tr><td><span style="color:#333333;font-family:&quot;text-wrap:wrap;background-color:#EFF5FB;">Power Port</span></td><td>VH4 header input</td></tr><tr><td>Dimensions</td><td>192mm(Length) x 192mm(Width) x 15mm(height)</td></tr></tbody></table></div><figure><img src="../images/wiki74/01-produit-vue-ensemble.jpg" alt="" /></figure>
+<figure><img src="../images/wiki74/02-produit-face-avant.jpg" alt="" /></figure>
+<h2>Usage</h2><p><span style="color:#222222;">The demo codes of some platforms can directly display the image file, but some platforms need to convert the image data into a hexadecimal array format first, and then copy it to the image data storage array in the demo codes file, so that users can display their own image content according to their needs. Taking the Arduino Mega platform demo codes as an example, if you need to convert and display the image, you can refer to the following link: <a href="https://seengreat.com/wiki/159" target="_blank">RGB Dot Matrix Image Conversion Tutorial</a></span></p><h3>Instructions of Hardware Interface Configuration</h3><p>This product is mainly used with the main-board of Raspberry Pi, with HUB75 for signal input and output of RGB LED Matrix Panel. The connector definitions are in the following figure:</p><figure><img src="../images/wiki74/03-fig-2-1-connecteurs-hub75.jpg" alt="" /></figure>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;"><span style="color:#222222;">Figure </span>2-1</pre>
+<h3>Usage of Raspberry Pi</h3><figure><img src="../images/wiki74/04-fig-2-2-cablage-raspberry-pi.jpg" alt="" /></figure>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;"><span style="color:#222222;">Figure </span>2-2</pre>
+<figure><img src="../images/wiki74/05-brochage-raspberry-pi.jpg" alt="" /></figure>
+<p>Definitions of Raspberry Pi and wiring pin of signal input connector:</p><div class="dtable"><table><tbody><tr><th>Mark</th><th>Description of Pin</th><th>BCM number</th><th>Pins Function</th><th>Mark</th><th>Description of Pin</th><th>BCM number</th><th>Pins Function</th></tr><tr><td>R1</td><td>R higher bit data</td><td>11</td><td>SCLK</td><td>G1</td><td>G higher bit data</td><td>27</td><td>P2</td></tr><tr><td>B1</td><td>B higher bit data</td><td>7</td><td>CE1</td><td>GND</td><td>Ground</td><td>GND</td><td>GND</td></tr><tr><td>R2</td><td>R lower bit data</td><td>8</td><td>CE0</td><td>G2</td><td>G lower bit data</td><td>9</td><td>MISO</td></tr><tr><td>B2</td><td>B lower bit data</td><td>10</td><td>MOSI</td><td>E</td><td>E line selection</td><td>15</td><td>RXD</td></tr><tr><td>A</td><td>A line selection</td><td>22</td><td>P3</td><td>B</td><td>B line selection</td><td>23</td><td>P4</td></tr><tr><td>C</td><td>C line selection</td><td>24</td><td>P5</td><td>D</td><td>D line selection</td><td>25</td><td>P6</td></tr><tr><td>CLK</td><td>clock input</td><td>17</td><td>P0</td><td>LAT</td><td>latch pin</td><td>4</td><td>P7</td></tr><tr><td>OE</td><td>output enable</td><td>18</td><td>P1</td><td>GND</td><td>Ground</td><td>GND</td><td>GND</td></tr></tbody></table><!-- 新增表格标题 -->
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;">Table2-1</pre>
+</div><p>This display uses the open source code on github to demonstrate. Please access the Raspberry Pi terminal, and then enter the following commands in turn:</p>
+<pre class="prettycode"><code class="prettyprint lang-shell">sudo git clone https://github.com/hzeller/rpi-rgb-led-matrix
+cd rpi-rgb-led-matrix
+sudo make
+cd examples-api-use
+sudo ./demo -D 9 --led-no-hardware-pulse --led-rows=64 --led-cols=64</code></pre>
+<p>For more details about the demo, please read the contents of the README.md file carefully.</p><p>Cautions of demo:</p><p>1. Turn off onboard audio.</p><p>Please modify the content of /boot/config.txt into dtparam=audio=off, because the on-board audio and the timing circuitry required by RGB-Matrix cannot be run simultaneously.</p><p>2. Please do not run any programs that run in parallel with the GPIO pins.</p><p>3. Disable the 1-wire interface:raspi-config -&gt; Interface Options -&gt; 1-Wire</p><p>4. Add the isolcpus=3 statement at the end of the /boot/cmdline.txt file, separated by spaces</p><h3>Usage of Demo for Raspberry Pi Pico</h3><figure><img src="../images/wiki74/06-brochage-pico.jpg" alt="" /></figure>
+<p>The wiring pins definitions of signal input for Pico<span style="color:#222222;white-space:normal;">/Pico 2</span> and RGB LED Matrix Panel are as follows (<span style="color:#222222;">For versions V3.8 and earlier of the RGB Matrix Adapter Board</span>):</p><div class="dtable"><table class="table6"><thead><tr><th>Label</th><th>Pins Description</th><th>Pico Pins</th><th>Label</th><th>Pins Description</th><th>Pico Pins</th></tr></thead><tbody><tr><td>R1</td><td>R higher bit data</td><td>GP02</td><td>G1</td><td>G higher bit data</td><td>GP03</td></tr><tr><td>B1</td><td>B higher bit data</td><td>GP04</td><td>GND</td><td>Ground</td><td>GND</td></tr><tr><td>R2</td><td>R lower bit data</td><td>GP05</td><td>G2</td><td>G lower bit data</td><td>GP08</td></tr><tr><td>B2</td><td>B lower bit data</td><td>GP09</td><td>E</td><td>E line selection</td><td>GP22</td></tr><tr><td>A</td><td>A line selection</td><td>GP10</td><td>B</td><td>B line selection</td><td>GP16</td></tr><tr><td>C</td><td>C line selection</td><td>GP18</td><td>D</td><td>D line selection</td><td>GP20</td></tr><tr><td>CLK</td><td>clock input</td><td>GP11</td><td>LAT</td><td>latch pin</td><td>GP12</td></tr><tr><td>OE</td><td>output enable</td><td>GP13</td><td>GND</td><td>Ground</td><td>GND</td></tr></tbody></table>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;">Table 2-2</pre>
+</div><p>The wiring pins definitions of signal input for Pico/Pico 2 and RGB LED Matrix Panel are as follows (<span style="color:#222222;">For version V3.9 or latest of the RGB Matrix Adapter Board</span>):</p><div class="dtable"><table class="table6"><thead><tr><th>Label</th><th>Pins Description</th><th>Pico Pins</th><th>Label</th><th>Pins Description</th><th>Pico Pins</th></tr></thead><tbody><tr><td>R1</td><td>R higher bit data</td><td>GP02</td><td>G1</td><td>G higher bit data</td><td>GP03</td></tr><tr><td>B1</td><td>B higher bit data</td><td>GP04</td><td>GND</td><td>Ground</td><td>GND</td></tr><tr><td>R2</td><td>R lower bit data</td><td>GP05</td><td>G2</td><td>G lower bit data</td><td>GP06</td></tr><tr><td>B2</td><td>B lower bit data</td><td>GP07</td><td>E</td><td>E line selection</td><td>GP12</td></tr><tr><td>A</td><td>A line selection</td><td>GP08</td><td>B</td><td>B line selection</td><td>GP09</td></tr><tr><td>C</td><td>C line selection</td><td>GP10</td><td>D</td><td>D line selection</td><td>GP11</td></tr><tr><td>CLK</td><td>clock input</td><td>GP13</td><td>LAT</td><td>latch pin</td><td>GP14</td></tr><tr><td>OE</td><td>output enable</td><td>GP15</td><td>GND</td><td>Ground</td><td>GND</td></tr></tbody></table>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;">Table 2-3</pre>
+</div><h4>Usage of Demo:</h4><p><span style="color:#222222;">We provide two demonstration codes: one is based on bit-bang, which drives the display by having the CPU execute software logic to directly control the level switching of GPIO pins and simulate the complete timing required by the HUB75 protocol; the other is based on PIO, which utilizes the PIO (Programmable I/O) state machine of the RP2040 chip to directly generate signals conforming to the HUB75 protocol specifications with hardware-level timing to drive the display.</span></p><p><span style="color:#222222;">The bit-bang based version is suitable for rapid prototyping and helps beginners understand basic principles and get started quickly.</span></p><p><span style="color:#222222;">The PIO-based version is suitable for projects requiring efficient resource management and is an ideal choice for scenarios where PIO functionality needs to be utilized to optimize display performance.</span></p><p>After wiring the Pico and the display, open the Thonny Python IDE, access the Pico-RGB Matrix LED_64x64 folder in the demo codes in the "File" window (View -&gt; File), and upload all the files and folders in the folder to the Pico. Then double-click to open the main.py file, and click the "Run" icon in the menu to run the current code.</p><h3>Usage of Demo for Arduino Mega</h3><p>The wiring pins definitions of signal input for Arduino mega and RGB LED Matrix Panel as following:</p><div class="dtable"><table class="table6"><thead><tr><th>Label</th><th>Pins Description</th><th>Arduino mega Pins</th><th>Label</th><th>Pins Description</th><th>Arduino mega Pins</th></tr></thead><tbody><tr><td>R1</td><td>R higher bit data</td><td>D24</td><td>G1</td><td>G higher bit data</td><td>D25</td></tr><tr><td>B1</td><td>B higher bit data</td><td>D26</td><td>GND</td><td>Ground</td><td>GND</td></tr><tr><td>R2</td><td>R lower bit data</td><td>D27</td><td>G2</td><td>G lower bit data</td><td>D28</td></tr><tr><td>B2</td><td>B lower bit data</td><td>D29</td><td>E</td><td>E line selection</td><td>A4</td></tr><tr><td>A</td><td>A line selection</td><td>A0</td><td>B</td><td>B line selection</td><td>A1</td></tr><tr><td>C</td><td>C line selection</td><td>A2</td><td>D</td><td>D line selection</td><td>A3</td></tr><tr><td>CLK</td><td>clock input</td><td>D11</td><td>LAT</td><td>latch pin</td><td>D10</td></tr><tr><td>OE</td><td>output enable</td><td>D9</td><td>GND</td><td>Ground</td><td>GND</td></tr></tbody></table>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;">Table2-4</pre>
+</div><p>Usage of Demo：</p><p>After wiring the power cable to the display panel and connecting the signal cable according to Table 2-3, access the Arduino_Mega_RGB_Matrix_64x64 folder and double-click to open the Arduino_Mega_RGB_Matrix_64x64.ino file. Then click the Verify button, and then click the Upload button. The demo code realizes the function of displaying text and pictures in a loop.</p><h3 style="text-wrap:wrap;">Usage of Demo for ESP32</h3><p style="text-wrap:wrap;">The wiring pins definitions of signal input for ESP32 and RGB LED Matrix Panel as following:</p><div class="dtable" style="text-wrap:wrap;"><table class="table6"><thead><tr><th>Label</th><th>Pins Description</th><th><span style="color:#222222;text-wrap:wrap;">ESP32</span> Pins</th><th>Label</th><th>Pins Description</th><th><span style="color:#222222;text-wrap:wrap;">ESP32</span> Pins</th></tr></thead><tbody><tr><td>R1</td><td>R higher bit data</td><td>IO25</td><td>G1</td><td>G higher bit data</td><td>IO26</td></tr><tr><td>B1</td><td>B higher bit data</td><td>IO27</td><td>GND</td><td>Ground</td><td>GND</td></tr><tr><td>R2</td><td>R lower bit data</td><td>IO14</td><td>G2</td><td>G lower bit data</td><td>IO12</td></tr><tr><td>B2</td><td>B lower bit data</td><td>IO13</td><td>E</td><td>E line selection</td><td>IO32</td></tr><tr><td>A</td><td>A line selection</td><td>IO23</td><td>B</td><td>B line selection</td><td>IO22</td></tr><tr><td>C</td><td>C line selection</td><td>IO5</td><td>D</td><td>D line selection</td><td>IO17</td></tr><tr><td>CLK</td><td>clock input</td><td>IO16</td><td>LAT</td><td>latch pin</td><td>IO4</td></tr><tr><td>OE</td><td>output enable</td><td>IO15</td><td>GND</td><td>Ground</td><td>GND</td></tr></tbody></table>
+<pre style="text-align:center;margin-top:5px;font-style:italic;font-weight:normal;">Table2-5</pre>
+</div><p style="text-wrap:wrap;">Usage of Demo：</p><p style="text-wrap:wrap;"><span style="color:#222222;">The Arduino IDE version used in this demo is arduino-ide_2.3.2_Windows_64bit</span></p><p style="text-wrap:wrap;">1.<span style="color:#222222;">Download and unzip the <a href="https://drive.google.com/file/d/1i9FywdbV2cuVglfrSeyZXViWyhtUd8vm/view?usp=drive_link" style="text-wrap:wrap;" target="_blank">ESP32_Packages</a> folder (the unzipped esp32 folder will have "hardware" and "tools" subfolders), copy the unzipped esp32 folder to the packages under the installation directory of Arduino IDE, such as C:\Users\Admin\AppData\Local\Arduino15\packages (Admin is the user name of my computer, which needs to be replaced according to the actual user name of your computer), as shown in the figure below:</span></p><p style="text-wrap:wrap;"><span style="color:#222222;"><img src="../images/wiki74/07-fig-2-3-esp32-packages.png" alt="" /></span></p>
+<pre style="margin-top:5px;text-align:center;font-style:italic;"><span style="color:#222222;">Figure 2-3</span></pre>
+<p style="line-height:150%;">2. <span style="color:#222222;">Copy the files in the downloaded demo codes\ESP32\libraries folder to the libraries in the installation directory of Arduino IDE; for example, the path on my computer is C:\Users\Admin\Documents\Arduino\libraries ('Admin' is the user name of my computer, which needs to be replaced according to the actual user name of your computer);</span><o:p></o:p></p><p style="line-height:150%;">3. After connecting the power cable to the screen and connecting the signal cable according to Table 2-4, enter the ESP32 folder and you will find 4 subfolders: SimpleTestShapes, PatternPlasma, BouncingSquares, AurroraDemo, where SimpleTestShapes is for basic shape display, PatternPlasma is for plasma pattern display, BouncingSquares is for bouncing square display, and AurroraDemo is for animation effect display;<o:p></o:p></p><p style="line-height:150%;">4. Select the appropriate board and port according to the ESP32 module model you are using, as shown in Figure 2-4 below:<o:p></o:p></p><img src="../images/wiki74/08-fig-2-4-arduino-ide-board.png" alt="" /> 
+<pre style="margin-top:5px;text-align:center;font-style:italic;"><span style="color:#222222;">Figure 2-4</span></pre>
+<p style="line-height:150%;">5.Then click the Verify button, and then click the Upload button. The demo code implements the function of displaying text and pictures in a loop.<o:p></o:p></p><section id="daisy-chain-connection-en">
+<h3>Daisy-Chaining Multiple RGB Matrix Screens</h3><p>When daisy-chaining multiple RGB Matrix Screens (e.g., Screen A and Screen B), connect them as follows:</p><ol><li><strong>MCU to Screen A:</strong> Connect the MCU's signal interface to <strong>Screen A's Signal Input</strong> connector using a 16-pin gray ribbon cable.
+            (Refer to Table 2-2 for Pico platform or Table 2-4 for ESP32 platform for pin definitions.)</li><li><strong>Screen A to Screen B:</strong> Connect <strong>Screen A's Signal Output</strong> connector to <strong>Screen B's Signal Input</strong> connector using another 16-pin gray ribbon cable.</li><li><strong>Power Supply:</strong> Ensure both RGB Matrix Screens (Screen A and Screen B) are simultaneously supplied with <strong>5V power</strong>.</li></ol><p>A wiring diagram illustrating this connection method is shown below:</p><figure>
+<figcaption><img src="../images/wiki74/09-fig-2-5-cascade-multi-ecrans.png" alt="" /></figcaption>
+    </figure>
+<pre style="margin-top:5px;text-align:center;font-style:italic;"><span style="color:#222222;">Figure 2-5</span></pre>
+<p><strong>Note:</strong> Please ensure all cable connections are secure and strictly follow the steps above, as well as the relevant pin definition tables, to avoid device damage or functional anomalies.</p></section>
+<section id="image-processing-guide">
+<h4>Image Processing for RGB Matrix Screens</h4><p>Here's a guide on preparing and displaying images on your RGB Matrix LED screens for both Pico and ESP32 platforms.</p><h4><b>Image Preparation</b></h4><p>Prepare an <strong>RGB888 (24-bit depth)</strong> image with a resolution of <strong>128x64 pixels</strong>. The image format can be <strong>BMP</strong>.</p><h4>Pico Platform</h4><ol><li><strong>Upload the image</strong> to your Raspberry Pi Pico.</li><li>In the <code><b>main.py</b></code> file of your Pico-RGB Matrix LED_64x64 project, change line 13 to:
+<pre><code>unit_width = 128</code></pre>
+</li><li><span style="color:rgba(0, 0, 0, 0.85);font-family:Inter, -apple-system, BlinkMacSystemFont, &quot;text-wrap-mode:wrap;">And change line 132 " self.image = 'wales_128x64.bmp'" to the file name of the picture you uploaded. Finally, use the "RGB.test(1)" statement to test the effect of dual-screen cascading.</span></li></ol><h4>ESP32 Platform</h4><p>The ESP32 platform's example code can't directly process images. You'll need to use the <strong>Image2Lcd software</strong> to convert your image into a data array. Refer to the <a href="https://seengreat.com/wiki/159" title="RGB Dot Matrix Image Conversion Tutorial" target="_blank">RGB Dot Matrix Image Conversion Tutorial</a> for instructions on using the software.</p><p>Since your image resolution is 128x64, you'll need to set the "Maximum Width" and "Maximum Height" in Image2Lcd to <strong>"128"</strong> and <strong>"64"</strong> respectively. This will generate a "xxx.c" image data file, which contains a <strong>16384-byte array</strong>.</p><p>After generating the file, <strong>copy its entire content</strong> and <strong>paste it at the end of the <code>bit_bmp.h</code> file</strong>. Remember to <strong>modify the array's type definition</strong> as shown in the red box in Figure 2-6 (using <code>Pikachu_128x64</code> as an example array name; this name will vary based on your image file name).</p><figure>
+<figcaption><img src="../images/wiki74/10-fig-2-6-tableau-image-c.png" alt="" style="text-align:center;" /></figcaption></figure>
+<pre><figure>
+
+
+
+
+
+<figcaption style="text-align:center;">Figure 2-6</figcaption></figure></pre>
+<section id="panel-chain-config">
+<p>As shown in Figure 2-7 below, line 11 of the <code><b>showbitmap.ino</b></code> file in the code already defines the use of <strong>two matrix panels for splicing</strong>. Therefore, this line is defined as <code>#define PANEL_CHAIN 2</code>.</p>
+<pre><code>#define PANEL_CHAIN 2 // Line 11 in showbitmap.ino</code></pre>
+<figure>
+<figcaption><img src="../images/wiki74/11-fig-2-7-panel-chain.png" alt="" /> 
+<pre style="margin-top:5px;text-align:center;font-style:italic;"><span style="color:#222222;">Figure 2-7</span></pre>
+</figcaption></figure>
+<hr data-sourcepos="1:1-1:5" class="" /><p data-sourcepos="2:1-2:9">Next, you'll need to <strong>reference the image data array</strong> at the end of the <code class="">showbitmap.ino</code> file, as shown in Figure 2-8 below. After doing so, verify and upload the code to your ESP32 board.</p><p data-sourcepos="2:1-2:9"><img src="../images/wiki74/12-fig-2-8-reference-tableau.png" alt="" /> </p>
+<pre style="margin-top:5px;font-style:italic;text-align:center;"><span style="color:#222222;">Figure 2-8</span></pre>
+<p>Currently, we only provide example codes for dual-screen cascading of Raspberry Pi Pico and ESP32 platforms.</p><p>For cascading 4 screens on ESP32 platform, please refer to the tutorial: <a href="/upload/file/74/4 screens on ESP32.pdf">4 screens on ESP32</a></p><p><a href="/upload/file/74/Pico-RGB Matrix LED_128x64.rar">Pico_demo_codes_128x64</a></p><p><a href="/upload/file/74/ESP32_1.rar">ESP32_demo_codes_128x64_and_128x128</a>(<span style="color:rgba(0, 0, 0, 0.85);font-family:Inter, -apple-system, BlinkMacSystemFont, &quot;text-wrap-mode:wrap;">Two screens cascading:</span><span style="color:#222222;"><span style="color:#222222;">showbitbmp_128x64 or <span style="color:rgba(0, 0, 0, 0.85);font-family:Inter, -apple-system, BlinkMacSystemFont, &quot;text-wrap-mode:wrap;">Four screens cascading:</span><span style="color:#222222;">showbitbmp_128x128</span></span></span>)</p></section>
+<h2>Resources</h2><p><a href="/product/192/matrix-panel-3mm">Product</a></p><p>Demo codes for Raspberry Pi platform: <a href="https://github.com/hzeller/rpi-rgb-led-matrix" target="_blank">https://github.com/hzeller/rpi-rgb-led-matrix</a></p><p><a href="/upload/file/74/Pico_RGB_Matrix_LED_64x64_.zip">Demo Codes for Raspberry Pi Pico/Pico 2</a><span style="color:#222222;white-space:normal;">(</span><span style="color:#222222;white-space:normal;">For V3.8 and earlier of the RGB Matrix Adapter Board</span><span style="color:#222222;white-space:normal;">)</span></p><p><span style="color:#222222;white-space:normal;"><a href="/upload/file/74/Pico-RGB Matrix LED_64x64-V3.9.rar" style="white-space:normal;">Demo Codes for Raspberry Pi Pico/Pico 2</a><span style="color:#222222;white-space:normal;">(</span><span style="color:#222222;white-space:normal;">For V3.9 or latest of the RGB Matrix Adapter Board</span><span style="color:#222222;white-space:normal;">)</span></span></p><p><a href="/upload/file/74/Arduino_Mega_RGB_Matrix_64x64.zip" target="_blank">Demo Codes for Arduino Mega</a></p><p><a href="/upload/file/74/ESP32_1.rar">Demo Codes for ESP32</a></p><p><a href="https://seengreat.com/upload/file/74/P3QD-64X64-21A-PRO.dwg">Product Mechanical Dimensions File P3QD-64X64-21A-PRO.dwg</a></p><p><a href="https://seengreat.com/upload/file/74/6124%20138.rcvbp">Rcvbp file for the Colorlight 5A-75B receiving card</a></p><p><a href="/upload/file/74/Colorlight 5A-75E rcvbp.rar" style="white-space:normal;">Rcvbp file for the Colorlight 5A-75E receiving card</a></p><p>Notice: If you get RGB Matrix LED Display Panel-P3.0-64x64 which displays RBG, please refer to the demo codes in GitHub: <a href="https://github.com/seengreat/RGB-Matrix-P3.0-64x64" target="_blank">https://github.com/seengreat/RGB-Matrix-P3.0-64x64</a></p><h2>Technical Support</h2><p><a href="/site/support">Technical Support and Product Notes</a></p></section></div>
+
+
+    </div>
+
+    <nav id="overview">
+        <h3 id="cth2" onclick="window.scrollTo(0, 0);location.hash='#top'">Contents</h3>
+        <ul id="ctbox"></ul>
+    </nav>
+
+</main>
+
+</div>
+
+</body></html>
+

@@ -1,0 +1,160 @@
+<!doctype html>
+<html><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>RGB Dot Matrix Image Conversion Tutorial - Wiki</title>
+<link rel="canonical" href="https://seengreat.com/wiki/159/rgb-dot-matrix-image-conversion-tutorial" />
+<meta name="description" content="This is wiki documentation for RGB Dot Matrix Image Conversion Tutorial, including schematic, specifications, sample code, resources download." />
+<meta name="theme-color" content="#038A8E">
+<link href="/asset/go.css?d8" rel="stylesheet">
+<link href="/asset/font-awesome/css/font-awesome.min.css" rel="stylesheet"/>
+<script src="/asset/js/jquery-2.2.4.min.js"></script>
+<script src="/asset/js/fun.js?d12"></script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-5H56BJJB18"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-5H56BJJB18');
+
+
+</script>
+<script>(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"187116843", enableAutoSpaTracking: true};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")},n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","//bat.bing.com/bat.js","uetq");</script>
+<link href="/asset/wiki.css?e5" rel="stylesheet">
+<link href="/asset/highlight.min.css?a1" rel="stylesheet">
+<script src="/asset/js/wiki.js?a1"></script>
+<script src="/asset/js/wiki_article.js?b3"></script>
+<script src="/asset/js/clipboard.min.js"></script>
+<script src="/asset/js/highlight.min.js"></script>
+<style type="text/css">
+main{display: flex;}
+
+</style>
+
+</head>
+<body>
+
+<i id="menubar" class="fa fa-bars"></i>
+
+<header id="header">
+
+	<div id="headerbox">
+
+		<a href="/"><img id="logo" src="/image/logo.png" title="Home"></a>
+
+		<ul id="wiki_nav">
+			<li><a href="/">Home</a></li>
+			<li><a id="wiki" href="/wiki">Wiki</a></li>
+		</ul>
+
+		<div id="searchkwBox">
+			<div id="searwkinBox">
+				<input type="text" id="searchwiki" maxlength="60" value="" placeholder="Search Wiki" />
+				<i class="fa fa-search"></i>
+				<span id="clearStxt">X</span>
+			</div>
+		</div>
+
+		<i id="search" class="fa fa-search"></i>
+		<div id="wikinav" class="active">
+
+    <div id="witop">
+        <i class="fa fa-book" aria-hidden="true" /></i>
+        <a id="bar_title" href="/wiki/">WiKi</a>
+        <p id="button_menu"><i class="fa fa-arrow-left" aria-hidden="true" /></i></p>
+    </div>
+
+
+    <ul id="wul">
+        <li class="wli"><a href="/wiki/get-start">Getting Started</a></li>
+
+        <li class="wli">
+            <p>Displays <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li> <a href="/wiki/displays/lcd-10">LCD Displays</a></li>
+                <li> <a href="/wiki/displays/led-matrix-panels-12">LED Matrix Panels</a></li>
+                <li><a href="/wiki/displays/e-paper-11">E-Paper</a></li>
+                <li><a href="/wiki/displays/seg-led-13">SEG LED</a></li>
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Expansions <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/expansions/io-14">IO Boards</a></li>
+                <li><a href="/wiki/expansions/serial-15">Serial Boards</a></li>
+                <li><a href="/wiki/expansions/converter-16">Converter</a></li>
+                <li><a href="/wiki/modules/relay-34">Relay Boards</a></li>
+                <li> <a href="/wiki/expansions/pico-20">PICO Expansion Boards</a></li>
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Other Modules <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/modules/solar-power-33">Solar Power</a></li>
+                 <li> <a href="/wiki/modules/scanner-35">Scanner Modules</a></li>
+                <li> <a href="/wiki/modules/fan-38">Cooling Fans</a></li>
+
+            </ul>
+        </li>
+
+        <li class="wli">
+            <p>Sensors<i class="fa fa-angle-right"></i> </p>
+            <ul class="subul">
+                <li> <a href="/wiki/sensors/human-presence-sensing-22">Human Presence Sensing</a></li>
+                <li><a href="/wiki/sensors/environmental-23">Environmental</a></li>
+                <li><a href="/wiki/sensors/thermal-24">Thermal</a></li>
+            </ul>
+
+        </li>
+
+        <li class="wli">
+            <p>Motors <i class="fa fa-angle-right"></i></p>
+            <ul class="subul">
+                <li><a href="/wiki/motors/driver-27">Driver</a></li>
+                <li><a href="/wiki/motors/servo-28">Servo</a></li>
+                <li><a href="/wiki/motors/motor-29">Motor</a></li>
+
+            </ul>
+        </li>
+
+        <li class="wli"><a href="/wiki/cameras/">Cameras</a></li>
+        <li class="wli"><a href="/wiki/iot/">IoT</a></li>
+        <li class="wli"><a href="/wiki/raspberry_pi">Raspberry Pi</a></li>
+        <li class="wli"><a href="/wiki/micro-bit">Micro:bit</a></li>
+
+    </ul>
+
+</div>
+
+	</div>
+
+
+
+</header>
+
+<main id="right">
+
+    <div id="box">
+
+        <h1 id="title">RGB Dot Matrix Image Conversion Tutorial</h1>
+        <div id="content"><h3><b><span ke="1" style="color:#337FE5;"><trans oldtip="Description" newtip="描述"><h2>Description:</h2><p>This tutorial demonstrates the use of an RGB 64x64 matrix panel on the ArduinoMega platform. The same process can be applied to a 64x32 matrix panel, with the only differencebeing the resolution of the image (64x32 in this case).</p></trans></span></b></h3><h2 style="margin-left:21.2500pt;text-indent:-21.2500pt;">1. <b>Prepare the Image</b></h2><p class="p" style="margin-left:21.2500pt;text-indent:-21.2500pt;"><span ke="1" style="background-color:#000000;"><span ke="1" style="background-color:#FFFFFF;color:#000000;">Prepare an RGB888 image (24-bit color depth) with a resolution of 64x6</span><span ke="1" style="background-color:#FFFFFF;color:#000000;">4. The image format can be either jpg or bmp.</span></span></p><h2 style="margin-left:21.2500pt;text-indent:-21.2500pt;"><span ke="1" style="background-color:#FFFFFF;color:#000000;">2. </span><b><span ke="1" style="background-color:#FFFFFF;color:#000000;">Use Image2Lcd to Convert Image Data</span></b></h2><p>Download the <b class="upload/files/2024/159/Image2Lcd.rar"><a href="/upload/file/2024/159/Image2Lcd.rar">Image2Lcd</a></b> software for image conversion. Extract and double-click the Image2Lcd.exe file to open the software, as shown in Figure 1 below<span ke="1" style="color:#000000;">:</span></p><p><span><img src="../images/wiki159/01-image2lcd-open.png" alt="" style="text-align:center;" /></span></p><p style="text-align:center;"><span ke="1" style="color:#000000;">Figure</span><span style="font-family:Calibri;color:#000000;" ke="1">1</span></p><p class="p" style="text-align:left;"><span ke="1" style="color:#000000;">Click on "Open" at position "1" in Figure 1, then select the image prepared in Step 1. After opening the image, it should appear as shown in Figure 2. The red box highlights the main settings. Set the following parameters:</span></p><p style="text-align:left;margin-left:36pt;text-indent:-18pt;"><span ke="1" style="color:#000000;">· </span><b><span ke="1" style="color:#000000;">Output Data Type</span></b><span ke="1" style="color:#000000;">: Select "C Language Array (.c)"</span></p><p style="text-align:left;margin-left:36pt;text-indent:-18pt;"><span ke="1" style="color:#000000;">· </span><b><span ke="1" style="color:#000000;">Scan Mode</span></b><span ke="1" style="color:#000000;">: Select "Horizontal Scan"</span></p><p style="text-align:left;margin-left:36pt;text-indent:-18pt;"><span ke="1" style="color:#000000;">· </span><b><span ke="1" style="color:#000000;">Output Color Depth</span></b><span ke="1" style="color:#000000;">: Select "16-bit True Color"</span></p><p style="text-align:left;margin-left:36pt;text-indent:-18pt;"><span ke="1" style="color:#000000;">· </span><b><span ke="1" style="color:#000000;">Maximum Width and Height</span></b><span ke="1" style="color:#000000;">: Enter "64" for both width and height</span></p><p class="p" style="text-align:left;"><span ke="1" style="color:#000000;">After setting these, click the black triangle arrow at position "1" in the red box. </span><span ke="1" style="text-indent:-21.25pt;color:#000000;">Other software settings can follow the configuration shown in Figure</span><span ke="1" style="text-indent:-21.25pt;color:#000000;"> 2.：</span></p><figure><img src="../images/wiki159/02-image2lcd-save.png" alt="" style="text-align:center;" /></figure>
+<p style="text-align:center;">Figure 2</p><p style="text-align:left;"><span style="color:#222222;">Click the </span><b>Save</b><span style="color:#222222;"> button in Figure 2 (see position "2" in Figure 2) to save the conversion data, as shown in Figure 3. In the pop-up "Save as C file" window, enter the desired file name for the conversion data (see the red box). Then click </span><b>Save (S)</b><span style="color:#222222;">. The Pikachu.c file you saved will automatically open, as shown in Figure 4:</span></p><p style="text-align:left;"><img src="../images/wiki159/03-image2lcd-fig3.png" alt="" /></p><p style="text-align:center;">Figure 3</p><p style="text-align:center;"><img src="../images/wiki159/04-image2lcd-fig4.png" alt="" /></p><p style="text-align:center;">Figure 4</p><h2 style="line-height:150%;"><b><span ke="1" style="color:#000000;">3</span><span style="font-family:宋体;color:#000000;" ke="1">、</span><span style="font-family:&quot;color:#000000;" ke="1">Image Data Usage</span></b></h2><p style="line-height:150%;">Copy all the contents of the <b>Pikachu.c</b> file from Figure 4 and paste it at the end of the <b>bit_bmp.h</b> file. Then modify the array's type definition as shown in the red box in Figure 5. Next, reference this image data array at the end of the <b>Arduino_Mega_RGB_Matrix_64x64.ino</b> file, as shown in the red box in Figure 6. Finally, verify and upload the code to the Arduino Mega board.<o:p></o:p></p><p style="line-height:150%;"><img src="../images/wiki159/05-image2lcd-extra1.png" alt="" style="text-align:center;" /></p><p style="line-height:150%;"><img src="../images/wiki159/06-image2lcd-extra2.png" alt="" style="text-align:center;" /></p></div>
+
+
+    </div>
+
+    <nav id="overview">
+        <h3 id="cth2" onclick="window.scrollTo(0, 0);location.hash='#top'">Contents</h3>
+        <ul id="ctbox"></ul>
+    </nav>
+
+</main>
+
+</div>
+
+</body></html>
+
