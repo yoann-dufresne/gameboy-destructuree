@@ -1,0 +1,9 @@
+hub75.pio
+  Copié tel quel depuis raspberrypi/pico-examples, pio/hub75/hub75.pio
+  Licence : BSD-3-Clause, Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+  Récupéré le 16/09/2026.
+  Non modifié. C'est la référence du brochage retenu au §2.3 du plan
+  (données GP0-5, adresse GP6-10, CLK GP11, LAT GP12, /OE GP13).
+
+pico_sdk_import.cmake
+  Copié depuis pico-sdk/external/, SDK 2.3.1. Non modifié.

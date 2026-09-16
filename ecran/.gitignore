@@ -1,5 +1,5 @@
 # Build firmware (racine du sous-projet uniquement)
-/build/
+build/
 /*.uf2
 /*.elf
 /*.bin
