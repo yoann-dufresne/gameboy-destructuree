@@ -1,0 +1,24 @@
+hub75 — pilote HUB75 pour RP2040 / RP2350
+  Amont  : https://github.com/JuPfu/hub75
+  Commit : 9ca0fecffcfbcd40d252be77cc58bc12f71c27ee
+  Date   : 2026-09-11T08:45:14+02:00
+  Licence: MIT — Copyright (c) 2025 Jürgen (voir LICENSE)
+  Récupéré le : 16/09/2026
+
+Contenu : uniquement le cœur du pilote. Non repris de l'amont :
+  - assets/            9,6 Mo d'images de documentation
+  - libraries/         pico_graphics, bitmap_fonts, hershey_fonts (Pimoroni)
+  - common/            pimoroni_bus, pimoroni_i2c
+  - examples/          démos et images de test
+  - hub75_demo*.cpp    programmes de démonstration
+  - CMakeLists.txt     remplacé par hub75-jupfu.cmake (voir ci-dessous)
+
+Le pilote est compilé avec USE_PICO_GRAPHICS=0, ce qui neutralise la seule
+dépendance à Pimoroni (la surcharge update(PicoGraphics*)). On alimente le
+pilote par update_bgr(const uint8_t*).
+
+Fichiers non modifiés. Le src/hub75.pio dérive lui-même de l'exemple
+pio/hub75 de raspberrypi/pico-examples (BSD-3-Clause, Copyright (c) 2020
+Raspberry Pi (Trading) Ltd.), mention conservée dans son en-tête.
+
+hub75-jupfu.cmake est un ajout local, pas un fichier de l'amont.

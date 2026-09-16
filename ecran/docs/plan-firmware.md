@@ -13,7 +13,7 @@ Version 1 — 16/09/2026
 | **Géométrie finale** | **3 × 3 dalles** de 64×64 ⇒ **192 × 192 px** | non (dicté par les 160×144 de la GB) |
 | **Découpage** | **3 chaînes de 3 dalles**, une par rangée horizontale | oui, en phase 5 |
 | **Contrôleurs** | **3 × Raspberry Pi Pico 2 W**, un par rangée | oui, en phase 5 |
-| **Langage** | **C99** | non |
+| **Langage** | **C99**, et **C++20** à partir de la phase 1 | non |
 | **Couche basse** | **pico-sdk 2.x, bare-metal**, PIO + DMA, 2 cœurs | non |
 | **RTOS** | **aucun** | oui, si la v2 se charge en fonctionnalités |
 | **Synchronisation** | **fil matériel** entre les 3 nœuds | — |
@@ -224,7 +224,12 @@ la supprime définitivement.
 
 ### 3.1 Le choix
 
-**C99, pico-sdk 2.x, bare-metal, deux cœurs, zéro RTOS.**
+**C / C++20, pico-sdk 2.x, bare-metal, deux cœurs, zéro RTOS.**
+
+> ℹ️ **Écart assumé par rapport au C99 annoncé en v1** : le pilote JuPfu retenu en phase 1
+> est du C++20 (sa configuration est un paramètre de patron `Hub75Driver<Cfg>`, évalué à la
+> compilation). Le reste du firmware suit donc en C++, ce qui ne change rien aux décisions
+> de fond — pas de RTOS, pas d'allocation dynamique, timing dur en PIO/DMA.
 
 Pas « parce que le C est plus rapide » : parce que c'est la seule pile où le PIO, les DMA
 chaînés et l'affinité de cœur sont des primitives de premier ordre, et parce que le code de
@@ -541,6 +546,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 16/09/2026 | Pilote JuPfu vendorisé ; le firmware passe en C++20 | Sa configuration est un paramètre de patron évalué à la compilation ; aucune conséquence sur les décisions de fond |
 | 16/09/2026 | Phase 0 terminée : câblage, adresses A–E, BCM et absence de ghosting validés sur matériel | Les 9 mires de diagnostic passent |
 | 16/09/2026 | Nappe numérotée à l'envers du connecteur (fil N ⟷ broche 17−N) | Le fil compté en premier est une masse, or la broche 1 d'un HUB75 est toujours R1 |
 | 16/09/2026 | Brochage GP0–GP13 confirmé contre le wiki Seengreat | Le tableau 2-2 du constructeur a A–E non contigus, incompatible avec `out pins, 5` du PIO |
