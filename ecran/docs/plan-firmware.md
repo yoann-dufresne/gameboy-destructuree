@@ -70,8 +70,32 @@ Une chaîne de N dalles forme un seul long registre à décalage :
 | **3** | **49 152** | **407 Hz** | **305 Hz** | **98 ko** |
 | 9 | 147 456 | 136 Hz | 102 Hz | 295 ko / 520 |
 
-*(Le modèle prédit ~1220 Hz pour une dalle seule ; JuPfu/hub75 en mesure 1285 Hz en 8 bits.
-Le modèle tient.)*
+#### ✅ Mesuré sur matériel le 16/09/2026
+
+Dalle unique 64×64, scan 1/32, 8 plans BCM, `clk_sys` 252 MHz, pilote JuPfu.
+Rafraîchissement annoncé par le pilote lui-même.
+
+| Horloge pixel | 10 MHz | 12 MHz | 24 MHz | 26 MHz | **28 MHz** |
+|---|---|---|---|---|---|
+| Rafraîchissement | 406 Hz | 488 Hz | 974 Hz | 1055 Hz | **1138 Hz** |
+
+Loi linéaire : **≈ 40,6 Hz par MHz d'horloge pixel, divisé par la longueur de chaîne**.
+
+    rafraîchissement ≈ 40,6 × horloge_pixel_MHz / N
+
+Le modèle théorique du tableau ci-dessus était **optimiste d'environ 50 %** : il ne
+comptait que le temps de décalage, en ignorant les gardes et la répartition des plans
+de poids fort (`balanced_light_output`). Les projections corrigées, aux 28 MHz mesurés :
+
+| N | Rafraîchissement projeté |
+|---|---|
+| 1 | 1138 Hz *(mesuré)* |
+| **3** | **≈ 379 Hz** |
+| 9 | ≈ 126 Hz |
+
+La conclusion du §2.2 est inchangée et même renforcée : une chaîne de 3 garde une marge
+confortable au-dessus de la cible de 150 Hz, y compris si l'horloge pixel devait être
+ramenée à 20 MHz (≈ 271 Hz). Une chaîne de 9 tomberait à ~126 Hz, **sous la cible**.
 
 | | 1 chaîne de 9 | **3 chaînes de 3** | 9 chaînes de 1 |
 |---|---|---|---|
@@ -546,6 +570,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 16/09/2026 | Horloge pixel mesurée : 1138 Hz à 28 MHz sur dalle seule | Le modèle théorique était optimiste de ~50 % ; la projection à N=3 passe de 407 à 379 Hz, conclusion inchangée |
 | 16/09/2026 | Pilote JuPfu vendorisé ; le firmware passe en C++20 | Sa configuration est un paramètre de patron évalué à la compilation ; aucune conséquence sur les décisions de fond |
 | 16/09/2026 | Phase 0 terminée : câblage, adresses A–E, BCM et absence de ghosting validés sur matériel | Les 9 mires de diagnostic passent |
 | 16/09/2026 | Nappe numérotée à l'envers du connecteur (fil N ⟷ broche 17−N) | Le fil compté en premier est une masse, or la broche 1 d'un HUB75 est toujours R1 |

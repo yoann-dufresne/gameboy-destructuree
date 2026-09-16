@@ -1,8 +1,17 @@
 # Mesure de l'horloge pixel maximale stable
 
-Balaie la fréquence d'horloge pixel de **28 MHz à 6 MHz** en affichant une mire
-conçue pour révéler une horloge trop rapide. Donne le chiffre dont dépend
-l'arbitrage du 3×3 (plan §5, phase 4).
+**Une fréquence par binaire.** Le diviseur d'horloge est un `constexpr`, donc le pilote
+est initialisé proprement à cette cadence et rien n'est touché ensuite.
+
+```bash
+export PICO_SDK_PATH=~/pico/pico-sdk
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build          # produit 10 .uf2 : de 28 à 10 MHz
+../../tools/flash.sh build/phase1_clk_28mhz.uf2
+../../tools/console.py
+```
+
+Commencer par **le plus haut**. Si l'image est nette, la mesure est finie.
 
 ## D'où vient la fréquence
 
@@ -14,28 +23,27 @@ out null, 2  [3]   side 1    -> 4 cycles
 jmp x--, loop      side 0    -> 1 cycle
 ```
 
-Avec `sm_clockdiv_factor = 1.0`, l'horloge vue par la dalle vaut donc exactement
-`clk_sys / 9`. On balaie en changeant `clk_sys`, ce qui met tout à l'échelle
-ensemble — horloge pixel, garde de verrou, garde d'adressage.
+D'où `horloge pixel = clk_sys / (9 × sm_clockdiv_factor)`, avec `clk_sys` fixé à
+**252 MHz** au démarrage et jamais retouché.
 
-| clk_sys | horloge pixel | | clk_sys | horloge pixel |
-|---|---|---|---|---|
-| 252 MHz | 28 MHz | | 126 MHz | 14 MHz |
-| 234 MHz | 26 MHz | | 108 MHz | 12 MHz |
-| 216 MHz | 24 MHz | | 90 MHz | 10 MHz |
-| 198 MHz | 22 MHz | | 72 MHz | 8 MHz |
-| 180 MHz | 20 MHz | | 54 MHz | 6 MHz |
-| 162 MHz | 18 MHz | | | |
-| 144 MHz | 16 MHz | | | |
+Les gardes de verrou et d'adressage sont converties en cycles PIO à la création, à
+partir du `clk_sys` et du diviseur réels : elles valent donc leurs 80 ns / 160 ns
+nominaux **quelle que soit la fréquence testée**. La comparaison entre binaires est
+donc honnête.
 
-## Pourquoi le balayage descend
+## Ce qui a été essayé et abandonné
 
-Le pilote est créé à la fréquence **la plus haute**, donc ses gardes valent leur
-valeur nominale (80 ns pour le verrou, 160 ns pour l'adressage) au point le plus
-contraignant. En descendant, elles ne peuvent que devenir plus généreuses.
+Une première version balayait les fréquences à chaud. Deux impasses successives :
 
-Un défaut observé en haut du balayage est donc bien un défaut **de fréquence**, et
-pas une garde trop courte. C'est ce qui rend la mesure exploitable.
+1. **Changer `clk_sys` en cours de route** — `set_sys_clock_khz()` arrête et
+   reconfigure la PLL système ; les échanges d'IRQ entre `hub75_row` et
+   `hub75_bitplane_stream` n'y survivent pas et l'affichage meurt définitivement.
+2. **Changer le diviseur des machines PIO à chaud** — le pilote en utilise **trois**,
+   dont une qui construit les plans de bits. La perturber en plein travail fait
+   chuter le rafraîchissement d'un facteur 3, et les mesures ne se reproduisent pas
+   d'un tour à l'autre.
+
+D'où le choix d'un binaire par fréquence.
 
 ## La mire
 
@@ -46,31 +54,24 @@ pas une garde trop courte. C'est ce qui rend la mesure exploitable.
 | 40–51 | blanc plein | référence d'uniformité et de luminosité |
 | 52–63 | pixels isolés tous les 8 | une bavure apparaît comme un pixel fantôme juste à droite |
 
-## Lecture
+**Sain** : rayures franches, contraste constant de gauche à droite.
+**Défaut** : rayures qui se brouillent, grisonnent ou bavent — d'abord sur le bord
+**droit**, les derniers pixels décalés dans le registre.
 
-Ce qu'on cherche est **spatial**, pas temporel, et apparaît d'abord sur le **bord
-droit** de la dalle — les derniers pixels décalés dans le registre.
+## Résultats mesurés
 
-- **sain** : rayures franches, contraste constant de gauche à droite ;
-- **défaut** : rayures qui se brouillent, grisonnent ou bavent à droite, pixels
-  isolés suivis d'un fantôme.
+Dalle unique 64×64, scan 1/32, 8 plans BCM, `clk_sys` 252 MHz.
+Le rafraîchissement est annoncé par le pilote lui-même (`frame_rate_debug`).
 
-> Le scintillement en bas du balayage est **normal** : le rafraîchissement est
-> proportionnel à `clk_sys`. Il ne compte pas dans la mesure.
+| Horloge pixel | Rafraîchissement |
+|---|---|
+| 10 MHz | 406 Hz |
+| 12 MHz | 488 Hz |
+| 24 MHz | 974 Hz |
+| 26 MHz | 1055 Hz |
+| **28 MHz** | **1138 Hz** |
 
-Noter le **palier le plus haut encore net**. C'est la mesure.
+Soit une loi linéaire : **≈ 40,6 Hz par MHz d'horloge pixel**, pour une dalle seule.
+Pour une chaîne de N dalles, diviser par N.
 
-## Construire et flasher
-
-```bash
-export PICO_SDK_PATH=~/pico/pico-sdk
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-python3 -c "import serial,time; s=serial.Serial('/dev/ttyACM0',1200); s.dtr=False; time.sleep(.1); s.close()"
-cp build/phase1_clock_sweep.uf2 /media/$USER/RP2350/
-../../tools/console.py
-```
-
-## Empreinte
-
-85 ko de RAM sur 520, 44 ko de flash — pour une dalle 64×64 en 8 plans BCM.
+Empreinte : 85 ko de RAM sur 520, 44 ko de flash.
