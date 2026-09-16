@@ -10,19 +10,23 @@ set(CMAKE_C_STANDARD 11)
 
 pico_sdk_init()
 
-add_executable(phase0_bringup bringup.c)
+# GP0/GP1 sont pris par R1/G1 : l'UART par defaut est inutilisable,
+# la console passe par l'USB pour toutes les cibles.
+function(ecran_cible nom source)
+    add_executable(${nom} ${source})
+    target_link_libraries(${nom} PRIVATE pico_stdlib pico_multicore hardware_pio)
+    pico_enable_stdio_usb(${nom} 1)
+    pico_enable_stdio_uart(${nom} 0)
+    pico_add_extra_outputs(${nom})
+endfunction()
 
+# 1. Suite de mires de validation (le cas nominal)
+ecran_cible(phase0_bringup bringup.c)
 pico_generate_pio_header(phase0_bringup ${CMAKE_CURRENT_LIST_DIR}/hub75.pio)
 
-target_link_libraries(phase0_bringup PRIVATE
-    pico_stdlib
-    pico_multicore
-    hardware_pio
-)
+# 2. Diagnostic : quels bits d'adresse A-E arrivent reellement a la dalle
+ecran_cible(phase0_diag_adresse diag_adresse.c)
+pico_generate_pio_header(phase0_diag_adresse ${CMAKE_CURRENT_LIST_DIR}/hub75.pio)
 
-# GP0/GP1 sont pris par R1/G1 : l'UART par defaut est inutilisable.
-# La console passe donc par l'USB.
-pico_enable_stdio_usb(phase0_bringup 1)
-pico_enable_stdio_uart(phase0_bringup 0)
-
-pico_add_extra_outputs(phase0_bringup)
+# 3. Diagnostic : continuite fil par fil, au multimetre
+ecran_cible(phase0_walk_gpio walk_gpio.c)

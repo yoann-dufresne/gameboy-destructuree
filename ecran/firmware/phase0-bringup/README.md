@@ -44,6 +44,47 @@ asserté, et `cat` ne l'assère pas.
 | 8 | Damier 1 px | ghosting, intégrité de CLK | traînées horizontales = ghosting |
 | 9 | Balayage ligne | chaque adresse, une par une | ligne qui saute = fil d'adresse en l'air |
 
+## Les deux programmes de diagnostic
+
+Si une mire échoue, deux cibles supplémentaires cernent le fautif.
+
+### `phase0_diag_adresse`
+
+Fige l'adresse de ligne sur une valeur connue, écran entièrement blanc. La ligne qui
+s'allume révèle quels bits d'adresse arrivent réellement à la dalle.
+
+| Adresse | Bit testé | Lignes attendues |
+|---|---|---|
+| 0 | aucun (référence) | 0 et 32 |
+| 1 | A (GP6) | 1 et 33 |
+| 2 | B (GP7) | 2 et 34 |
+| 4 | C (GP8) | 4 et 36 |
+| 8 | D (GP9) | 8 et 40 |
+| 16 | E (GP10) | 16 et 48 |
+| 31 | tous | 31 et 63 |
+
+Un bit mort laisse l'affichage sur les lignes 0 et 32.
+
+> ⚠️ L'adresse étant figée, la ligne reste allumée en permanence au lieu de 1/32 du
+> temps. La largeur d'impulsion /OE est divisée par ~32 pour que le courant moyen dans
+> ces LED reste celui du régime normal.
+
+### `phase0_walk_gpio`
+
+Met une seule broche du Pico à 3,3 V à la fois et annonce la broche du connecteur HUB75
+qui doit suivre. À vérifier au multimètre **côté dalle** : c'est toute la liaison
+(soudure, embase, nappe) qui est testée. Le panneau est vidé au démarrage pour qu'aucune
+LED ne s'allume pendant le test.
+
+Fil coupé → 0 V. Fils inversés → 3,3 V sur la mauvaise broche. Court-circuit → 3,3 V
+sur deux broches.
+
+## Basculer en BOOTSEL sans débrancher
+
+```bash
+python3 -c "import serial,time; s=serial.Serial('/dev/ttyACM0',1200); s.dtr=False; time.sleep(.1); s.close()"
+```
+
 ## Critère de sortie
 
 Les 9 mires correctes, stables, sans colonne parasite ni scintillement quand on
