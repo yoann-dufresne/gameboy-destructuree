@@ -131,6 +131,40 @@ code de référence qui tourne sans modification.
 > Seengreat. Constaté sur matériel le 16/09/2026 : câblée ainsi, la dalle n'adressait
 > que les lignes 0, 1, 32 et 33.
 
+### Couleurs de la nappe fournie
+
+La nappe Seengreat est un ruban arc-en-ciel standard. ⚠️ **Elle se numérote à l'envers du
+connecteur** : la broche 1 du HUB75 est `R1`, jamais une masse, donc le fil que l'on compte
+en premier depuis le bord « masse » est en réalité sur la **broche 16**.
+
+> **fil n° N ⟷ broche HUB75 n° (17 − N)**
+
+| Fil | Couleur | Broche | Signal | GPIO |
+|---|---|---|---|---|
+| 16 | marron | 1 | R1 | GP0 |
+| 15 | rouge | 2 | G1 | GP1 |
+| 14 | orange | 3 | B1 | GP2 |
+| 13 | **jaune** | 4 | **GND** | GND |
+| 12 | vert | 5 | R2 | GP3 |
+| 11 | bleu | 6 | G2 | GP4 |
+| 10 | violet | 7 | B2 | GP5 |
+| 9 | **gris** | 8 | **E** | GP10 |
+| 8 | blanc | 9 | A | GP6 |
+| 7 | noir | 10 | B | GP7 |
+| 6 | marron | 11 | C | GP8 |
+| 5 | rouge | 12 | D | GP9 |
+| 4 | orange | 13 | CLK | GP11 |
+| 3 | jaune | 14 | LAT | GP12 |
+| 2 | vert | 15 | /OE | GP13 |
+| 1 | **bleu** | 16 | **GND** | GND |
+
+Dix couleurs pour seize fils : tout se répète sauf **noir, blanc, gris et violet**, groupés au
+centre (fils 7 à 10) — ce sont les repères à partir desquels compter. Et le fil qui sort du
+rang, `E`, est **le seul gris** de la nappe.
+
+Contrôle de sens avant de câbler : les deux masses sont le **bleu (fil 1)** et le **jaune
+(fil 13)**. Si la continuité passe entre ces deux-là, la lecture est bonne.
+
 **Broches restantes** : GP14–GP22, GP26–GP28.
 
 | GPIO | Usage |
@@ -500,5 +534,6 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 16/09/2026 | Nappe numérotée à l'envers du connecteur (fil N ⟷ broche 17−N) | Le fil compté en premier est une masse, or la broche 1 d'un HUB75 est toujours R1 |
 | 16/09/2026 | Brochage GP0–GP13 confirmé contre le wiki Seengreat | Le tableau 2-2 du constructeur a A–E non contigus, incompatible avec `out pins, 5` du PIO |
 | 16/09/2026 | **3 chaînes de 3, 3 × Pico 2 W** | Règle ≤ 4 dalles/port, 407 Hz vs 136 Hz, 98 ko vs 295 ko de RAM, 2 fils de synchro seulement |

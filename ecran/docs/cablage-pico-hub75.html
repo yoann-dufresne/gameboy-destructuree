@@ -10,7 +10,7 @@
     --ink: #191d16;
     --ink-dim: #596051;
     --rule: #d3d8c9;
-    --rule-strong: #b6bdaa;
+    --rule-strong: #b0b8a4;
     --accent: #2f6130;
     --accent-dim: #6d8f4a;
     --pcb: #e4e8db;
@@ -22,10 +22,24 @@
     --sig-ctrl: #7a4fc4;
     --sig-gnd: #868c7e;
 
+    --w-bleu: #1f63c4;
+    --w-vert: #2c9a4c;
+    --w-jaune: #e0c01c;
+    --w-orange: #e2861c;
+    --w-rouge: #d13628;
+    --w-marron: #875733;
+    --w-noir: #17181a;
+    --w-blanc: #f7f7f2;
+    --w-gris: #9aa1a1;
+    --w-violet: #8a4cc0;
+
     --ok: #2f6130;
     --warn-bg: #fbf3df;
     --warn-rule: #dcc37f;
     --warn-ink: #7a5a12;
+    --check-bg: #eaf2e4;
+    --check-rule: #a9c396;
+    --check-ink: #385a26;
 
     --sp: clamp(16px, 4vw, 40px);
   }
@@ -37,7 +51,7 @@
       --ink: #e7eade;
       --ink-dim: #9ba394;
       --rule: #343a2e;
-      --rule-strong: #4a5242;
+      --rule-strong: #565f4c;
       --accent: #9dbe38;
       --accent-dim: #6d8f4a;
       --pcb: #232820;
@@ -49,10 +63,24 @@
       --sig-ctrl: #ac8cf2;
       --sig-gnd: #7e8577;
 
+      --w-bleu: #3d82e8;
+      --w-vert: #3fb863;
+      --w-jaune: #ecd23a;
+      --w-orange: #f09a34;
+      --w-rouge: #e8503f;
+      --w-marron: #a36e45;
+      --w-noir: #2a2c30;
+      --w-blanc: #fafaf5;
+      --w-gris: #aab1b1;
+      --w-violet: #a465d8;
+
       --ok: #9dbe38;
       --warn-bg: #2b2413;
       --warn-rule: #6b5a24;
       --warn-ink: #e0c273;
+      --check-bg: #1c2716;
+      --check-rule: #47612f;
+      --check-ink: #b8d493;
     }
   }
   :root[data-theme="dark"] {
@@ -62,7 +90,7 @@
     --ink: #e7eade;
     --ink-dim: #9ba394;
     --rule: #343a2e;
-    --rule-strong: #4a5242;
+    --rule-strong: #565f4c;
     --accent: #9dbe38;
     --accent-dim: #6d8f4a;
     --pcb: #232820;
@@ -74,10 +102,24 @@
     --sig-ctrl: #ac8cf2;
     --sig-gnd: #7e8577;
 
+    --w-bleu: #3d82e8;
+    --w-vert: #3fb863;
+    --w-jaune: #ecd23a;
+    --w-orange: #f09a34;
+    --w-rouge: #e8503f;
+    --w-marron: #a36e45;
+    --w-noir: #2a2c30;
+    --w-blanc: #fafaf5;
+    --w-gris: #aab1b1;
+    --w-violet: #a465d8;
+
     --ok: #9dbe38;
     --warn-bg: #2b2413;
     --warn-rule: #6b5a24;
     --warn-ink: #e0c273;
+    --check-bg: #1c2716;
+    --check-rule: #47612f;
+    --check-ink: #b8d493;
   }
 
   body {
@@ -91,7 +133,7 @@
   }
 
   .page {
-    max-width: 960px;
+    max-width: 980px;
     margin: 0 auto;
     padding-inline: var(--sp);
     padding-block: clamp(28px, 6vw, 56px) 64px;
@@ -117,112 +159,88 @@
     margin: 0 0 12px;
     text-wrap: balance;
   }
-  .lede {
-    margin: 0;
-    max-width: 62ch;
-    color: var(--ink-dim);
-    font-size: 16px;
-  }
+  .lede { margin: 0; max-width: 62ch; color: var(--ink-dim); font-size: 16px; }
   h2 {
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin: 0 0 6px;
-    text-wrap: balance;
+    font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
+    margin: 0 0 6px; text-wrap: balance;
   }
   h2 .num {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--accent);
-    margin-right: 10px;
+    font-size: 13px; font-weight: 500; color: var(--accent); margin-right: 10px;
   }
   section > p { margin: 0 0 18px; max-width: 64ch; color: var(--ink-dim); }
 
   code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
-  code {
-    font-size: 0.9em;
-    background: var(--surface-2);
-    padding: 1px 5px;
-    border-radius: 3px;
-  }
+  code { font-size: 0.9em; background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
 
   figure { margin: 0; }
   .fig-wrap { overflow-x: auto; }
   figure svg { max-width: 100%; height: auto; display: block; }
-  figcaption {
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--ink-dim);
-    max-width: 64ch;
-  }
+  figcaption { margin-top: 12px; font-size: 13px; color: var(--ink-dim); max-width: 64ch; }
 
   .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    margin-bottom: 16px;
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 12px;
+    display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 18px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
   }
   .legend span { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-dim); }
-  .swatch { width: 16px; height: 3px; border-radius: 2px; flex: none; }
+  .wire-sw {
+    width: 22px; height: 7px; border-radius: 4px; flex: none;
+    border: 1px solid var(--rule-strong);
+  }
+  .role-sw { width: 13px; height: 13px; border-radius: 3px; flex: none; border: 2px solid; background: transparent; }
 
   .callout {
-    background: var(--surface);
-    border: 1px solid var(--rule);
-    border-left: 3px solid var(--accent);
-    border-radius: 4px;
-    padding: 18px 20px;
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: 4px; padding: 18px 20px;
   }
   .callout h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
   .callout p { margin: 0; color: var(--ink-dim); font-size: 14px; }
   .callout .rule-line {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 13px;
-    color: var(--ink);
-    margin-top: 10px;
-    line-height: 1.9;
-    word-spacing: 0.1em;
+    font-size: 13px; color: var(--ink); margin-top: 10px; line-height: 1.9;
   }
 
+  .check {
+    background: var(--check-bg); border: 1px solid var(--check-rule);
+    border-left: 3px solid var(--check-rule); border-radius: 4px; padding: 18px 20px;
+  }
+  .check h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--check-ink); }
+  .check p { margin: 0 0 10px; font-size: 14px; color: var(--check-ink); }
+  .check p:last-child { margin-bottom: 0; }
+  .check strong { font-weight: 600; }
+
   .warn {
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-rule);
-    border-left: 3px solid var(--warn-rule);
-    border-radius: 4px;
-    padding: 16px 20px;
+    background: var(--warn-bg); border: 1px solid var(--warn-rule);
+    border-left: 3px solid var(--warn-rule); border-radius: 4px; padding: 16px 20px;
   }
   .warn h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--warn-ink); }
   .warn p { margin: 0; font-size: 14px; color: var(--warn-ink); }
 
   .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
-  @media (max-width: 720px) { .two-col { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 760px) { .two-col { grid-template-columns: minmax(0, 1fr); } }
 
   .table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
   thead th {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 10.5px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--rule-strong);
+    font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-dim); background: var(--surface-2); border-bottom: 1px solid var(--rule-strong);
   }
   tbody tr:last-child td { border-bottom: none; }
   td.m { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   td.sig { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+  td.col { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .wdot {
+    display: inline-block; width: 20px; height: 8px; border-radius: 4px;
+    margin-right: 9px; vertical-align: 0px; border: 1px solid var(--rule-strong);
+  }
+  .rdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
   tr.keep td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  tr.uniq td.col { font-weight: 600; }
   .tag {
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 11px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    border: 1px solid currentColor;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor;
   }
   .tag.keep { color: var(--ok); }
   .tag.move { color: var(--ink-dim); border-color: var(--rule-strong); }
@@ -232,12 +250,8 @@
   ul.checks li { padding-left: 26px; position: relative; font-size: 14.5px; color: var(--ink-dim); }
   ul.checks li strong { color: var(--ink); font-weight: 600; }
   ul.checks li::before {
-    content: "";
-    position: absolute;
-    left: 0; top: 7px;
-    width: 9px; height: 9px;
-    border: 1.5px solid var(--accent-dim);
-    border-radius: 2px;
+    content: ""; position: absolute; left: 0; top: 7px; width: 9px; height: 9px;
+    border: 1.5px solid var(--accent-dim); border-radius: 2px;
   }
 
   footer { border-top: 1px solid var(--rule); padding-top: 18px; font-size: 13px; color: var(--ink-dim); }
@@ -253,319 +267,388 @@
   <header>
     <p class="eyebrow">Module écran · phase 0</p>
     <h1>Câblage Pico&nbsp;2&nbsp;W ↔ dalle HUB75</h1>
-    <p class="lede">Les 16 fils entre un Raspberry&nbsp;Pi&nbsp;Pico&nbsp;2&nbsp;W et une dalle Seengreat RGB&nbsp;Matrix&nbsp;P3.0-64×64, dans le brochage retenu au §2.3 du plan — celui de <code>pico-examples/pio/hub75</code>.</p>
+    <p class="lede">Les 16 fils de la nappe fournie, repérés par leur couleur, entre un Raspberry&nbsp;Pi&nbsp;Pico&nbsp;2&nbsp;W et une dalle Seengreat RGB&nbsp;Matrix&nbsp;P3.0-64×64. Brochage du §2.3 du plan, identique à <code>pico-examples/pio/hub75</code>.</p>
   </header>
 
   <section>
-    <h2><span class="num">01</span>La correspondance, fil par fil</h2>
-    <p>Le Pico est vu <strong>de dessus, USB en haut</strong> : la broche&nbsp;1 est alors en haut à gauche, et c'est cette colonne-là qui porte tout le HUB75.</p>
+    <div class="check">
+      <h3>Sens de lecture de la nappe — à confirmer en 30 secondes</h3>
+      <p>Sur un HUB75, la broche 1 est <code>R1</code>, jamais une masse. Puisque ton premier fil est GND, tu comptes depuis l'autre extrémité : <strong>ton fil n°&nbsp;N est sur la broche HUB75 n°&nbsp;(17&nbsp;−&nbsp;N)</strong>. La séquence des couleurs le confirme — lue depuis ton fil&nbsp;16 vers le&nbsp;1, on retrouve l'ordre normalisé marron, rouge, orange, jaune, vert, bleu, violet, gris, blanc, noir.</p>
+      <p><strong>La vérification :</strong> une nappe HUB75 a <em>deux</em> masses, broches 4 et 16. Sous cette lecture, ce sont ton <strong>1<sup>er</sup> fil (bleu)</strong> et ton <strong>13<sup>e</sup> fil (jaune)</strong> — le jaune étant le 4<sup>e</sup> en partant de l'autre bout. Contrôle la continuité entre ces deux-là : si elle passe, tout ce qui suit est juste. Si c'est l'orange qui sonne avec le bleu, préviens-moi : la nappe se lit dans l'autre sens et je refais la fiche.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="callout">
+      <h3>Le repère qui évite de compter</h3>
+      <p>Dix couleurs pour seize fils : tout se répète, sauf au milieu. <strong>Noir, blanc, gris et violet ne sortent qu'une fois</strong> — ce sont les fils 7 à 10, et ils forment un bloc au centre de la nappe. Tout le reste se compte à partir de là.</p>
+      <p class="rule-line">
+        <span style="color:var(--w-noir);background:var(--surface-2);padding:1px 5px;border-radius:3px">noir</span> = B &nbsp;·&nbsp;
+        <span style="color:var(--w-blanc);background:var(--ink);padding:1px 5px;border-radius:3px">blanc</span> = A &nbsp;·&nbsp;
+        <span style="color:var(--w-gris);background:var(--surface-2);padding:1px 5px;border-radius:3px">gris</span> = E &nbsp;·&nbsp;
+        <span style="color:var(--w-violet);background:var(--surface-2);padding:1px 5px;border-radius:3px">violet</span> = B2
+      </p>
+      <p style="margin-top:12px">Et une chance : <strong>le fil gris est <code>E</code></strong>. Le seul signal qui sort du rang est aussi le seul fil gris de la nappe — impossible à confondre.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">01</span>Chaque fil, sa broche</h2>
+    <p>Le Pico est vu <strong>de dessus, USB en haut</strong> : la broche&nbsp;1 est alors en haut à gauche. Le trait de chaque liaison est dessiné à la couleur réelle du fil ; le contour de la pastille indique le rôle du signal.</p>
 
     <div class="legend">
-      <span><i class="swatch" style="background:var(--sig-r)"></i>données rouge</span>
-      <span><i class="swatch" style="background:var(--sig-g)"></i>données vert</span>
-      <span><i class="swatch" style="background:var(--sig-b)"></i>données bleu</span>
-      <span><i class="swatch" style="background:var(--sig-addr)"></i>adresse de ligne</span>
-      <span><i class="swatch" style="background:var(--sig-ctrl)"></i>contrôle</span>
-      <span><i class="swatch" style="background:var(--sig-gnd)"></i>masse</span>
+      <span><i class="role-sw" style="border-color:var(--sig-r)"></i>données rouge</span>
+      <span><i class="role-sw" style="border-color:var(--sig-g)"></i>données vert</span>
+      <span><i class="role-sw" style="border-color:var(--sig-b)"></i>données bleu</span>
+      <span><i class="role-sw" style="border-color:var(--sig-addr)"></i>adresse de ligne</span>
+      <span><i class="role-sw" style="border-color:var(--sig-ctrl)"></i>contrôle</span>
+      <span><i class="role-sw" style="border-color:var(--sig-gnd)"></i>masse</span>
     </div>
 
     <figure>
       <div class="fig-wrap">
-        <svg viewBox="0 0 860 790" role="img" aria-label="Correspondance entre les 16 broches du connecteur HUB75 de la dalle et les broches du Raspberry Pi Pico 2 W : R1 vers GP0, G1 vers GP1, B1 vers GP2, R2 vers GP3, G2 vers GP4, B2 vers GP5, A vers GP6, B vers GP7, C vers GP8, D vers GP9, E vers GP10, CLK vers GP11, LAT vers GP12, OE vers GP13, et les deux masses vers deux broches GND.">
+        <svg viewBox="0 0 900 790" role="img" aria-label="Correspondance fil par fil. Fil 16 marron sur broche 1 R1 vers GP0 broche 1 ; fil 15 rouge broche 2 G1 vers GP1 broche 2 ; fil 14 orange broche 3 B1 vers GP2 broche 4 ; fil 13 jaune broche 4 masse vers GND broche 3 ; fil 12 vert broche 5 R2 vers GP3 broche 5 ; fil 11 bleu broche 6 G2 vers GP4 broche 6 ; fil 10 violet broche 7 B2 vers GP5 broche 7 ; fil 9 gris broche 8 E vers GP10 broche 14 ; fil 8 blanc broche 9 A vers GP6 broche 9 ; fil 7 noir broche 10 B vers GP7 broche 10 ; fil 6 marron broche 11 C vers GP8 broche 11 ; fil 5 rouge broche 12 D vers GP9 broche 12 ; fil 4 orange broche 13 CLK vers GP11 broche 15 ; fil 3 jaune broche 14 LAT vers GP12 broche 16 ; fil 2 vert broche 15 OE vers GP13 broche 17 ; fil 1 bleu broche 16 masse vers GND broche 18.">
           <defs>
             <style>
               .lbl { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; fill: currentColor; }
               .lbl-b { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; font-weight: 600; fill: currentColor; }
+              .sk { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; fill: currentColor; opacity: .6; }
               .pin { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; fill: currentColor; }
+              .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; fill: currentColor; opacity: .6; }
               .hd { font-family: "IBM Plex Sans", sans-serif; font-size: 12px; font-weight: 600; fill: currentColor; letter-spacing: .08em; }
               .sub { font-family: "IBM Plex Sans", sans-serif; font-size: 11px; fill: currentColor; opacity: .65; }
             </style>
           </defs>
 
-          <!-- ================= titres de colonnes ================= -->
-          <text class="hd" x="150" y="44" text-anchor="end">DALLE — CONNECTEUR IN</text>
-          <text class="sub" x="150" y="62" text-anchor="end">nom · sérigraphie · broche</text>
-          <text class="hd" x="452" y="44">PICO 2 W</text>
-          <text class="sub" x="452" y="62">vue de dessus, USB en haut</text>
+          <text class="hd" x="20" y="44">NAPPE</text>
+          <text class="sub" x="20" y="62">fil · couleur · signal · broche</text>
+          <text class="hd" x="486" y="44">PICO 2 W</text>
+          <text class="sub" x="486" y="62">vue de dessus, USB en haut</text>
 
-          <!-- ================= corps du Pico ================= -->
-          <rect x="452" y="74" width="250" height="672" rx="10" fill="var(--pcb)" stroke="var(--rule-strong)" stroke-width="1.5"/>
-          <rect x="545" y="56" width="64" height="20" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1.5"/>
-          <text class="sub" x="577" y="70" text-anchor="middle">USB</text>
-
-          <!-- colonne de droite du Pico : non utilisée -->
+          <!-- corps du Pico -->
+          <rect x="500" y="74" width="260" height="672" rx="10" fill="var(--pcb)" stroke="var(--rule-strong)" stroke-width="1.5"/>
+          <rect x="598" y="56" width="64" height="20" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1.5"/>
+          <text class="sub" x="630" y="70" text-anchor="middle">USB</text>
           <g fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1">
-            <rect x="680" y="82" width="28" height="16" rx="2"/><rect x="680" y="114" width="28" height="16" rx="2"/>
-            <rect x="680" y="146" width="28" height="16" rx="2"/><rect x="680" y="178" width="28" height="16" rx="2"/>
-            <rect x="680" y="210" width="28" height="16" rx="2"/><rect x="680" y="242" width="28" height="16" rx="2"/>
-            <rect x="680" y="274" width="28" height="16" rx="2"/><rect x="680" y="306" width="28" height="16" rx="2"/>
-            <rect x="680" y="338" width="28" height="16" rx="2"/><rect x="680" y="370" width="28" height="16" rx="2"/>
-            <rect x="680" y="402" width="28" height="16" rx="2"/><rect x="680" y="434" width="28" height="16" rx="2"/>
-            <rect x="680" y="466" width="28" height="16" rx="2"/><rect x="680" y="498" width="28" height="16" rx="2"/>
-            <rect x="680" y="530" width="28" height="16" rx="2"/><rect x="680" y="562" width="28" height="16" rx="2"/>
-            <rect x="680" y="594" width="28" height="16" rx="2"/><rect x="680" y="626" width="28" height="16" rx="2"/>
-            <rect x="680" y="658" width="28" height="16" rx="2"/><rect x="680" y="690" width="28" height="16" rx="2"/>
+            <rect x="738" y="82" width="30" height="16" rx="2"/><rect x="738" y="114" width="30" height="16" rx="2"/>
+            <rect x="738" y="146" width="30" height="16" rx="2"/><rect x="738" y="178" width="30" height="16" rx="2"/>
+            <rect x="738" y="210" width="30" height="16" rx="2"/><rect x="738" y="242" width="30" height="16" rx="2"/>
+            <rect x="738" y="274" width="30" height="16" rx="2"/><rect x="738" y="306" width="30" height="16" rx="2"/>
+            <rect x="738" y="338" width="30" height="16" rx="2"/><rect x="738" y="370" width="30" height="16" rx="2"/>
+            <rect x="738" y="402" width="30" height="16" rx="2"/><rect x="738" y="434" width="30" height="16" rx="2"/>
+            <rect x="738" y="466" width="30" height="16" rx="2"/><rect x="738" y="498" width="30" height="16" rx="2"/>
+            <rect x="738" y="530" width="30" height="16" rx="2"/><rect x="738" y="562" width="30" height="16" rx="2"/>
+            <rect x="738" y="594" width="30" height="16" rx="2"/><rect x="738" y="626" width="30" height="16" rx="2"/>
+            <rect x="738" y="658" width="30" height="16" rx="2"/><rect x="738" y="690" width="30" height="16" rx="2"/>
           </g>
-          <text class="sub" x="694" y="730" text-anchor="middle">colonne</text>
-          <text class="sub" x="694" y="744" text-anchor="middle">inutilisée</text>
+          <text class="sub" x="753" y="730" text-anchor="middle">colonne</text>
+          <text class="sub" x="753" y="744" text-anchor="middle">inutilisée</text>
 
-          <!-- ================= fils ================= -->
-          <!-- ordre : tracés d'abord, pastilles par-dessus -->
-          <g fill="none" stroke-width="2.5" stroke-linecap="round">
-            <path d="M160 90 L444 90"   stroke="var(--sig-r)"/>
-            <path d="M160 122 L444 122" stroke="var(--sig-g)"/>
-            <path d="M160 154 C 280 154, 324 186, 444 186" stroke="var(--sig-b)"/>
-            <path d="M160 186 C 280 186, 324 154, 444 154" stroke="var(--sig-gnd)"/>
-            <path d="M160 218 L444 218" stroke="var(--sig-r)"/>
-            <path d="M160 250 L444 250" stroke="var(--sig-g)"/>
-            <path d="M160 282 L444 282" stroke="var(--sig-b)"/>
-            <path d="M160 346 L444 346" stroke="var(--sig-addr)"/>
-            <path d="M160 378 L444 378" stroke="var(--sig-addr)"/>
-            <path d="M160 410 L444 410" stroke="var(--sig-addr)"/>
-            <path d="M160 442 L444 442" stroke="var(--sig-addr)"/>
-            <path d="M160 474 C 280 474, 324 538, 444 538" stroke="var(--sig-ctrl)"/>
-            <path d="M160 506 C 280 506, 324 570, 444 570" stroke="var(--sig-ctrl)"/>
-            <path d="M160 538 C 280 538, 324 602, 444 602" stroke="var(--sig-ctrl)"/>
-            <path d="M160 570 C 280 570, 324 634, 444 634" stroke="var(--sig-gnd)"/>
+          <!-- ===== fils : gainage sombre puis couleur réelle ===== -->
+          <g fill="none" stroke-linecap="round">
+            <g stroke="var(--rule-strong)" stroke-width="5.5">
+              <path d="M262 90 L492 90"/><path d="M262 122 L492 122"/>
+              <path d="M262 154 C 350 154, 404 186, 492 186"/>
+              <path d="M262 186 C 350 186, 404 154, 492 154"/>
+              <path d="M262 218 L492 218"/><path d="M262 250 L492 250"/><path d="M262 282 L492 282"/>
+              <path d="M262 346 L492 346"/><path d="M262 378 L492 378"/>
+              <path d="M262 410 L492 410"/><path d="M262 442 L492 442"/>
+              <path d="M262 474 C 350 474, 404 538, 492 538"/>
+              <path d="M262 506 C 350 506, 404 570, 492 570"/>
+              <path d="M262 538 C 350 538, 404 602, 492 602"/>
+              <path d="M262 570 C 350 570, 404 634, 492 634"/>
+            </g>
+            <g stroke-width="3">
+              <path d="M262 90 L492 90"   stroke="var(--w-marron)"/>
+              <path d="M262 122 L492 122" stroke="var(--w-rouge)"/>
+              <path d="M262 154 C 350 154, 404 186, 492 186" stroke="var(--w-orange)"/>
+              <path d="M262 186 C 350 186, 404 154, 492 154" stroke="var(--w-jaune)"/>
+              <path d="M262 218 L492 218" stroke="var(--w-vert)"/>
+              <path d="M262 250 L492 250" stroke="var(--w-bleu)"/>
+              <path d="M262 282 L492 282" stroke="var(--w-violet)"/>
+              <path d="M262 346 L492 346" stroke="var(--w-blanc)"/>
+              <path d="M262 378 L492 378" stroke="var(--w-noir)"/>
+              <path d="M262 410 L492 410" stroke="var(--w-marron)"/>
+              <path d="M262 442 L492 442" stroke="var(--w-rouge)"/>
+              <path d="M262 474 C 350 474, 404 538, 492 538" stroke="var(--w-orange)"/>
+              <path d="M262 506 C 350 506, 404 570, 492 570" stroke="var(--w-jaune)"/>
+              <path d="M262 538 C 350 538, 404 602, 492 602" stroke="var(--w-vert)"/>
+              <path d="M262 570 C 350 570, 404 634, 492 634" stroke="var(--w-bleu)"/>
+            </g>
           </g>
 
-          <!-- E : la seule qui saute une place. Halo pour passer au-dessus. -->
-          <path d="M160 314 C 300 314, 310 506, 444 506" fill="none" stroke="var(--bg)" stroke-width="7" stroke-linecap="round"/>
-          <path d="M160 314 C 300 314, 310 506, 444 506" fill="none" stroke="var(--sig-addr)" stroke-width="3.5" stroke-linecap="round"/>
-          <circle cx="302" cy="392" r="13" fill="var(--bg)"/>
-          <text class="lbl-b" x="302" y="396" text-anchor="middle" fill="var(--sig-addr)">E</text>
+          <!-- E : gris, seul fil qui saute une place -->
+          <path d="M262 314 C 370 314, 380 506, 492 506" fill="none" stroke="var(--bg)" stroke-width="9" stroke-linecap="round"/>
+          <path d="M262 314 C 370 314, 380 506, 492 506" fill="none" stroke="var(--rule-strong)" stroke-width="6" stroke-linecap="round"/>
+          <path d="M262 314 C 370 314, 380 506, 492 506" fill="none" stroke="var(--w-gris)" stroke-width="3.5" stroke-linecap="round"/>
+          <rect x="336" y="380" width="60" height="19" rx="9" fill="var(--bg)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+          <text class="lbl-b" x="366" y="394" text-anchor="middle" fill="var(--sig-addr)">E · gris</text>
 
-          <!-- ================= broches dalle ================= -->
+          <!-- ===== côté nappe ===== -->
           <g>
-            <!-- 1 R1 -->
-            <rect x="126" y="80" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="94" text-anchor="middle">1</text>
-            <text class="lbl-b" x="118" y="94" text-anchor="end">R1</text>
-            <!-- 2 G1 -->
-            <rect x="126" y="112" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="126" text-anchor="middle">2</text>
-            <text class="lbl-b" x="118" y="126" text-anchor="end">G1</text>
-            <!-- 3 B1 -->
-            <rect x="126" y="144" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="158" text-anchor="middle">3</text>
-            <text class="lbl-b" x="118" y="158" text-anchor="end">B1</text>
-            <!-- 4 GND (N) -->
-            <rect x="126" y="176" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="190" text-anchor="middle">4</text>
-            <text class="lbl-b" x="118" y="190" text-anchor="end">GND</text>
-            <text class="sub" x="118" y="204" text-anchor="end">« N »</text>
-            <!-- 5 R2 -->
-            <rect x="126" y="208" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="222" text-anchor="middle">5</text>
-            <text class="lbl-b" x="118" y="222" text-anchor="end">R2</text>
-            <!-- 6 G2 -->
-            <rect x="126" y="240" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="254" text-anchor="middle">6</text>
-            <text class="lbl-b" x="118" y="254" text-anchor="end">G2</text>
-            <!-- 7 B2 -->
-            <rect x="126" y="272" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="286" text-anchor="middle">7</text>
-            <text class="lbl-b" x="118" y="286" text-anchor="end">B2</text>
-            <!-- 8 E -->
-            <rect x="126" y="304" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
-            <text class="pin" x="143" y="318" text-anchor="middle">8</text>
-            <text class="lbl-b" x="118" y="318" text-anchor="end">E</text>
-            <text class="sub" x="118" y="332" text-anchor="end">« LE »</text>
-            <!-- 9 A -->
-            <rect x="126" y="336" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="350" text-anchor="middle">9</text>
-            <text class="lbl-b" x="118" y="350" text-anchor="end">A</text>
-            <text class="sub" x="118" y="364" text-anchor="end">« LA »</text>
-            <!-- 10 B -->
-            <rect x="126" y="368" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="382" text-anchor="middle">10</text>
-            <text class="lbl-b" x="118" y="382" text-anchor="end">B</text>
-            <text class="sub" x="118" y="396" text-anchor="end">« LB »</text>
-            <!-- 11 C -->
-            <rect x="126" y="400" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="414" text-anchor="middle">11</text>
-            <text class="lbl-b" x="118" y="414" text-anchor="end">C</text>
-            <text class="sub" x="118" y="428" text-anchor="end">« LC »</text>
-            <!-- 12 D -->
-            <rect x="126" y="432" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="446" text-anchor="middle">12</text>
-            <text class="lbl-b" x="118" y="446" text-anchor="end">D</text>
-            <text class="sub" x="118" y="460" text-anchor="end">« LD »</text>
-            <!-- 13 CLK -->
-            <rect x="126" y="464" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="478" text-anchor="middle">13</text>
-            <text class="lbl-b" x="118" y="478" text-anchor="end">CLK</text>
-            <!-- 14 LAT -->
-            <rect x="126" y="496" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="510" text-anchor="middle">14</text>
-            <text class="lbl-b" x="118" y="510" text-anchor="end">LAT</text>
-            <!-- 15 /OE -->
-            <rect x="126" y="528" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="542" text-anchor="middle">15</text>
-            <text class="lbl-b" x="118" y="542" text-anchor="end">/OE</text>
-            <text class="sub" x="118" y="556" text-anchor="end">« CE »</text>
-            <!-- 16 GND -->
-            <rect x="126" y="560" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
-            <text class="pin" x="143" y="574" text-anchor="middle">16</text>
-            <text class="lbl-b" x="118" y="574" text-anchor="end">GND</text>
+            <!-- pin 1 : fil 16 marron -->
+            <text class="num" x="20" y="94">16</text>
+            <rect x="44" y="84" width="22" height="11" rx="5" fill="var(--w-marron)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="94">marron</text>
+            <text class="lbl-b" x="222" y="94" text-anchor="end">R1</text>
+            <rect x="228" y="80" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="94" text-anchor="middle">1</text>
+
+            <text class="num" x="20" y="126">15</text>
+            <rect x="44" y="116" width="22" height="11" rx="5" fill="var(--w-rouge)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="126">rouge</text>
+            <text class="lbl-b" x="222" y="126" text-anchor="end">G1</text>
+            <rect x="228" y="112" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="126" text-anchor="middle">2</text>
+
+            <text class="num" x="20" y="158">14</text>
+            <rect x="44" y="148" width="22" height="11" rx="5" fill="var(--w-orange)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="158">orange</text>
+            <text class="lbl-b" x="222" y="158" text-anchor="end">B1</text>
+            <rect x="228" y="144" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="158" text-anchor="middle">3</text>
+
+            <text class="num" x="20" y="190">13</text>
+            <rect x="44" y="180" width="22" height="11" rx="5" fill="var(--w-jaune)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="190">jaune</text>
+            <text class="lbl-b" x="222" y="190" text-anchor="end">GND<tspan class="sk"> «N»</tspan></text>
+            <rect x="228" y="176" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="190" text-anchor="middle">4</text>
+
+            <text class="num" x="20" y="222">12</text>
+            <rect x="44" y="212" width="22" height="11" rx="5" fill="var(--w-vert)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="222">vert</text>
+            <text class="lbl-b" x="222" y="222" text-anchor="end">R2</text>
+            <rect x="228" y="208" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="222" text-anchor="middle">5</text>
+
+            <text class="num" x="20" y="254">11</text>
+            <rect x="44" y="244" width="22" height="11" rx="5" fill="var(--w-bleu)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="254">bleu</text>
+            <text class="lbl-b" x="222" y="254" text-anchor="end">G2</text>
+            <rect x="228" y="240" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="254" text-anchor="middle">6</text>
+
+            <text class="num" x="20" y="286">10</text>
+            <rect x="44" y="276" width="22" height="11" rx="5" fill="var(--w-violet)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl-b" x="74" y="286">violet</text>
+            <text class="lbl-b" x="222" y="286" text-anchor="end">B2</text>
+            <rect x="228" y="272" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="286" text-anchor="middle">7</text>
+
+            <text class="num" x="20" y="318">9</text>
+            <rect x="44" y="308" width="22" height="11" rx="5" fill="var(--w-gris)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl-b" x="74" y="318">gris</text>
+            <text class="lbl-b" x="222" y="318" text-anchor="end">E<tspan class="sk"> «LE»</tspan></text>
+            <rect x="228" y="304" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
+            <text class="pin" x="245" y="318" text-anchor="middle">8</text>
+
+            <text class="num" x="20" y="350">8</text>
+            <rect x="44" y="340" width="22" height="11" rx="5" fill="var(--w-blanc)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl-b" x="74" y="350">blanc</text>
+            <text class="lbl-b" x="222" y="350" text-anchor="end">A<tspan class="sk"> «LA»</tspan></text>
+            <rect x="228" y="336" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="350" text-anchor="middle">9</text>
+
+            <text class="num" x="20" y="382">7</text>
+            <rect x="44" y="372" width="22" height="11" rx="5" fill="var(--w-noir)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl-b" x="74" y="382">noir</text>
+            <text class="lbl-b" x="222" y="382" text-anchor="end">B<tspan class="sk"> «LB»</tspan></text>
+            <rect x="228" y="368" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="382" text-anchor="middle">10</text>
+
+            <text class="num" x="20" y="414">6</text>
+            <rect x="44" y="404" width="22" height="11" rx="5" fill="var(--w-marron)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="414">marron</text>
+            <text class="lbl-b" x="222" y="414" text-anchor="end">C<tspan class="sk"> «LC»</tspan></text>
+            <rect x="228" y="400" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="414" text-anchor="middle">11</text>
+
+            <text class="num" x="20" y="446">5</text>
+            <rect x="44" y="436" width="22" height="11" rx="5" fill="var(--w-rouge)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="446">rouge</text>
+            <text class="lbl-b" x="222" y="446" text-anchor="end">D<tspan class="sk"> «LD»</tspan></text>
+            <rect x="228" y="432" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="446" text-anchor="middle">12</text>
+
+            <text class="num" x="20" y="478">4</text>
+            <rect x="44" y="468" width="22" height="11" rx="5" fill="var(--w-orange)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="478">orange</text>
+            <text class="lbl-b" x="222" y="478" text-anchor="end">CLK</text>
+            <rect x="228" y="464" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="478" text-anchor="middle">13</text>
+
+            <text class="num" x="20" y="510">3</text>
+            <rect x="44" y="500" width="22" height="11" rx="5" fill="var(--w-jaune)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="510">jaune</text>
+            <text class="lbl-b" x="222" y="510" text-anchor="end">LAT</text>
+            <rect x="228" y="496" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="510" text-anchor="middle">14</text>
+
+            <text class="num" x="20" y="542">2</text>
+            <rect x="44" y="532" width="22" height="11" rx="5" fill="var(--w-vert)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="542">vert</text>
+            <text class="lbl-b" x="222" y="542" text-anchor="end">/OE<tspan class="sk"> «CE»</tspan></text>
+            <rect x="228" y="528" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="542" text-anchor="middle">15</text>
+
+            <text class="num" x="20" y="574">1</text>
+            <rect x="44" y="564" width="22" height="11" rx="5" fill="var(--w-bleu)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="lbl" x="74" y="574">bleu</text>
+            <text class="lbl-b" x="222" y="574" text-anchor="end">GND</text>
+            <rect x="228" y="560" width="34" height="20" rx="3" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+            <text class="pin" x="245" y="574" text-anchor="middle">16</text>
           </g>
 
-          <!-- ================= broches Pico ================= -->
+          <!-- ===== côté Pico ===== -->
           <g>
-            <rect x="438" y="80" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="94" text-anchor="middle">1</text>
-            <text class="lbl-b" x="478" y="94">GP0</text>
+            <rect x="486" y="80" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="94" text-anchor="middle">1</text><text class="lbl-b" x="526" y="94">GP0</text>
 
-            <rect x="438" y="112" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="126" text-anchor="middle">2</text>
-            <text class="lbl-b" x="478" y="126">GP1</text>
+            <rect x="486" y="112" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="126" text-anchor="middle">2</text><text class="lbl-b" x="526" y="126">GP1</text>
 
-            <rect x="438" y="144" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="158" text-anchor="middle">3</text>
-            <text class="lbl" x="478" y="158">GND</text>
+            <rect x="486" y="144" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="158" text-anchor="middle">3</text><text class="lbl" x="526" y="158">GND</text>
 
-            <rect x="438" y="176" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="190" text-anchor="middle">4</text>
-            <text class="lbl-b" x="478" y="190">GP2</text>
+            <rect x="486" y="176" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="190" text-anchor="middle">4</text><text class="lbl-b" x="526" y="190">GP2</text>
 
-            <rect x="438" y="208" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="222" text-anchor="middle">5</text>
-            <text class="lbl-b" x="478" y="222">GP3</text>
+            <rect x="486" y="208" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="222" text-anchor="middle">5</text><text class="lbl-b" x="526" y="222">GP3</text>
 
-            <rect x="438" y="240" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="254" text-anchor="middle">6</text>
-            <text class="lbl-b" x="478" y="254">GP4</text>
+            <rect x="486" y="240" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="254" text-anchor="middle">6</text><text class="lbl-b" x="526" y="254">GP4</text>
 
-            <rect x="438" y="272" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="286" text-anchor="middle">7</text>
-            <text class="lbl-b" x="478" y="286">GP5</text>
+            <rect x="486" y="272" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="286" text-anchor="middle">7</text><text class="lbl-b" x="526" y="286">GP5</text>
 
-            <rect x="438" y="304" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
-            <text class="pin" x="453" y="318" text-anchor="middle">8</text>
-            <text class="lbl" x="478" y="318" opacity=".55">GND — libre</text>
+            <rect x="486" y="304" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="pin" x="501" y="318" text-anchor="middle">8</text><text class="lbl" x="526" y="318" opacity=".5">GND</text>
+            <text class="sub" x="590" y="318">libre</text>
 
-            <rect x="438" y="336" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="350" text-anchor="middle">9</text>
-            <text class="lbl-b" x="478" y="350">GP6</text>
+            <rect x="486" y="336" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="350" text-anchor="middle">9</text><text class="lbl-b" x="526" y="350">GP6</text>
 
-            <rect x="438" y="368" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="382" text-anchor="middle">10</text>
-            <text class="lbl-b" x="478" y="382">GP7</text>
+            <rect x="486" y="368" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="382" text-anchor="middle">10</text><text class="lbl-b" x="526" y="382">GP7</text>
 
-            <rect x="438" y="400" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="414" text-anchor="middle">11</text>
-            <text class="lbl-b" x="478" y="414">GP8</text>
+            <rect x="486" y="400" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="414" text-anchor="middle">11</text><text class="lbl-b" x="526" y="414">GP8</text>
 
-            <rect x="438" y="432" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="446" text-anchor="middle">12</text>
-            <text class="lbl-b" x="478" y="446">GP9</text>
+            <rect x="486" y="432" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="446" text-anchor="middle">12</text><text class="lbl-b" x="526" y="446">GP9</text>
 
-            <rect x="438" y="464" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
-            <text class="pin" x="453" y="478" text-anchor="middle">13</text>
-            <text class="lbl" x="478" y="478" opacity=".55">GND — libre</text>
+            <rect x="486" y="464" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="pin" x="501" y="478" text-anchor="middle">13</text><text class="lbl" x="526" y="478" opacity=".5">GND</text>
+            <text class="sub" x="590" y="478">libre</text>
 
-            <rect x="438" y="496" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
-            <text class="pin" x="453" y="510" text-anchor="middle">14</text>
-            <text class="lbl-b" x="478" y="510">GP10</text>
+            <rect x="486" y="496" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
+            <text class="pin" x="501" y="510" text-anchor="middle">14</text><text class="lbl-b" x="526" y="510">GP10</text>
 
-            <rect x="438" y="528" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="542" text-anchor="middle">15</text>
-            <text class="lbl-b" x="478" y="542">GP11</text>
-            <text class="lbl" x="534" y="542" fill="var(--ok)">✓ déjà bon</text>
+            <rect x="486" y="528" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="542" text-anchor="middle">15</text><text class="lbl-b" x="526" y="542">GP11</text>
+            <text class="lbl" x="590" y="542" fill="var(--ok)">✓ déjà bon</text>
 
-            <rect x="438" y="560" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="574" text-anchor="middle">16</text>
-            <text class="lbl-b" x="478" y="574">GP12</text>
-            <text class="lbl" x="534" y="574" fill="var(--ok)">✓ déjà bon</text>
+            <rect x="486" y="560" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="574" text-anchor="middle">16</text><text class="lbl-b" x="526" y="574">GP12</text>
+            <text class="lbl" x="590" y="574" fill="var(--ok)">✓ déjà bon</text>
 
-            <rect x="438" y="592" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="606" text-anchor="middle">17</text>
-            <text class="lbl-b" x="478" y="606">GP13</text>
-            <text class="lbl" x="534" y="606" fill="var(--ok)">✓ déjà bon</text>
+            <rect x="486" y="592" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="606" text-anchor="middle">17</text><text class="lbl-b" x="526" y="606">GP13</text>
+            <text class="lbl" x="590" y="606" fill="var(--ok)">✓ déjà bon</text>
 
-            <rect x="438" y="624" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
-            <text class="pin" x="453" y="638" text-anchor="middle">18</text>
-            <text class="lbl" x="478" y="638">GND</text>
+            <rect x="486" y="624" width="30" height="20" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+            <text class="pin" x="501" y="638" text-anchor="middle">18</text><text class="lbl" x="526" y="638">GND</text>
 
-            <rect x="438" y="656" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
-            <text class="pin" x="453" y="670" text-anchor="middle">19</text>
-            <text class="lbl" x="478" y="670" opacity=".55">GP14 — libre</text>
+            <rect x="486" y="656" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="pin" x="501" y="670" text-anchor="middle">19</text><text class="lbl" x="526" y="670" opacity=".5">GP14</text>
+            <text class="sub" x="590" y="670">libre</text>
 
-            <rect x="438" y="688" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
-            <text class="pin" x="453" y="702" text-anchor="middle">20</text>
-            <text class="lbl" x="478" y="702" opacity=".55">GP15 — libre</text>
+            <rect x="486" y="688" width="30" height="20" rx="2" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
+            <text class="pin" x="501" y="702" text-anchor="middle">20</text><text class="lbl" x="526" y="702" opacity=".5">GP15</text>
+            <text class="sub" x="590" y="702">libre</text>
           </g>
         </svg>
       </div>
-      <figcaption><strong>Un seul fil sort du rang : E.</strong> Sur la dalle il occupe la broche&nbsp;8, coincée entre B2 et A ; côté Pico il arrive en GP10, après D. Tous les autres descendent dans l'ordre. C'est le fil qu'on oublie ou qu'on décale — et sans lui, une dalle 64×64 n'adresse que la moitié de ses lignes.</figcaption>
+      <figcaption><strong>Le gris est le seul fil qui saute une place.</strong> Sur la dalle il occupe la broche&nbsp;8, coincée entre B2 et A ; côté Pico il arrive en GP10, après D. Tous les autres descendent dans l'ordre. Sans lui, une dalle 64×64 n'adresse que la moitié de ses lignes — c'est exactement le symptôme observé au premier essai.</figcaption>
     </figure>
-  </section>
-
-  <section>
-    <div class="callout">
-      <h3>La règle, si tu ne veux rien mémoriser</h3>
-      <p>Les 14 signaux, pris dans cet ordre, remplissent la colonne gauche du Pico de haut en bas — <strong>en sautant les broches de masse</strong> (3, 8, 13, 18) :</p>
-      <p class="rule-line">R1 · G1 · B1 · R2 · G2 · B2 · A · B · C · D · E · CLK · LAT · /OE</p>
-      <p style="margin-top:10px">Ce qui donne les broches physiques 1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17. Puis les <strong>deux</strong> masses de la nappe (broches 4 et 16) sur n'importe quelles broches GND du Pico — 3 et 18 tombent bien.</p>
-    </div>
   </section>
 
   <section class="two-col">
     <div>
       <h2><span class="num">02</span>Le connecteur sur la dalle</h2>
-      <p>Vu de l'arrière du panneau. La sérigraphie Seengreat n'utilise pas les noms usuels : les lignes d'adresse y sont notées <code>LA</code>…<code>LE</code> et le <code>/OE</code> est noté <code>CE</code>.</p>
+      <p>Vu de l'arrière du panneau, avec la couleur du fil qui aboutit sur chaque broche. La sérigraphie Seengreat note les lignes d'adresse <code>LA</code>…<code>LE</code> et le <code>/OE</code> <code>CE</code>.</p>
       <figure>
-        <svg viewBox="0 0 300 330" role="img" aria-label="Connecteur HUB75 deux rangées de huit broches vu de l'arrière de la dalle : colonne gauche R1, B1, R2, B2, LA, LC, CLK, CE ; colonne droite G1, N, G2, LE, LB, LD, LAT, GND.">
-          <rect x="70" y="24" width="160" height="282" rx="8" fill="var(--pcb)" stroke="var(--rule-strong)" stroke-width="1.5"/>
-          <rect x="128" y="24" width="44" height="9" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
-          <text x="150" y="16" text-anchor="middle" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;fill:currentColor;opacity:.65">détrompeur</text>
+        <svg viewBox="0 0 320 336" role="img" aria-label="Connecteur HUB75 deux rangées de huit broches vu de l'arrière : colonne gauche R1 marron, B1 orange, R2 vert, B2 violet, LA blanc, LC marron, CLK orange, CE vert ; colonne droite G1 rouge, N jaune, G2 bleu, LE gris, LB noir, LD rouge, LAT jaune, GND bleu.">
+          <rect x="80" y="26" width="160" height="284" rx="8" fill="var(--pcb)" stroke="var(--rule-strong)" stroke-width="1.5"/>
+          <rect x="138" y="26" width="44" height="9" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)" stroke-width="1"/>
+          <text x="160" y="18" text-anchor="middle" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;fill:currentColor;opacity:.65">détrompeur</text>
 
-          <g style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;fill:currentColor">
-            <!-- gauche : impairs -->
+          <g style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;fill:currentColor">
             <g text-anchor="end">
-              <text x="62" y="58">1 · R1</text><text x="62" y="92">3 · B1</text>
-              <text x="62" y="126">5 · R2</text><text x="62" y="160">7 · B2</text>
-              <text x="62" y="194">9 · LA</text><text x="62" y="228">11 · LC</text>
-              <text x="62" y="262">13 · CLK</text><text x="62" y="296">15 · CE</text>
+              <text x="60" y="61">1 · R1</text><text x="60" y="95">3 · B1</text>
+              <text x="60" y="129">5 · R2</text><text x="60" y="163">7 · B2</text>
+              <text x="60" y="197">9 · LA</text><text x="60" y="231">11 · LC</text>
+              <text x="60" y="265">13 · CLK</text><text x="60" y="299">15 · CE</text>
             </g>
-            <!-- droite : pairs -->
             <g text-anchor="start">
-              <text x="238" y="58">G1 · 2</text><text x="238" y="92">N · 4</text>
-              <text x="238" y="126">G2 · 6</text><text x="238" y="160">LE · 8</text>
-              <text x="238" y="194">LB · 10</text><text x="238" y="228">LD · 12</text>
-              <text x="238" y="262">LAT · 14</text><text x="238" y="296">GND · 16</text>
+              <text x="260" y="61">G1 · 2</text><text x="260" y="95">N · 4</text>
+              <text x="260" y="129">G2 · 6</text><text x="260" y="163">LE · 8</text>
+              <text x="260" y="197">LB · 10</text><text x="260" y="231">LD · 12</text>
+              <text x="260" y="265">LAT · 14</text><text x="260" y="299">GND · 16</text>
             </g>
           </g>
 
-          <!-- pastilles -->
-          <g>
-            <rect x="106" y="47" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <rect x="180" y="47" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <rect x="106" y="81" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <rect x="180" y="81" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
-            <rect x="106" y="115" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
-            <rect x="180" y="115" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
-            <rect x="106" y="149" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
-            <rect x="180" y="149" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
-            <rect x="106" y="183" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <rect x="180" y="183" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <rect x="106" y="217" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <rect x="180" y="217" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
-            <rect x="106" y="251" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <rect x="180" y="251" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <rect x="106" y="285" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
-            <rect x="180" y="285" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+          <!-- pastilles de couleur de fil -->
+          <g stroke="var(--rule-strong)" stroke-width="1">
+            <rect x="68" y="51" width="14" height="12" rx="3" fill="var(--w-marron)"/>
+            <rect x="238" y="51" width="14" height="12" rx="3" fill="var(--w-rouge)"/>
+            <rect x="68" y="85" width="14" height="12" rx="3" fill="var(--w-orange)"/>
+            <rect x="238" y="85" width="14" height="12" rx="3" fill="var(--w-jaune)"/>
+            <rect x="68" y="119" width="14" height="12" rx="3" fill="var(--w-vert)"/>
+            <rect x="238" y="119" width="14" height="12" rx="3" fill="var(--w-bleu)"/>
+            <rect x="68" y="153" width="14" height="12" rx="3" fill="var(--w-violet)"/>
+            <rect x="238" y="153" width="14" height="12" rx="3" fill="var(--w-gris)"/>
+            <rect x="68" y="187" width="14" height="12" rx="3" fill="var(--w-blanc)"/>
+            <rect x="238" y="187" width="14" height="12" rx="3" fill="var(--w-noir)"/>
+            <rect x="68" y="221" width="14" height="12" rx="3" fill="var(--w-marron)"/>
+            <rect x="238" y="221" width="14" height="12" rx="3" fill="var(--w-rouge)"/>
+            <rect x="68" y="255" width="14" height="12" rx="3" fill="var(--w-orange)"/>
+            <rect x="238" y="255" width="14" height="12" rx="3" fill="var(--w-jaune)"/>
+            <rect x="68" y="289" width="14" height="12" rx="3" fill="var(--w-vert)"/>
+            <rect x="238" y="289" width="14" height="12" rx="3" fill="var(--w-bleu)"/>
           </g>
-          <text x="150" y="322" text-anchor="middle" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;fill:var(--sig-addr);font-weight:600">LE (broche 8) = E</text>
+
+          <!-- contacts -->
+          <g>
+            <rect x="116" y="50" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <rect x="190" y="50" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <rect x="116" y="84" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <rect x="190" y="84" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+            <rect x="116" y="118" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-r)" stroke-width="1.5"/>
+            <rect x="190" y="118" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-g)" stroke-width="1.5"/>
+            <rect x="116" y="152" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-b)" stroke-width="1.5"/>
+            <rect x="190" y="152" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="2.5"/>
+            <rect x="116" y="186" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <rect x="190" y="186" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <rect x="116" y="220" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <rect x="190" y="220" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-addr)" stroke-width="1.5"/>
+            <rect x="116" y="254" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <rect x="190" y="254" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <rect x="116" y="288" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-ctrl)" stroke-width="1.5"/>
+            <rect x="190" y="288" width="14" height="14" rx="2" fill="var(--surface)" stroke="var(--sig-gnd)" stroke-width="1.5"/>
+          </g>
+          <text x="160" y="328" text-anchor="middle" style="font-family:'IBM Plex Sans',sans-serif;font-size:11px;fill:var(--sig-addr);font-weight:600">LE (broche 8) = E = fil gris</text>
         </svg>
-        <figcaption>Vérifie au multimètre avant de brancher : les broches 4 et 16 doivent être continues avec la masse. Si la 4 ne l'est pas, c'est là qu'est <code>E</code> sur ton exemplaire.</figcaption>
+        <figcaption>Contrôle au multimètre : les broches 4 et 16 — <strong>jaune</strong> et <strong>bleu</strong> — doivent être continues avec la masse.</figcaption>
       </figure>
     </div>
 
     <div>
       <h2><span class="num">03</span>Avant de mettre sous tension</h2>
       <ul class="checks">
-        <li><strong>Les deux masses.</strong> Broches 4 <em>et</em> 16 de la nappe. Une seule suffit à faire fonctionner — et à générer du scintillement inexplicable.</li>
+        <li><strong>Les deux masses.</strong> Le bleu (fil 1) <em>et</em> le jaune (fil 13). Une seule suffit à faire fonctionner — et à générer du scintillement inexplicable.</li>
         <li><strong>Alimentation séparée.</strong> La dalle sur son 5 V dédié (4 A crête), le Pico sur l'USB. Jamais la dalle sur le 5 V du Pico, jamais de retour vers VSYS.</li>
         <li><strong>Masses d'abord.</strong> On relie les masses, puis les signaux, puis on met les alimentations.</li>
         <li><strong>Nappe courte.</strong> Moins de 20 cm pour les premiers essais. Le 3,3 V du Pico passe de justesse le seuil du tampon 5 V de la dalle ; la longueur mange la marge.</li>
@@ -575,35 +658,36 @@
   </section>
 
   <section>
-    <h2><span class="num">04</span>Le recâblage, ligne par ligne</h2>
-    <p>Départ : le brochage du tableau 2-2 du wiki Seengreat (carte adaptatrice V3.8). Trois fils ne bougent pas.</p>
+    <h2><span class="num">04</span>Le recâblage, fil par fil</h2>
+    <p>Départ : le brochage du tableau 2-2 du wiki Seengreat (carte adaptatrice V3.8). Trois fils sont déjà à la bonne place — <strong>orange (fil 4), jaune (fil 3) et vert (fil 2)</strong>, les trois signaux de contrôle.</p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Signal</th><th>Sérigraphie</th><th>Broche nappe</th><th>GPIO</th><th>Broche Pico</th><th>Était sur</th><th></th>
+            <th>Fil</th><th>Couleur</th><th>Broche nappe</th><th>Signal</th><th>Sérigraphie</th><th>GPIO</th><th>Broche Pico</th><th>Était sur</th><th></th>
           </tr>
         </thead>
         <tbody>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-r)"></i>R1</td><td class="m">R1</td><td class="m">1</td><td class="m">GP0</td><td class="m">1</td><td class="m was">GP2</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-g)"></i>G1</td><td class="m">G1</td><td class="m">2</td><td class="m">GP1</td><td class="m">2</td><td class="m was">GP3</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-b)"></i>B1</td><td class="m">B1</td><td class="m">3</td><td class="m">GP2</td><td class="m">4</td><td class="m was">GP4</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-gnd)"></i>GND</td><td class="m">N</td><td class="m">4</td><td class="m">GND</td><td class="m">3</td><td class="m">—</td><td><span class="tag move">vérifier</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-r)"></i>R2</td><td class="m">R2</td><td class="m">5</td><td class="m">GP3</td><td class="m">5</td><td class="m was">GP5</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-g)"></i>G2</td><td class="m">G2</td><td class="m">6</td><td class="m">GP4</td><td class="m">6</td><td class="m was">GP8</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-b)"></i>B2</td><td class="m">B2</td><td class="m">7</td><td class="m">GP5</td><td class="m">7</td><td class="m was">GP9</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-addr)"></i>E</td><td class="m">LE</td><td class="m">8</td><td class="m">GP10</td><td class="m">14</td><td class="m was">GP22</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-addr)"></i>A</td><td class="m">LA</td><td class="m">9</td><td class="m">GP6</td><td class="m">9</td><td class="m was">GP10</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-addr)"></i>B</td><td class="m">LB</td><td class="m">10</td><td class="m">GP7</td><td class="m">10</td><td class="m was">GP16</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-addr)"></i>C</td><td class="m">LC</td><td class="m">11</td><td class="m">GP8</td><td class="m">11</td><td class="m was">GP18</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-addr)"></i>D</td><td class="m">LD</td><td class="m">12</td><td class="m">GP9</td><td class="m">12</td><td class="m was">GP20</td><td><span class="tag move">déplacer</span></td></tr>
-          <tr class="keep"><td class="sig"><i class="dot" style="background:var(--sig-ctrl)"></i>CLK</td><td class="m">CLK</td><td class="m">13</td><td class="m">GP11</td><td class="m">15</td><td class="m">GP11</td><td><span class="tag keep">ne pas toucher</span></td></tr>
-          <tr class="keep"><td class="sig"><i class="dot" style="background:var(--sig-ctrl)"></i>LAT</td><td class="m">LAT</td><td class="m">14</td><td class="m">GP12</td><td class="m">16</td><td class="m">GP12</td><td><span class="tag keep">ne pas toucher</span></td></tr>
-          <tr class="keep"><td class="sig"><i class="dot" style="background:var(--sig-ctrl)"></i>/OE</td><td class="m">CE</td><td class="m">15</td><td class="m">GP13</td><td class="m">17</td><td class="m">GP13</td><td><span class="tag keep">ne pas toucher</span></td></tr>
-          <tr><td class="sig"><i class="dot" style="background:var(--sig-gnd)"></i>GND</td><td class="m">GND</td><td class="m">16</td><td class="m">GND</td><td class="m">18</td><td class="m">—</td><td><span class="tag move">vérifier</span></td></tr>
+          <tr><td class="m">16</td><td class="col"><i class="wdot" style="background:var(--w-marron)"></i>marron</td><td class="m">1</td><td class="sig"><i class="rdot" style="background:var(--sig-r)"></i>R1</td><td class="m">R1</td><td class="m">GP0</td><td class="m">1</td><td class="m was">GP2</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">15</td><td class="col"><i class="wdot" style="background:var(--w-rouge)"></i>rouge</td><td class="m">2</td><td class="sig"><i class="rdot" style="background:var(--sig-g)"></i>G1</td><td class="m">G1</td><td class="m">GP1</td><td class="m">2</td><td class="m was">GP3</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">14</td><td class="col"><i class="wdot" style="background:var(--w-orange)"></i>orange</td><td class="m">3</td><td class="sig"><i class="rdot" style="background:var(--sig-b)"></i>B1</td><td class="m">B1</td><td class="m">GP2</td><td class="m">4</td><td class="m was">GP4</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">13</td><td class="col"><i class="wdot" style="background:var(--w-jaune)"></i>jaune</td><td class="m">4</td><td class="sig"><i class="rdot" style="background:var(--sig-gnd)"></i>GND</td><td class="m">N</td><td class="m">GND</td><td class="m">3</td><td class="m">—</td><td><span class="tag move">masse</span></td></tr>
+          <tr><td class="m">12</td><td class="col"><i class="wdot" style="background:var(--w-vert)"></i>vert</td><td class="m">5</td><td class="sig"><i class="rdot" style="background:var(--sig-r)"></i>R2</td><td class="m">R2</td><td class="m">GP3</td><td class="m">5</td><td class="m was">GP5</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">11</td><td class="col"><i class="wdot" style="background:var(--w-bleu)"></i>bleu</td><td class="m">6</td><td class="sig"><i class="rdot" style="background:var(--sig-g)"></i>G2</td><td class="m">G2</td><td class="m">GP4</td><td class="m">6</td><td class="m was">GP8</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr class="uniq"><td class="m">10</td><td class="col"><i class="wdot" style="background:var(--w-violet)"></i>violet</td><td class="m">7</td><td class="sig"><i class="rdot" style="background:var(--sig-b)"></i>B2</td><td class="m">B2</td><td class="m">GP5</td><td class="m">7</td><td class="m was">GP9</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr class="uniq"><td class="m">9</td><td class="col"><i class="wdot" style="background:var(--w-gris)"></i>gris</td><td class="m">8</td><td class="sig"><i class="rdot" style="background:var(--sig-addr)"></i>E</td><td class="m">LE</td><td class="m">GP10</td><td class="m">14</td><td class="m was">GP22</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr class="uniq"><td class="m">8</td><td class="col"><i class="wdot" style="background:var(--w-blanc)"></i>blanc</td><td class="m">9</td><td class="sig"><i class="rdot" style="background:var(--sig-addr)"></i>A</td><td class="m">LA</td><td class="m">GP6</td><td class="m">9</td><td class="m was">GP10</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr class="uniq"><td class="m">7</td><td class="col"><i class="wdot" style="background:var(--w-noir)"></i>noir</td><td class="m">10</td><td class="sig"><i class="rdot" style="background:var(--sig-addr)"></i>B</td><td class="m">LB</td><td class="m">GP7</td><td class="m">10</td><td class="m was">GP16</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">6</td><td class="col"><i class="wdot" style="background:var(--w-marron)"></i>marron</td><td class="m">11</td><td class="sig"><i class="rdot" style="background:var(--sig-addr)"></i>C</td><td class="m">LC</td><td class="m">GP8</td><td class="m">11</td><td class="m was">GP18</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr><td class="m">5</td><td class="col"><i class="wdot" style="background:var(--w-rouge)"></i>rouge</td><td class="m">12</td><td class="sig"><i class="rdot" style="background:var(--sig-addr)"></i>D</td><td class="m">LD</td><td class="m">GP9</td><td class="m">12</td><td class="m was">GP20</td><td><span class="tag move">déplacer</span></td></tr>
+          <tr class="keep"><td class="m">4</td><td class="col"><i class="wdot" style="background:var(--w-orange)"></i>orange</td><td class="m">13</td><td class="sig"><i class="rdot" style="background:var(--sig-ctrl)"></i>CLK</td><td class="m">CLK</td><td class="m">GP11</td><td class="m">15</td><td class="m">GP11</td><td><span class="tag keep">ne pas toucher</span></td></tr>
+          <tr class="keep"><td class="m">3</td><td class="col"><i class="wdot" style="background:var(--w-jaune)"></i>jaune</td><td class="m">14</td><td class="sig"><i class="rdot" style="background:var(--sig-ctrl)"></i>LAT</td><td class="m">LAT</td><td class="m">GP12</td><td class="m">16</td><td class="m">GP12</td><td><span class="tag keep">ne pas toucher</span></td></tr>
+          <tr class="keep"><td class="m">2</td><td class="col"><i class="wdot" style="background:var(--w-vert)"></i>vert</td><td class="m">15</td><td class="sig"><i class="rdot" style="background:var(--sig-ctrl)"></i>/OE</td><td class="m">CE</td><td class="m">GP13</td><td class="m">17</td><td class="m">GP13</td><td><span class="tag keep">ne pas toucher</span></td></tr>
+          <tr><td class="m">1</td><td class="col"><i class="wdot" style="background:var(--w-bleu)"></i>bleu</td><td class="m">16</td><td class="sig"><i class="rdot" style="background:var(--sig-gnd)"></i>GND</td><td class="m">GND</td><td class="m">GND</td><td class="m">18</td><td class="m">—</td><td><span class="tag move">masse</span></td></tr>
         </tbody>
       </table>
     </div>
+    <p style="margin-top:14px;font-size:13.5px">La numérotation des fils descend quand celle des broches monte : c'est normal, la nappe se lit à l'envers du connecteur. Les quatre lignes en gras au centre du tableau sont les couleurs uniques.</p>
   </section>
 
   <section>
