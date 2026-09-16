@@ -89,3 +89,20 @@ python3 -c "import serial,time; s=serial.Serial('/dev/ttyACM0',1200); s.dtr=Fals
 
 Les 9 mires correctes, stables, sans colonne parasite ni scintillement quand on
 bouge la nappe. Alors seulement on passe à la phase 1.
+
+### ✅ Atteint le 16/09/2026
+
+Les 9 mires passent sur une dalle Seengreat RGB Matrix P3.0-64×64 pilotée par un
+Pico 2 W en 3,3 V direct, sans adaptateur de niveau.
+
+Deux enseignements consignés dans le plan :
+
+1. Le brochage du **tableau 2-2 du wiki Seengreat** (carte adaptatrice V3.8) place
+   A–E sur GP10/16/18/20/22, cinq broches non contiguës — incompatible avec le
+   `out pins, 5` du PIO. Câblée ainsi, la dalle n'adressait que les lignes 0, 1,
+   32 et 33, seul le bit A variant.
+2. La **nappe fournie se numérote à l'envers du connecteur** : fil n° N ⟷ broche
+   n° (17 − N). Le fil gris est `E`, seul signal hors séquence et seule couleur
+   grise du ruban.
+
+Fiche de câblage : [`../../docs/cablage-pico-hub75.html`](../../docs/cablage-pico-hub75.html)

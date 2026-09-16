@@ -163,7 +163,9 @@ centre (fils 7 à 10) — ce sont les repères à partir desquels compter. Et le
 rang, `E`, est **le seul gris** de la nappe.
 
 Contrôle de sens avant de câbler : les deux masses sont le **bleu (fil 1)** et le **jaune
-(fil 13)**. Si la continuité passe entre ces deux-là, la lecture est bonne.
+(fil 13)**. ✅ **Confirmé sur matériel le 16/09/2026** — la dalle affiche correctement les
+9 mires de la phase 0 avec ce câblage, ce qui ne serait pas possible si la nappe se lisait
+dans l'autre sens.
 
 **Broches restantes** : GP14–GP22, GP26–GP28.
 
@@ -295,7 +297,7 @@ parole. En mono-dalle (phases 2–3), RGB888 à 60 Hz ne pèse que 5,9 Mbit/s : 
 
 ## 5. Les phases
 
-### Phase 0 — « ça s'allume » · 1 dalle · ½ jour
+### Phase 0 — « ça s'allume » · 1 dalle · ½ jour · ✅ **terminée le 16/09/2026**
 
 **Langage / couche :** C, `pico-examples/pio/hub75`, tel quel.
 
@@ -307,6 +309,11 @@ Prouver le câblage et l'alimentation. **Aucune ligne de code écrite.**
 
 **Critère de sortie :** dégradé de test stable, sans colonne parasite, sans scintillement
 quand on bouge la nappe.
+
+✅ **Atteint.** Les 9 mires de `firmware/phase0-bringup` passent. Sont donc validés :
+les 14 signaux, les 5 lignes d'adresse A–E (cadre complet, dégradé vertical régulier,
+balayage ligne à ligne), la séparation des deux demi-écrans, la modulation BCM sur 8 plans,
+l'absence de ghosting au damier 1 px, et le 3,3 V direct sans adaptateur de niveau.
 
 **Si rien ne s'allume — ordre de diagnostic :** ① les deux GND reliés, continuité vérifiée
 ② 5,0 V à l'embase VH **sous charge** ③ sens de la nappe, `E` sur broche 8 ④ si le doute porte
@@ -471,7 +478,7 @@ client du protocole plutôt que comme sa raison d'être.
 
 | Phase | Langage | Couche | Sortie | Effort |
 |---|---|---|---|---|
-| 0 · Ça s'allume | C (code d'autrui) | pico-sdk | câblage validé | ½ j |
+| 0 · Ça s'allume | C + PIO | pico-sdk | ✅ câblage validé le 16/09/2026 | ½ j |
 | 1 · Driver | C + PIO asm | bare-metal, 2 cœurs, DMA | ≥ 150 Hz, 0 % CPU | 2–4 j |
 | 2 · Protocole + réception | C | lwIP raw, cyw43 | < 0,1 % de perte | 2–3 j |
 | 3 · Émetteur PC | Python | — | **vidéo à l'écran** 🎉 | 1–2 j |
@@ -534,6 +541,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 16/09/2026 | Phase 0 terminée : câblage, adresses A–E, BCM et absence de ghosting validés sur matériel | Les 9 mires de diagnostic passent |
 | 16/09/2026 | Nappe numérotée à l'envers du connecteur (fil N ⟷ broche 17−N) | Le fil compté en premier est une masse, or la broche 1 d'un HUB75 est toujours R1 |
 | 16/09/2026 | Brochage GP0–GP13 confirmé contre le wiki Seengreat | Le tableau 2-2 du constructeur a A–E non contigus, incompatible avec `out pins, 5` du PIO |
 | 16/09/2026 | **3 chaînes de 3, 3 × Pico 2 W** | Règle ≤ 4 dalles/port, 407 Hz vs 136 Hz, 98 ko vs 295 ko de RAM, 2 fils de synchro seulement |

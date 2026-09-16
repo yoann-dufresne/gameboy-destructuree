@@ -48,8 +48,8 @@ Les documents d'architecture du projet global vivent dans le dossier parent :
 |---|---|
 | Documentation matérielle archivée | ✅ |
 | Plan de réalisation | ✅ |
-| 0 · Bring-up d'une dalle | ⬜ |
-| 1 · Driver HUB75 | ⬜ |
+| 0 · Bring-up d'une dalle | ✅ 16/09/2026 |
+| 1 · Driver HUB75 | 🔨 suivante |
 | 2 · Protocole + réception | ⬜ |
 | 3 · Émetteur PC | ⬜ |
 | 4 · Mesure | ⬜ |
