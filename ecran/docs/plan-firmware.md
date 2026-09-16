@@ -119,6 +119,18 @@ code de référence qui tourne sans modification.
 `E` est bien sur la **broche 8**, la broche 4 est une masse — le piège classique des panneaux
 64×64 ne s'applique pas à ce modèle. À revérifier au multimètre malgré tout.
 
+> 📐 **Fiche de câblage visuelle** : [`cablage-pico-hub75.html`](cablage-pico-hub75.html)
+> — les 16 fils un par un, le connecteur vu de l'arrière de la dalle, et le recâblage
+> depuis le brochage du wiki Seengreat. Publiée aussi sur
+> https://claude.ai/artifact/NuuHJ1oeuricVr1qyfzgqP
+
+> ⚠️ **Le brochage du wiki Seengreat n'est pas utilisable en câblage direct.** Son
+> tableau 2-2 place A–E sur GP10, GP16, GP18, GP20 et GP22 : cinq broches **non
+> contiguës**, alors que le programme PIO fait `out pins, 5`, qui exige cinq GPIO
+> consécutifs. Ce brochage n'existe que pour le routage de la carte adaptatrice
+> Seengreat. Constaté sur matériel le 16/09/2026 : câblée ainsi, la dalle n'adressait
+> que les lignes 0, 1, 32 et 33.
+
 **Broches restantes** : GP14–GP22, GP26–GP28.
 
 | GPIO | Usage |
@@ -488,4 +500,5 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 16/09/2026 | Brochage GP0–GP13 confirmé contre le wiki Seengreat | Le tableau 2-2 du constructeur a A–E non contigus, incompatible avec `out pins, 5` du PIO |
 | 16/09/2026 | **3 chaînes de 3, 3 × Pico 2 W** | Règle ≤ 4 dalles/port, 407 Hz vs 136 Hz, 98 ko vs 295 ko de RAM, 2 fils de synchro seulement |
