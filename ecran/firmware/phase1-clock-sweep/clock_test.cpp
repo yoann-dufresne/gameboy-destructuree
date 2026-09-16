@@ -160,7 +160,7 @@ int main(void) {
     multicore_launch_core1(core1_entry);
     while (!pilote_pret)
         tight_loop_contents();
-    driver.update_bgr(image);
+    sleep_ms(200); /* laisse la premiere trame du pilote s'etablir */
 
     for (int i = 0; i < 30 && !stdio_usb_connected(); ++i)
         sleep_ms(100);
@@ -190,8 +190,13 @@ int main(void) {
     printf("            pixels isoles du bas suivis d'un fantome\n");
     printf("=================================================================\n\n");
 
-    /* Le pilote annonce son rafraichissement reel : c'est la mesure objective
-     * qui accompagne le jugement visuel. */
+    /* L'amont alimente le pilote en continu depuis le coeur 0. Un appel unique
+     * ne suffit pas : s'il tombe pendant le demarrage du pilote, la construction
+     * des plans de bits est perdue et le tampon reste noir indefiniment.
+     * Le pilote annonce son rafraichissement reel entre deux mises a jour. */
     while (true)
-        tight_loop_contents();
+    {
+        driver.update_bgr(image);
+        sleep_ms(100);
+    }
 }
