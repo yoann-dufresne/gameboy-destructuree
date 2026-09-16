@@ -27,3 +27,10 @@ foreach(MHZ 28 26 24 22 20 18 16 14 12 10)
     pico_enable_stdio_uart(${NOM} 0)
     pico_add_extra_outputs(${NOM})
 endforeach()
+
+# Test minimal : usage strictement conforme a la reference amont, coeur 0.
+add_executable(phase1_smoke smoke.cpp)
+target_link_libraries(phase1_smoke PRIVATE pico_stdlib pico_multicore hub75_jupfu)
+pico_enable_stdio_usb(phase1_smoke 1)
+pico_enable_stdio_uart(phase1_smoke 0)
+pico_add_extra_outputs(phase1_smoke)
