@@ -58,20 +58,40 @@ D'où le choix d'un binaire par fréquence.
 **Défaut** : rayures qui se brouillent, grisonnent ou bavent — d'abord sur le bord
 **droit**, les derniers pixels décalés dans le registre.
 
+## Le socle
+
+`clock_test.cpp` est **`smoke.cpp` avec un seul écart : le diviseur d'horloge**.
+`smoke.cpp` est l'usage minimal strictement conforme à la référence amont, et c'est
+le premier programme de ce dossier qui ait affiché quelque chose. Ne pas s'en écarter
+sans raison — le chemin jusqu'ici a coûté plusieurs essais infructueux :
+
+| | `smoke.cpp` (affiche) | ma 1ʳᵉ version (noire) |
+|---|---|---|
+| Cœur | **0** | 1 (multicœur) |
+| Plans BCM | **10** | 8 |
+| Canaux CIE | **séparés** | communs |
+| `clk_sys` | **266 MHz** | 252 MHz |
+
+Lequel de ces quatre écarts cassait l'affichage n'est **pas encore élucidé** — à
+traiter en phase 1 proprement dite, le plan prévoyant le cœur 1 pour l'affichage.
+
 ## Résultats mesurés
 
 Dalle unique 64×64, scan 1/32, 8 plans BCM, `clk_sys` 252 MHz.
 Le rafraîchissement est annoncé par le pilote lui-même (`frame_rate_debug`).
 
-| Horloge pixel | Rafraîchissement |
-|---|---|
-| 10 MHz | 406 Hz |
-| 12 MHz | 488 Hz |
-| 24 MHz | 974 Hz |
-| 26 MHz | 1055 Hz |
-| **28 MHz** | **1138 Hz** |
+| Plans BCM | 10 MHz | 12 MHz | 24 MHz | 26 MHz | **28 MHz** | 29,6 MHz |
+|---|---|---|---|---|---|---|
+| 8 | 424 Hz | 488 Hz | 974 Hz | 1055 Hz | **1138 Hz** | — |
+| 10 | — | — | — | — | **750 Hz** | 788 Hz |
 
-Soit une loi linéaire : **≈ 40,6 Hz par MHz d'horloge pixel**, pour une dalle seule.
-Pour une chaîne de N dalles, diviser par N.
+Loi linéaire, à diviser par la longueur de chaîne :
+
+    8 plans  :  ≈ 40,6 × horloge_pixel_MHz / N
+    10 plans :  ≈ 26,8 × horloge_pixel_MHz / N
+
+**Horloge pixel maximale : ≥ 28 MHz, image nette.** La limite de la dalle n'a pas été
+atteinte — notre firmware plafonne à `clk_sys / 9` = 29,6 MHz. Mesuré sur **une** dalle
+avec une nappe courte ; à remesurer sur une chaîne de 3.
 
 Empreinte : 85 ko de RAM sur 520, 44 ko de flash.

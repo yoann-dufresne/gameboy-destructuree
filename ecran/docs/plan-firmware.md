@@ -72,30 +72,41 @@ Une chaîne de N dalles forme un seul long registre à décalage :
 
 #### ✅ Mesuré sur matériel le 16/09/2026
 
-Dalle unique 64×64, scan 1/32, 8 plans BCM, `clk_sys` 252 MHz, pilote JuPfu.
+Dalle unique 64×64, scan 1/32, `clk_sys` 266 MHz, pilote JuPfu sur le cœur 0.
 Rafraîchissement annoncé par le pilote lui-même.
 
-| Horloge pixel | 10 MHz | 12 MHz | 24 MHz | 26 MHz | **28 MHz** |
-|---|---|---|---|---|---|
-| Rafraîchissement | 406 Hz | 488 Hz | 974 Hz | 1055 Hz | **1138 Hz** |
+| Plans BCM | 10 MHz | 12 MHz | 24 MHz | 26 MHz | **28 MHz** | 29,6 MHz |
+|---|---|---|---|---|---|---|
+| 8 | 424 Hz | 488 Hz | 974 Hz | 1055 Hz | **1138 Hz** | — |
+| 10 | — | — | — | — | **750 Hz** | 788 Hz |
 
-Loi linéaire : **≈ 40,6 Hz par MHz d'horloge pixel, divisé par la longueur de chaîne**.
+Loi linéaire dans les deux cas, à diviser par la longueur de chaîne :
 
-    rafraîchissement ≈ 40,6 × horloge_pixel_MHz / N
+    8 plans  :  rafraîchissement ≈ 40,6 × horloge_pixel_MHz / N
+    10 plans :  rafraîchissement ≈ 26,8 × horloge_pixel_MHz / N
+
+**Horloge pixel maximale : ≥ 28 MHz, image nette.** La limite de la dalle n'a pas
+été atteinte — c'est notre propre firmware qui plafonne, à `clk_sys / 9` = 29,6 MHz.
+La dalle n'est donc pas le facteur limitant.
+
+> ⚠️ Mesuré sur **une** dalle avec une nappe courte. Une chaîne de 3 ajoute deux
+> étages de tampons et deux sauts de nappe : le plafond peut baisser. À remesurer
+> en phase 5, quand la chaîne existera.
 
 Le modèle théorique du tableau ci-dessus était **optimiste d'environ 50 %** : il ne
 comptait que le temps de décalage, en ignorant les gardes et la répartition des plans
-de poids fort (`balanced_light_output`). Les projections corrigées, aux 28 MHz mesurés :
+de poids fort (`balanced_light_output`). Projections corrigées à 28 MHz :
 
-| N | Rafraîchissement projeté |
-|---|---|
-| 1 | 1138 Hz *(mesuré)* |
-| **3** | **≈ 379 Hz** |
-| 9 | ≈ 126 Hz |
+| N | 8 plans | 10 plans |
+|---|---|---|
+| 1 | 1138 Hz *(mesuré)* | 750 Hz *(mesuré)* |
+| **3** | **≈ 379 Hz** | **≈ 250 Hz** |
+| 9 | ≈ 126 Hz | ≈ 83 Hz |
 
-La conclusion du §2.2 est inchangée et même renforcée : une chaîne de 3 garde une marge
-confortable au-dessus de la cible de 150 Hz, y compris si l'horloge pixel devait être
-ramenée à 20 MHz (≈ 271 Hz). Une chaîne de 9 tomberait à ~126 Hz, **sous la cible**.
+**La décision du §2.2 est confirmée par la mesure, et pour une raison de plus qu'à
+l'origine** : une chaîne de 9 tombe sous la cible de 150 Hz **quelle que soit la
+profondeur BCM**, indépendamment de tout problème d'intégrité du signal. Une chaîne
+de 3 garde une marge confortable, même en 10 plans.
 
 | | 1 chaîne de 9 | **3 chaînes de 3** | 9 chaînes de 1 |
 |---|---|---|---|
@@ -448,8 +459,8 @@ de tampon. Analyseur logique sur les deux : l'écart se lit directement. **Mesur
 
 **Les trois chiffres qui conditionnent la phase 5 :**
 
-1. **Fréquence d'horloge pixel maximale stable** — sur 1 dalle, puis sur une chaîne de 3.
-   C'est le chiffre dont dépend tout le reste et que personne ne peut donner sur le papier.
+1. ✅ **Fréquence d'horloge pixel maximale stable** — **≥ 28 MHz sur une dalle**, mesuré le
+   16/09/2026 (§2.2). Reste à refaire sur une chaîne de 3 en phase 5.
 2. **Rafraîchissement effectif et luminosité utile à `CHAIN_LEN=3`.**
 3. **Débit UDP réellement soutenu** par un Pico 2 W — décide du format retenu pour le 3×3.
 
@@ -570,7 +581,8 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
-| 16/09/2026 | Horloge pixel mesurée : 1138 Hz à 28 MHz sur dalle seule | Le modèle théorique était optimiste de ~50 % ; la projection à N=3 passe de 407 à 379 Hz, conclusion inchangée |
+| 16/09/2026 | **Horloge pixel ≥ 28 MHz, image nette** ; limite de la dalle non atteinte | Plafonné par notre firmware (clk_sys/9 = 29,6 MHz), pas par la dalle |
+| 16/09/2026 | Rafraîchissement mesuré : 1138 Hz en 8 plans, 750 Hz en 10 plans, à 28 MHz | Le modèle théorique était optimiste de ~50 % ; une chaîne de 9 tombe sous 150 Hz quelle que soit la profondeur BCM |
 | 16/09/2026 | Pilote JuPfu vendorisé ; le firmware passe en C++20 | Sa configuration est un paramètre de patron évalué à la compilation ; aucune conséquence sur les décisions de fond |
 | 16/09/2026 | Phase 0 terminée : câblage, adresses A–E, BCM et absence de ghosting validés sur matériel | Les 9 mires de diagnostic passent |
 | 16/09/2026 | Nappe numérotée à l'envers du connecteur (fil N ⟷ broche 17−N) | Le fil compté en premier est une masse, or la broche 1 d'un HUB75 est toujours R1 |
