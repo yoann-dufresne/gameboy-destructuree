@@ -34,3 +34,34 @@ target_link_libraries(phase1_smoke PRIVATE pico_stdlib pico_multicore hub75_jupf
 pico_enable_stdio_usb(phase1_smoke 1)
 pico_enable_stdio_uart(phase1_smoke 0)
 pico_add_extra_outputs(phase1_smoke)
+
+# --- Sondes : isolent un par un les ecarts qui rendaient l'affichage noir ---
+function(ecran_sonde NOM CORE1 PLANS CIE_SEP CLK_KHZ)
+    set(KICK 0)
+    if(ARGC GREATER 5)
+        list(GET ARGV 5 KICK)
+    endif()
+    set(CIBLE probe_${NOM})
+    add_executable(${CIBLE} probe.cpp)
+    target_compile_definitions(${CIBLE} PRIVATE
+        PROBE_CORE1=${CORE1}
+        PROBE_BITPLANES=${PLANS}
+        PROBE_CIE_SEPARATE=${CIE_SEP}
+        PROBE_CLK_KHZ=${CLK_KHZ}
+        PROBE_NOM="${NOM}"
+        PROBE_KICK=${KICK}
+    )
+    target_link_libraries(${CIBLE} PRIVATE pico_stdlib pico_multicore hub75_jupfu)
+    pico_enable_stdio_usb(${CIBLE} 1)
+    pico_enable_stdio_uart(${CIBLE} 0)
+    pico_add_extra_outputs(${CIBLE})
+endfunction()
+
+#              nom             coeur1 plans cie_sep clk_khz
+ecran_sonde(reference          0      10    1       266000)
+ecran_sonde(coeur1             1      10    1       266000)
+ecran_sonde(plans8             0       8    1       266000)
+ecran_sonde(cie_communs        0      10    0       266000)
+ecran_sonde(clk252             0      10    1       252000)
+ecran_sonde(tous_ecarts        1       8    0       252000)
+ecran_sonde(coeur1_kick        1      10    1       266000  1)
