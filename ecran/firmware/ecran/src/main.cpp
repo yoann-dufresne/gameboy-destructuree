@@ -215,47 +215,68 @@ int main(void) {
     absolute_time_t prochain_rapport = make_timeout_time_ms(10000);
     uint32_t trames_au_dernier_rapport = 0;
 
-    uint32_t occupe_max_us = 0, occupe_somme_us = 0, occupe_n = 0;
-    uint32_t sautees = 0;
+    /* Décomposition de la latence interne, en microsecondes.
+     *   assemblage : première tranche -> dernière tranche
+     *   attente    : dernière tranche -> début de la publication
+     *   rendu      : publication -> plans de bits prêts
+     * Il reste ensuite au plus une période d'affichage (1/788 Hz = 1,27 ms)
+     * avant que la bascule de tampon ne prenne effet. */
+    struct Stat { uint32_t n, somme, mini, maxi; };
+    Stat assemblage{0, 0, ~0u, 0}, attente{0, 0, ~0u, 0}, rendu{0, 0, ~0u, 0};
+    auto noter = [](Stat &st, uint32_t v) {
+        st.n++; st.somme += v;
+        if (v < st.mini) st.mini = v;
+        if (v > st.maxi) st.maxi = v;
+    };
+    auto moy = [](const Stat &st) { return st.n ? st.somme / st.n : 0u; };
 
     while (true) {
         /* On ne consomme une trame que si le pilote a fini sa construction
          * precedente : il n'a pas de garde-fou de reentrance. Si on ne consomme
          * pas, la trame reste en attente et une plus recente la remplacera —
          * c'est le bon comportement pour un afficheur. */
-        if (!display::occupe()) {
-            const uint8_t *trame = reseau::trame_a_afficher();
-            if (trame != nullptr) {
-                const absolute_time_t t0 = get_absolute_time();
-                display::present(trame);
-                /* Mesure la duree reelle d'une construction. */
-                while (display::occupe())
-                    tight_loop_contents();
-                const uint32_t dt = (uint32_t)absolute_time_diff_us(t0, get_absolute_time());
-                if (dt > occupe_max_us) occupe_max_us = dt;
-                occupe_somme_us += dt;
-                occupe_n++;
-            }
-        } else {
-            sautees++;
+        reseau::Trame t;
+        if (!display::occupe() && reseau::trame_a_afficher(t)) {
+            const uint64_t t_debut_rendu = time_us_64();
+            display::present(t.pixels);
+            while (display::occupe())
+                tight_loop_contents();
+            const uint64_t t_pret = time_us_64();
+
+            /* L'accusé part au plus tôt : c'est l'émetteur qui mesure
+             * l'aller-retour complet, sur sa propre horloge. */
+            reseau::acquitter(t.id);
+
+            noter(assemblage, (uint32_t)(t.t_dernier_us - t.t_premier_us));
+            noter(attente,    (uint32_t)(t_debut_rendu - t.t_dernier_us));
+            noter(rendu,      (uint32_t)(t_pret - t_debut_rendu));
         }
 
         if (time_reached(prochain_rapport)) {
             const reseau::Stats &st = reseau::stats();
             const uint32_t delta = st.trames - trames_au_dernier_rapport;
             trames_au_dernier_rapport = st.trames;
-            printf("  %lu trames (%lu/s)  %lu rejets  %lu incompletes  "
-                   "%lu ecartees  %lu retard.  %lu resync | construction moy %lu us, max %lu us\n",
+            printf("  %lu trames (%lu/s)  %lu rejets  %lu incompl.  %lu ecart.  "
+                   "%lu retard.  %lu resync\n",
                    (unsigned long)st.trames, (unsigned long)(delta / 10),
                    (unsigned long)st.rejets,
                    (unsigned long)st.trames_incompletes,
                    (unsigned long)st.ecartees,
                    (unsigned long)st.retardataires,
-                   (unsigned long)st.resynchros,
-                   (unsigned long)(occupe_n ? occupe_somme_us / occupe_n : 0),
-                   (unsigned long)occupe_max_us);
-            occupe_max_us = occupe_somme_us = occupe_n = 0;
-            sautees = 0;
+                   (unsigned long)st.resynchros);
+            printf("    latence interne (us)   moy /  min /  max\n");
+            printf("      assemblage         %5lu / %5lu / %5lu\n",
+                   (unsigned long)moy(assemblage), (unsigned long)assemblage.mini,
+                   (unsigned long)assemblage.maxi);
+            printf("      attente            %5lu / %5lu / %5lu\n",
+                   (unsigned long)moy(attente), (unsigned long)attente.mini,
+                   (unsigned long)attente.maxi);
+            printf("      rendu              %5lu / %5lu / %5lu\n",
+                   (unsigned long)moy(rendu), (unsigned long)rendu.mini,
+                   (unsigned long)rendu.maxi);
+            printf("      total interne      %5lu us en moyenne\n\n",
+                   (unsigned long)(moy(assemblage) + moy(attente) + moy(rendu)));
+            assemblage = attente = rendu = Stat{0, 0, ~0u, 0};
             prochain_rapport = make_timeout_time_ms(10000);
         }
     }

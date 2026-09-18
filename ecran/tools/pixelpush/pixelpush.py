@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import select
 import socket
 import struct
 import sys
@@ -39,6 +40,7 @@ ENTETE = 12
 CHARGE_MAX = 1400
 
 TYPE_FRAME = 0
+TYPE_PING = 2
 FMT_BGR888 = 0
 FLAG_DERNIERE = 0x01
 
@@ -73,7 +75,13 @@ class Emetteur:
         self.hauteur = int(conf["image"]["hauteur"])
         self.noeuds = [Noeud(n) for n in conf["noeud"]]
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setblocking(False)
         self.frame_id = 0
+        # Mesure de latence : le firmware renvoie un accusé au moment où la
+        # trame est affichée. L'aller-retour est donc chronométré sur la seule
+        # horloge de cette machine — aucune synchronisation à supposer.
+        self.envois: dict[int, float] = {}
+        self.latences: list[float] = []
         self.octets = 0
         self.paquets = 0
         # Injection de défauts, pour éprouver le réassemblage du firmware.
@@ -125,7 +133,30 @@ class Emetteur:
             self.octets += len(paquet)
             self.paquets += 1
 
+        self.envois[self.frame_id] = time.monotonic()
+        if len(self.envois) > 512:  # borne mémoire : on oublie les vieux
+            for k in sorted(self.envois)[:256]:
+                del self.envois[k]
+
         self.frame_id = (self.frame_id + 1) & 0xFFFF
+
+    def relever_accuses(self) -> None:
+        """Vide la file des accusés arrivés, sans bloquer."""
+        while True:
+            try:
+                data, _ = self.sock.recvfrom(64)
+            except BlockingIOError:
+                return
+            except OSError:
+                return
+            if len(data) < ENTETE or data[:4] != MAGIC:
+                continue
+            type_, _node, fid = struct.unpack_from("<BBH", data, 4)
+            if type_ != TYPE_PING:
+                continue
+            t0 = self.envois.pop(fid, None)
+            if t0 is not None:
+                self.latences.append(time.monotonic() - t0)
 
 
 def choisir_source(nom: str, w: int, h: int, args):
@@ -219,6 +250,17 @@ def main() -> int:
                 if em.perdus or em.retardes:
                     ligne += f"  [injecté : {em.perdus} perdus, {em.retardes} retardés]"
                 print(ligne)
+
+                if em.latences:
+                    lat = sorted(em.latences)
+                    n = len(lat)
+                    print(f"    aller-retour jusqu'à l'affichage : "
+                          f"moy {sum(lat) / n * 1000:.1f} ms  "
+                          f"min {lat[0] * 1000:.1f}  "
+                          f"médiane {lat[n // 2] * 1000:.1f}  "
+                          f"p95 {lat[int(n * 0.95)] * 1000:.1f}  "
+                          f"max {lat[-1] * 1000:.1f}   ({n} accusés)")
+                    em.latences.clear()
                 em.octets = em.paquets = em.perdus = em.retardes = 0
                 trames = 0
                 pire_ecart = 0.0
@@ -229,12 +271,20 @@ def main() -> int:
                 break
 
             prochain += periode
-            retard = prochain - time.monotonic()
-            if retard > 0:
-                time.sleep(retard)
-            else:
-                # La source ne suit pas la cadence demandée : on n'accumule pas
-                # de dette, on repart du temps présent.
+            # On attend la prochaine échéance en RELEVANT LES ACCUSÉS au fil de
+            # leur arrivée. Les relever une seule fois par tour quantifierait la
+            # mesure à la période de trame : la médiane vaudrait exactement
+            # 16,7 ms quelle que soit la latence réelle. Constaté le 18/09/2026.
+            while True:
+                reste = prochain - time.monotonic()
+                if reste <= 0:
+                    break
+                pret, _, _ = select.select([em.sock], [], [], reste)
+                if pret:
+                    em.relever_accuses()
+            em.relever_accuses()
+            if prochain < time.monotonic() - periode:
+                # La source ne suit pas la cadence : on n'accumule pas de dette.
                 prochain = time.monotonic()
     except KeyboardInterrupt:
         print("\narrêt")

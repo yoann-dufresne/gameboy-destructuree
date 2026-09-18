@@ -29,10 +29,21 @@ struct Stats {
 /* Associe au WiFi et arme la réception. Rend false si l'association échoue. */
 bool connecter(uint8_t node_id);
 
-/* Rend la dernière trame complète reçue, ou nullptr s'il n'y en a pas de
- * nouvelle. Le tampon rendu reste stable jusqu'au prochain appel : la réception
- * remplit l'autre. */
-const uint8_t *trame_a_afficher();
+/* Une trame complète, avec les horodatages de son assemblage. */
+struct Trame {
+    const uint8_t *pixels;
+    uint16_t id;
+    uint64_t t_premier_us; /* arrivée de la première tranche */
+    uint64_t t_dernier_us; /* arrivée de la dernière */
+};
+
+/* Rend la dernière trame complète reçue. Faux s'il n'y en a pas de nouvelle.
+ * Le tampon reste stable jusqu'au prochain appel : la réception remplit l'autre. */
+bool trame_a_afficher(Trame &out);
+
+/* Renvoie un accusé à l'émetteur : c'est lui qui mesure l'aller-retour, sur sa
+ * propre horloge, sans qu'aucune synchronisation soit à supposer. */
+void acquitter(uint16_t frame_id);
 
 const Stats &stats();
 const char *adresse_ip();

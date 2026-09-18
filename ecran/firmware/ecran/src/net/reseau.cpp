@@ -37,6 +37,16 @@ alignas(4) uint8_t tampons[2][FB_OCTETS];
 
 volatile uint8_t idx_reception = 0;
 volatile int8_t idx_pret = -1; /* index d'une trame complète en attente */
+volatile uint16_t id_pret = 0;
+volatile uint64_t t_premier_pret = 0, t_dernier_pret = 0;
+
+uint64_t t_premier_courant = 0;
+
+/* Adresse de l'émetteur, apprise du dernier paquet reçu : l'accusé lui revient
+ * sans qu'aucune adresse soit à configurer. */
+ip_addr_t emetteur_ip;
+u16_t emetteur_port = 0;
+bool emetteur_connu = false;
 
 uint8_t mon_node_id = 0;
 
@@ -53,11 +63,16 @@ char ip_texte[16] = "0.0.0.0";
 /* Appelé par lwIP à chaque datagramme. Contexte d'interruption en mode
  * `threadsafe_background` : rester court. La publication elle-même est laissée
  * à la boucle principale, qui ne fait qu'attendre. */
-void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
+void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port) {
     if (p == nullptr)
         return;
 
     compteurs.paquets++;
+    if (source != nullptr) {
+        emetteur_ip = *source;
+        emetteur_port = port;
+        emetteur_connu = true;
+    }
 
     if (p->tot_len < PXL1_ENTETE || p->tot_len > PXL1_ENTETE + PXL1_CHARGE_MAX) {
         compteurs.rejets++;
@@ -114,6 +129,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
         frame_courante = e.frame_id;
         frame_en_cours = true;
         octets_frame = 0;
+        t_premier_courant = time_us_64();
     }
 
     else if (age > 0) {
@@ -123,6 +139,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
         frame_courante = e.frame_id;
         frame_en_cours = true;
         octets_frame = 0;
+        t_premier_courant = time_us_64();
     }
 
     /* Le format BGR888 du protocole est déjà celui de la dalle : simple recopie. */
@@ -141,6 +158,9 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
         if (idx_pret >= 0)
             compteurs.ecartees++;
 
+        id_pret = e.frame_id;
+        t_premier_pret = t_premier_courant;
+        t_dernier_pret = time_us_64();
         idx_pret = (int8_t)idx_reception;
         idx_reception ^= 1u;
     }
@@ -190,12 +210,34 @@ bool connecter(uint8_t node_id) {
     return true;
 }
 
-const uint8_t *trame_a_afficher() {
+bool trame_a_afficher(Trame &out) {
     const int8_t idx = idx_pret;
     if (idx < 0)
-        return nullptr;
+        return false;
+    out.pixels = tampons[idx];
+    out.id = id_pret;
+    out.t_premier_us = t_premier_pret;
+    out.t_dernier_us = t_dernier_pret;
     idx_pret = -1;
-    return tampons[idx];
+    return true;
+}
+
+void acquitter(uint16_t frame_id) {
+    if (!emetteur_connu || pcb == nullptr)
+        return;
+
+    pxl1_entete e{};
+    e.magic = PXL1_MAGIC;
+    e.type = PXL1_TYPE_PING;
+    e.node_id = mon_node_id;
+    e.frame_id = frame_id;
+
+    pbuf *p = pbuf_alloc(PBUF_TRANSPORT, PXL1_ENTETE, PBUF_RAM);
+    if (p == nullptr)
+        return;
+    std::memcpy(p->payload, &e, PXL1_ENTETE);
+    udp_sendto(pcb, p, &emetteur_ip, emetteur_port);
+    pbuf_free(p);
 }
 
 const Stats &stats() { return compteurs; }

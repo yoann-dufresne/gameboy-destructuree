@@ -52,5 +52,5 @@ Les documents d'architecture du projet global vivent dans le dossier parent :
 | 1 · Driver HUB75 | ✅ 18/09/2026 — 788 Hz, cœur 0 libre |
 | 2 · Protocole + réception | ✅ 18/09/2026 — 60 img/s en BGR888 |
 | 3 · Émetteur PC | ✅ 18/09/2026 — 7 sources, injection de défauts |
-| 4 · Mesure | 🔨 suivante |
-| 5 · Passage à 3×3 | ⬜ |
+| 4 · Mesure | ✅ 18/09/2026 — ~8 ms, 24,6 Mbit/s |
+| 5 · Passage à 3×3 | 🔨 suivante |

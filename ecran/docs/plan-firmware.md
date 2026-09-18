@@ -461,17 +461,18 @@ module seul sera réécrit, sans toucher au firmware.
 
 ---
 
-### Phase 4 — mesure · 2 jours
+### Phase 4 — mesure · 2 jours · ✅ **terminée le 18/09/2026**
 
 **Méthode :** GP18 bascule dans le callback `udp_recv` au premier octet, GP17 bascule au flip
 de tampon. Analyseur logique sur les deux : l'écart se lit directement. **Mesurer, pas supposer.**
 
-**Les trois chiffres qui conditionnent la phase 5 :**
+**Les trois chiffres qui conditionnaient la phase 5, tous obtenus :**
 
 1. ✅ **Fréquence d'horloge pixel maximale stable** — **≥ 28 MHz sur une dalle**, mesuré le
    16/09/2026 (§2.2). Reste à refaire sur une chaîne de 3 en phase 5.
 2. **Rafraîchissement effectif et luminosité utile à `CHAIN_LEN=3`.**
-3. **Débit UDP réellement soutenu** par un Pico 2 W — décide du format retenu pour le 3×3.
+3. ✅ **Débit UDP réellement soutenu** par un Pico 2 W — **24,6 Mbit/s**, mesuré le
+   18/09/2026. Décide du format retenu pour le 3×3 : voir ci-dessus.
 
 **Finition :** potentiomètre de luminosité GP26, reconnexion WiFi automatique, mire « pas de
 signal » après 1 s de silence, réglages persistés en flash.
@@ -531,7 +532,7 @@ client du protocole plutôt que comme sa raison d'être.
 | 1 · Driver | C + PIO asm | bare-metal, 2 cœurs, DMA | ≥ 150 Hz, 0 % CPU | 2–4 j |
 | 2 · Protocole + réception | C++ | lwIP raw, cyw43 | ✅ 60 img/s, ~0,05 % de perte, 18/09/2026 | 2–3 j |
 | 3 · Émetteur PC | Python | — | ✅ 7 sources + injection, 18/09/2026 | 1–2 j |
-| 4 · Mesure | C | — | latence + débit chiffrés | 2 j |
+| 4 · Mesure | C++ + Python | — | ✅ ~8 ms de latence, 24,6 Mbit/s, 18/09/2026 | 2 j |
 | 5 · Passage à 3×3 | C + mécanique | idem | 192×192 sans déchirure | 3–5 j |
 | 6 · Game Boy | — | — | 1:1, rien à écrire | — |
 
@@ -590,6 +591,8 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | Phase 4 terminée : latence ~8 ms, débit UDP 24,6 Mbit/s | Deux mesures de latence indépendantes concordent à 0,3 ms |
+| 18/09/2026 | Le facteur limitant du 3×3 est **l'air**, pas le Pico | Le Pico encaisse 24,6 Mbit/s ; c'est le total des trois nœuds sur 2,4 GHz qui ne passe pas en BGR888 |
 | 18/09/2026 | Phase 3 terminée : 7 sources, injection de perte et de désordre | L'injection a trouvé deux bugs de réassemblage dans le firmware |
 | 18/09/2026 | Fenêtre de resynchronisation de 8 trames à la réception | Sans elle, un émetteur redémarrant à frame_id 0 bloque la réception définitivement |
 | 18/09/2026 | Phase 2 terminée : 60 img/s en BGR888, ~0,05 % de perte | Trois obstacles levés : diviseur SPI du CYW43, routes VPN, réentrance de `update_bgr` |
