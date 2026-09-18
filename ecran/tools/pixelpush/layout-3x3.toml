@@ -1,0 +1,33 @@
+# Disposition : 3 chaînes de 3 dalles, 192x192 (phase 5)
+#
+# Chaque nœud pilote une rangée horizontale de 3 dalles, soit 192x64 logiques.
+# Seul ce fichier change par rapport au mono-dalle — ni le firmware, ni
+# l'émetteur.
+
+[image]
+largeur = 192
+hauteur = 192
+
+[[noeud]]
+id = 0
+ip = "192.168.1.50"
+x0 = 0
+y0 = 0
+w = 192
+h = 64
+
+[[noeud]]
+id = 1
+ip = "192.168.1.51"
+x0 = 0
+y0 = 64
+w = 192
+h = 64
+
+[[noeud]]
+id = 2
+ip = "192.168.1.52"
+x0 = 0
+y0 = 128
+w = 192
+h = 64

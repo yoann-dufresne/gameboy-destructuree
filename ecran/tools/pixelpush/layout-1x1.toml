@@ -1,0 +1,17 @@
+# Disposition : une seule dalle 64x64 (phase 1-4)
+#
+# Le protocole étant tuile-conscient, passer au 3x3 ne changera que ce fichier :
+# voir layout-3x3.toml.
+
+[image]
+largeur = 64
+hauteur = 64
+
+[[noeud]]
+id = 0
+ip = "192.168.1.50"   # <- adresse annoncée par le firmware sur sa console
+port = 4242
+x0 = 0
+y0 = 0
+w = 64
+h = 64

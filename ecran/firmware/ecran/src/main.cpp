@@ -21,6 +21,8 @@
 
 #include "config.h"
 #include "display.hpp"
+#include "reseau.hpp"
+#include "pxl1.h"
 
 namespace {
 
@@ -196,26 +198,36 @@ int main(void) {
     rapport_sonde("coeur 0 sature");
     sleep_ms(2500);
 
-    printf("\n--- PHASE C : regime nominal, publication a 60 Hz ---\n\n");
+    printf("\n--- RESEAU ---\n");
+    if (!reseau::connecter(display::node_id(), display::backbuffer(), FB_OCTETS)) {
+        printf("  pas de reseau : la mire reste affichee.\n");
+        while (true)
+            tight_loop_contents();
+    }
 
-    absolute_time_t prochain = get_absolute_time();
-    absolute_time_t prochain_rapport = make_timeout_time_ms(15000);
-    uint32_t trames = 0;
+    printf("  associe. Envoyer les trames PXL1 sur  %s:%d\n", reseau::adresse_ip(), PXL1_PORT);
+    printf("  format attendu : BGR888, %d x %d, %d octets par trame, noeud %u\n\n",
+           DISPLAY_W, DISPLAY_H, FB_OCTETS, display::node_id());
+
+    /* Le tampon d'affichage est desormais ecrit par la reception. On publie des
+     * qu'une trame est complete — pas de reveil periodique : la latence d'une
+     * trame, c'est le temps entre sa derniere tranche et sa publication. */
+    absolute_time_t prochain_rapport = make_timeout_time_ms(10000);
+    uint32_t trames_au_dernier_rapport = 0;
 
     while (true) {
-        /* L'image ne change pas encore : en phase 2 c'est la reception d'une
-         * trame reseau qui declenchera la publication. */
-        display::present();
-        trames++;
-
-        prochain = delayed_by_us(prochain, 16667); /* 60 Hz */
-        sleep_until(prochain);
+        if (reseau::trame_prete())
+            display::present();
 
         if (time_reached(prochain_rapport)) {
-            rapport_sonde("regime nominal");
-            rapport_oe("regime nominal");
-            printf("  %lu trames publiees\n\n", (unsigned long)trames);
-            prochain_rapport = make_timeout_time_ms(15000);
+            const reseau::Stats &st = reseau::stats();
+            const uint32_t delta = st.trames - trames_au_dernier_rapport;
+            trames_au_dernier_rapport = st.trames;
+            printf("  %lu trames (%lu/s)  %lu paquets  %lu rejets  %lu incompletes\n",
+                   (unsigned long)st.trames, (unsigned long)(delta / 10),
+                   (unsigned long)st.paquets, (unsigned long)st.rejets,
+                   (unsigned long)st.trames_incompletes);
+            prochain_rapport = make_timeout_time_ms(10000);
         }
     }
 }

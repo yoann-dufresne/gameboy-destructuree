@@ -18,14 +18,20 @@ include(${CMAKE_CURRENT_LIST_DIR}/../vendor/hub75-jupfu/hub75-jupfu.cmake)
 add_executable(ecran
     src/main.cpp
     src/display.cpp
+    src/net/reseau.cpp
 )
 
-target_include_directories(ecran PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
+target_include_directories(ecran PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/include
+    ${CMAKE_CURRENT_LIST_DIR}/src/net   # lwipopts.h
+)
 
 target_link_libraries(ecran PRIVATE
     pico_stdlib
     pico_multicore
     hub75_jupfu
+    # API raw de lwIP, pile servie en arriere-plan : pas de sockets, pas de RTOS.
+    pico_cyw43_arch_lwip_threadsafe_background
 )
 
 # GP0/GP1 sont pris par R1/G1 : l'UART par defaut est inutilisable.
