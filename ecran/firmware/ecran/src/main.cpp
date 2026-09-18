@@ -245,11 +245,13 @@ int main(void) {
             const uint32_t delta = st.trames - trames_au_dernier_rapport;
             trames_au_dernier_rapport = st.trames;
             printf("  %lu trames (%lu/s)  %lu rejets  %lu incompletes  "
-                   "%lu ecartees | construction moy %lu us, max %lu us\n",
+                   "%lu ecartees  %lu retard.  %lu resync | construction moy %lu us, max %lu us\n",
                    (unsigned long)st.trames, (unsigned long)(delta / 10),
                    (unsigned long)st.rejets,
                    (unsigned long)st.trames_incompletes,
                    (unsigned long)st.ecartees,
+                   (unsigned long)st.retardataires,
+                   (unsigned long)st.resynchros,
                    (unsigned long)(occupe_n ? occupe_somme_us / occupe_n : 0),
                    (unsigned long)occupe_max_us);
             occupe_max_us = occupe_somme_us = occupe_n = 0;

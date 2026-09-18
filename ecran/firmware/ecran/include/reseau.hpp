@@ -20,6 +20,10 @@ struct Stats {
                                   * le tampon : déchirure garantie */
     uint32_t ecartees;           /* trames complètes abandonnées parce qu'une plus
                                   * récente est arrivée avant qu'on ait pu publier */
+    uint32_t retardataires;      /* tranches d'une trame déjà soldée, arrivées
+                                  * dans le désordre : écartées sans dommage */
+    uint32_t resynchros;         /* compteur de l'émetteur reparti en arrière :
+                                  * redémarrage, on se recale sur lui */
 };
 
 /* Associe au WiFi et arme la réception. Rend false si l'association échoue. */

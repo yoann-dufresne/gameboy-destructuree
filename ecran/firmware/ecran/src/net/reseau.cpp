@@ -83,8 +83,41 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
         return;
     }
 
-    /* Nouvelle trame ? On solde la précédente. */
-    if (!frame_en_cours || e.frame_id != frame_courante) {
+    /* Âge de la tranche par rapport à la trame courante. La soustraction en
+     * entier signé sur 16 bits gère correctement le bouclage du compteur. */
+    const int16_t age = (int16_t)(e.frame_id - frame_courante);
+
+    /* Au-delà de cette ancienneté, ce n'est plus du désordre : c'est un émetteur
+     * qui a redémarré et remis son compteur à zéro. Sans cette porte de sortie,
+     * la réception se bloquerait définitivement — constaté le 18/09/2026.
+     * 8 trames valent 133 ms à 60 Hz, très au-delà de tout désordre plausible. */
+    constexpr int16_t RESYNC = -8;
+
+    if (age < 0 && age > RESYNC) {
+        /* Tranche d'une trame déjà soldée, arrivée dans le désordre. L'écarter
+         * est essentiel : l'écrire polluerait la trame EN COURS d'assemblage
+         * avec le contenu de la précédente, à un offset arbitraire. */
+        compteurs.retardataires++;
+        pbuf_free(p);
+        return;
+    }
+
+    if (age == 0 && !frame_en_cours) {
+        compteurs.retardataires++;
+        pbuf_free(p);
+        return;
+    }
+
+    if (age <= RESYNC) {
+        /* Resynchronisation : on adopte le compteur de l'émetteur. */
+        compteurs.resynchros++;
+        frame_courante = e.frame_id;
+        frame_en_cours = true;
+        octets_frame = 0;
+    }
+
+    else if (age > 0) {
+        /* Nouvelle trame : on solde la précédente. */
         if (frame_en_cours && octets_frame < FB_OCTETS)
             compteurs.trames_incompletes++;
         frame_courante = e.frame_id;
@@ -100,7 +133,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
         if (octets_frame < FB_OCTETS)
             compteurs.trames_incompletes++;
         compteurs.trames++;
-        frame_en_cours = false;
+        frame_en_cours = false; /* frame_courante reste la référence d'âge */
 
         /* Une trame non encore publiée est abandonnée : on affiche toujours la
          * plus récente. C'est le bon comportement pour un afficheur, et c'est
