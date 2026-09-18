@@ -186,6 +186,12 @@ def main() -> int:
     prochain = debut
     trames = 0
     dernier_point = debut
+    # Détection des décrochages côté PC : si l'envoi lui-même se bloque, le
+    # problème n'est ni le firmware ni l'air, mais cette machine (balayage WiFi
+    # de NetworkManager, ordonnancement, ramasse-miettes).
+    dernier_envoi = debut
+    pire_ecart = 0.0
+    decrochages = 0
 
     print(f"\némission à {args.fps:g} img/s — Ctrl-C pour arrêter\n")
     try:
@@ -194,13 +200,25 @@ def main() -> int:
             trames += 1
 
             maintenant = time.monotonic()
+            ecart = maintenant - dernier_envoi
+            dernier_envoi = maintenant
+            if ecart > pire_ecart:
+                pire_ecart = ecart
+            if ecart > 3 * periode and trames > 2:
+                decrochages += 1
+                print(f"    décrochage émetteur : {ecart * 1000:.0f} ms "
+                      f"à t+{maintenant - debut:.1f} s")
             if maintenant - dernier_point >= 5.0:
                 dt = maintenant - dernier_point
                 debit = em.octets_envoyes * 8 / dt / 1e6
                 print(f"  {trames} trames  {trames / dt:.1f} img/s  "
-                      f"{debit:.2f} Mbit/s  {em.paquets} paquets")
+                      f"{debit:.2f} Mbit/s  {em.paquets} paquets  "
+                      f"pire écart {pire_ecart * 1000:.0f} ms  "
+                      f"{decrochages} décrochages")
                 em.octets_envoyes = em.paquets = 0
                 trames = 0
+                pire_ecart = 0.0
+                decrochages = 0
                 dernier_point = maintenant
 
             if args.duree and maintenant - debut >= args.duree:

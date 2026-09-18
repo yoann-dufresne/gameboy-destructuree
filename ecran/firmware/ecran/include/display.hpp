@@ -30,15 +30,15 @@ void present();
  * rester stable pendant l'appel. */
 void present(const uint8_t *bgr);
 
-/* Intervalle minimal entre deux publications, en microsecondes.
+/* Vrai tant que la construction des plans de bits amorcée par la dernière
+ * publication n'est pas terminée.
  *
- * update_bgr() du pilote amorce une construction de plans de bits pilotée par
- * interruption, qui parcourt toute la séquence BCM. Elle n'a AUCUN garde-fou de
- * réentrance : rappelée en cours de construction, elle repart du plan 0 sans
- * réinitialiser le compteur de plan, et les plans s'écrivent aux mauvais offsets.
- * La démo amont publie à 100 Hz, donc une construction tient dans 10 ms : on
- * prend cette valeur comme plancher. */
-constexpr uint32_t PERIODE_MIN_US = 10000;
+ * present() n'est synchrone que pour le remaniement des pixels : la construction
+ * se poursuit par interruption à travers toute la séquence BCM, et le pilote n'a
+ * aucun garde-fou de réentrance. **Ne jamais publier tant que ceci est vrai.**
+ * Un plancher temporel ne suffit pas : la durée réelle d'une construction n'est
+ * pas garantie. */
+bool occupe();
 
 /* Luminosité de base, 1 à 255. Plus haut = plus lumineux et moins rafraîchi. */
 void set_brightness(uint8_t basis);

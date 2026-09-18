@@ -54,6 +54,13 @@ l'autre : republier sans redessiner réaffiche la même image.
    Deux trames peuvent se terminer à 2 ms d'intervalle. D'où le symptôme : des
    clignotements intermittents, jamais périodiques.
 
+   La parade retenue est un accesseur `occupe()` **ajouté au pilote vendorisé**
+   (cf. son `PROVENANCE.txt`) : on publie quand le pilote a fini, pas après un délai
+   deviné. Une première version utilisait un plancher de 10 ms repris de la cadence
+   de la démo amont — mesure faite, **une construction prend 2,23 ms en moyenne et
+   5,8 ms au pire** : le plancher était 4,5 fois trop conservateur et écartait des
+   trames sans raison, d'où des chutes de cadence visibles par à-coups.
+
 ## Recette — résultats du 18/09/2026
 
 Une dalle 64×64, `clk_sys` 266 MHz (horloge pixel 29,6 MHz), 10 plans BCM,

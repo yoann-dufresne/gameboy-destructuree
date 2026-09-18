@@ -215,29 +215,45 @@ int main(void) {
     absolute_time_t prochain_rapport = make_timeout_time_ms(10000);
     uint32_t trames_au_dernier_rapport = 0;
 
-    absolute_time_t publiable_a = get_absolute_time();
+    uint32_t occupe_max_us = 0, occupe_somme_us = 0, occupe_n = 0;
+    uint32_t sautees = 0;
 
     while (true) {
-        /* On ne publie jamais plus vite que PERIODE_MIN_US : le pilote n'a pas
-         * de garde-fou de reentrance et le reseau, lui, livre par rafales. */
-        if (time_reached(publiable_a)) {
+        /* On ne consomme une trame que si le pilote a fini sa construction
+         * precedente : il n'a pas de garde-fou de reentrance. Si on ne consomme
+         * pas, la trame reste en attente et une plus recente la remplacera —
+         * c'est le bon comportement pour un afficheur. */
+        if (!display::occupe()) {
             const uint8_t *trame = reseau::trame_a_afficher();
             if (trame != nullptr) {
+                const absolute_time_t t0 = get_absolute_time();
                 display::present(trame);
-                publiable_a = delayed_by_us(get_absolute_time(), display::PERIODE_MIN_US);
+                /* Mesure la duree reelle d'une construction. */
+                while (display::occupe())
+                    tight_loop_contents();
+                const uint32_t dt = (uint32_t)absolute_time_diff_us(t0, get_absolute_time());
+                if (dt > occupe_max_us) occupe_max_us = dt;
+                occupe_somme_us += dt;
+                occupe_n++;
             }
+        } else {
+            sautees++;
         }
 
         if (time_reached(prochain_rapport)) {
             const reseau::Stats &st = reseau::stats();
             const uint32_t delta = st.trames - trames_au_dernier_rapport;
             trames_au_dernier_rapport = st.trames;
-            printf("  %lu trames (%lu/s)  %lu paquets  %lu rejets  "
-                   "%lu incompletes  %lu ecartees\n",
+            printf("  %lu trames (%lu/s)  %lu rejets  %lu incompletes  "
+                   "%lu ecartees | construction moy %lu us, max %lu us\n",
                    (unsigned long)st.trames, (unsigned long)(delta / 10),
-                   (unsigned long)st.paquets, (unsigned long)st.rejets,
+                   (unsigned long)st.rejets,
                    (unsigned long)st.trames_incompletes,
-                   (unsigned long)st.ecartees);
+                   (unsigned long)st.ecartees,
+                   (unsigned long)(occupe_n ? occupe_somme_us / occupe_n : 0),
+                   (unsigned long)occupe_max_us);
+            occupe_max_us = occupe_somme_us = occupe_n = 0;
+            sautees = 0;
             prochain_rapport = make_timeout_time_ms(10000);
         }
     }

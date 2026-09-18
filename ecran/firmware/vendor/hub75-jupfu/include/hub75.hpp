@@ -316,6 +316,13 @@ public:
     // Fine brightness/intensity control in range [0.0f, 1.0f].
     void setIntensity(float intensity, bool linear_brightness_control = true);
 
+    // AJOUT LOCAL (voir PROVENANCE.txt) — vrai tant qu'une construction de plans
+    // de bits amorcee par update()/update_bgr() n'est pas terminee. Ces methodes
+    // n'ont aucun garde-fou de reentrance : rappelees en cours de construction,
+    // elles repartent du plan 0 sans reinitialiser bitplane_. Cet accesseur
+    // permet a l'appelant de ne pas les rappeler trop tot.
+    bool occupe() const { return build_actif_; }
+
 private:
     // --- panel/addressing constants -----------------------------------------------------------
     static constexpr uint32_t ADDR_PINS = Cfg.pins.rowsel_n_pins;
@@ -455,6 +462,9 @@ private:
 
     // Brightness as fixed-point Q16 (because it may be changed at runtime).
     uint32_t brightness_fp_ = (1u << BRIGHTNESS_FP_SHIFT);
+
+    // AJOUT LOCAL — cf. occupe()
+    volatile bool build_actif_ = false;
     uint32_t basis_factor_ = 6u;
 
     // Only touched when Cfg.frame_rate_debug is set.

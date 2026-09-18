@@ -325,6 +325,7 @@ void Hub75Driver<Cfg>::handle_bitplane_irq()
         // - to display new content of frame_buffer_ on matrix panel
         // - to make new "back-buffer" available for writing
         swap_frame_buffer_pending_ = true;
+        build_actif_ = false; // AJOUT LOCAL — cf. occupe()
     }
 }
 
@@ -998,6 +999,7 @@ void Hub75Driver<Cfg>::update_bgr(const uint8_t *src)
     }
 
     // Kick off building bitplanes from rgb_buffer_ to be written to frame_buffer_
+    build_actif_ = true; // AJOUT LOCAL — cf. occupe()
     dma_channel_set_write_addr(write_chan_, frame_buffer_, false);
     dma_channel_set_read_addr(read_chan_, rgb_buffer_, false);
     dma_start_channel_mask((1u << read_chan_) | (1u << write_chan_));
@@ -1246,6 +1248,7 @@ void Hub75Driver<Cfg>::update(pimoroni::PicoGraphics const *graphics)
     }
 
     // Kick off building bitplanes from rgb_buffer_ to be written to frame_buffer_
+    build_actif_ = true; // AJOUT LOCAL — cf. occupe()
     dma_channel_set_write_addr(write_chan_, frame_buffer_, false);
     dma_channel_set_read_addr(read_chan_, rgb_buffer_, false);
     dma_start_channel_mask((1u << read_chan_) | (1u << write_chan_));

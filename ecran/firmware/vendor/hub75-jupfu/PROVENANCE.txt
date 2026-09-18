@@ -22,3 +22,26 @@ pio/hub75 de raspberrypi/pico-examples (BSD-3-Clause, Copyright (c) 2020
 Raspberry Pi (Trading) Ltd.), mention conservée dans son en-tête.
 
 hub75-jupfu.cmake est un ajout local, pas un fichier de l'amont.
+
+------------------------------------------------------------------------
+MODIFICATIONS LOCALES (18/09/2026)
+
+Un seul ajout, signalé par le commentaire « AJOUT LOCAL » aux trois
+emplacements concernés :
+
+  include/hub75.hpp  — membre volatile build_actif_ et accesseur occupe()
+  include/hub75.tpp  — build_actif_ = true  a la fin de update_bgr()
+                       build_actif_ = false a la fin de handle_bitplane_irq()
+
+Pourquoi : update()/update_bgr() ne sont synchrones que pour le remaniement
+des pixels. La construction des plans de bits qu'ils amorcent se poursuit par
+interruption a travers toute la sequence BCM, et ces methodes n'ont AUCUN
+garde-fou de reentrance — rappelees en cours de construction, elles repartent
+du plan 0 sans reinitialiser bitplane_, et les plans s'ecrivent aux mauvais
+offsets.
+
+La demo amont publie a cadence reguliere (100 Hz), ce qui masque le probleme.
+Nous publions a l'arrivee du dernier paquet reseau, donc par rafales : d'ou
+la necessite de savoir si une construction est en cours.
+
+L'ajout est purement passif : il n'altere aucun comportement du pilote.

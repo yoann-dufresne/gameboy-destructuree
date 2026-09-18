@@ -153,10 +153,13 @@ void present(const uint8_t *bgr) {
     gpio_xor_mask(1u << PIN_MESURE_FLIP);
 
     /* Le remaniement des pixels est synchrone — le tampon source est libre au
-     * retour — mais la construction des plans de bits qu'il amorce ne l'est pas :
-     * elle se poursuit par interruption. D'où l'intervalle minimal entre deux
-     * appels, cf. PERIODE_MIN_US. */
+     * retour — mais la construction des plans de bits qu'il amorce ne l'est pas.
+     * L'appelant doit avoir vérifié occupe() au préalable. */
     pilote.update_bgr(bgr);
+}
+
+bool occupe() {
+    return pilote.occupe();
 }
 
 void set_brightness(uint8_t basis) {
