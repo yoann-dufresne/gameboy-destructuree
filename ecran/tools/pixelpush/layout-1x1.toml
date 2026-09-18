@@ -9,7 +9,7 @@ hauteur = 64
 
 [[noeud]]
 id = 0
-ip = "192.168.1.50"   # <- adresse annoncée par le firmware sur sa console
+ip = "192.168.1.182" # annoncée par le firmware sur sa console
 port = 4242
 x0 = 0
 y0 = 0

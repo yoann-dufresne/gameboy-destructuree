@@ -10,6 +10,14 @@ include(pico_sdk_import.cmake)
 
 project(ecran_firmware C CXX ASM)
 
+# La puce WiFi CYW43 est pilotee par une liaison SPI en PIO dont le diviseur est
+# dimensionne pour un clk_sys de 150 MHz (valeur par defaut : 2, soit 75 MHz de
+# PIO). On tourne a 266 MHz pour l'horloge pixel : le diviseur doit suivre, sinon
+# la liaison part a 133 MHz et la puce ne repond plus — « [CYW43] STALL: timeout ».
+#   266 / 4 = 66,5 MHz, soit un peu en dessous des 75 MHz nominaux : marge saine.
+# A recalculer si CLK_SYS_KHZ change dans include/config.h.
+add_compile_definitions(CYW43_PIO_CLOCK_DIV_INT=4)
+
 pico_sdk_init()
 
 # Coeur du pilote HUB75 de JuPfu, vendorise sans les bibliotheques Pimoroni.

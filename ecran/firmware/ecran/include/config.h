@@ -41,6 +41,9 @@
 #define BCM_PLANES         10   /* 8 ou 10 */
 #define CIE_SEPARATE        1   /* canaux CIE séparés : meilleur rendu, plus de RAM */
 #define BASIS_BRIGHTNESS    6   /* compromis luminosité / rafraîchissement */
+/* ⚠️ Si cette valeur change, ajuster CYW43_PIO_CLOCK_DIV_INT dans CMakeLists.txt :
+ * la liaison SPI de la puce WiFi en derive, et elle decroche si elle part trop
+ * vite. Regle : garder clk_sys / DIV autour de 70 MHz. */
 #define CLK_SYS_KHZ    266000   /* horloge pixel = clk_sys / 9 = 29,6 MHz */
 
 /* Le pilote annonce son rafraîchissement sur la console — depuis une
