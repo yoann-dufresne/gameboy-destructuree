@@ -529,7 +529,7 @@ client du protocole plutôt que comme sa raison d'être.
 |---|---|---|---|---|
 | 0 · Ça s'allume | C + PIO | pico-sdk | ✅ câblage validé le 16/09/2026 | ½ j |
 | 1 · Driver | C + PIO asm | bare-metal, 2 cœurs, DMA | ≥ 150 Hz, 0 % CPU | 2–4 j |
-| 2 · Protocole + réception | C | lwIP raw, cyw43 | < 0,1 % de perte | 2–3 j |
+| 2 · Protocole + réception | C++ | lwIP raw, cyw43 | ✅ 60 img/s, ~0,05 % de perte, 18/09/2026 | 2–3 j |
 | 3 · Émetteur PC | Python | — | **vidéo à l'écran** 🎉 | 1–2 j |
 | 4 · Mesure | C | — | latence + débit chiffrés | 2 j |
 | 5 · Passage à 3×3 | C + mécanique | idem | 192×192 sans déchirure | 3–5 j |
@@ -590,6 +590,9 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | Phase 2 terminée : 60 img/s en BGR888, ~0,05 % de perte | Trois obstacles levés : diviseur SPI du CYW43, routes VPN, réentrance de `update_bgr` |
+| 18/09/2026 | `CYW43_PIO_CLOCK_DIV_INT` à 4 | La liaison SPI du WiFi dérive de `clk_sys` : à 266 MHz elle décroche avec la valeur par défaut |
+| 18/09/2026 | Publication conditionnée à `occupe()`, pas à un délai | Une construction prend 2,23 ms ; le plancher de 10 ms deviné écartait des trames et faisait chuter la cadence |
 | 18/09/2026 | Un seul tampon côté firmware, celui du pilote suffit | Le double tampon superposé faisait alterner image / noir à chaque publication |
 | 18/09/2026 | Phase 1 terminée : 788 Hz constants, cœur 0 libre | Le rafraîchissement ne bouge pas d'un Hz sous charge — l'affichage est bien autonome |
 | 18/09/2026 | `clk_sys` à 266 MHz, pas 200 | Mesuré stable, donne 29,6 MHz d'horloge pixel |

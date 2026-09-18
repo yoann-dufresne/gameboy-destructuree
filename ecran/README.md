@@ -50,7 +50,7 @@ Les documents d'architecture du projet global vivent dans le dossier parent :
 | Plan de réalisation | ✅ |
 | 0 · Bring-up d'une dalle | ✅ 16/09/2026 |
 | 1 · Driver HUB75 | ✅ 18/09/2026 — 788 Hz, cœur 0 libre |
-| 2 · Protocole + réception | 🔨 suivante |
-| 3 · Émetteur PC | ⬜ |
+| 2 · Protocole + réception | ✅ 18/09/2026 — 60 img/s en BGR888 |
+| 3 · Émetteur PC | 🔨 suivante — socle déjà en place |
 | 4 · Mesure | ⬜ |
 | 5 · Passage à 3×3 | ⬜ |
