@@ -43,6 +43,10 @@
 #define BASIS_BRIGHTNESS    6   /* compromis luminosité / rafraîchissement */
 #define CLK_SYS_KHZ    266000   /* horloge pixel = clk_sys / 9 = 29,6 MHz */
 
-/* Le pilote annonce son rafraîchissement sur la console. Coûteux en sorties
- * série : à couper dès qu'on passe au réseau. */
-#define DEBUG_FRAME_RATE    1
+/* Le pilote annonce son rafraîchissement sur la console — depuis une
+ * interruption, donc coûteux et générateur de gigue. À n'activer que pour un
+ * diagnostic, jamais en régime nominal ni en phase 2.
+ *
+ * ⚠️ Et il ne prouve rien sur le contenu : il a annoncé 788 Hz parfaitement
+ * stables pendant que l'écran était noir, puis pendant qu'il clignotait. */
+#define DEBUG_FRAME_RATE    0

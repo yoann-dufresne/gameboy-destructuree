@@ -407,7 +407,8 @@ dégrade pas l'image ; photo à 1/250 s sans bandes.
 cœur 0 saturé et sous publication à 60 Hz (min = max sur les trois phases) : l'affichage
 est autonome. Sonde sur les pads : `AFFICHE`, adresses actives 96 %. Empreinte 114 ko de
 RAM sur 520. `clk_sys` retenu : **266 MHz** et non les 200 MHz envisagés — mesuré stable,
-et il donne 29,6 MHz d'horloge pixel. Reste visuel : l'absence de ghosting au damier 1 px.
+et il donne 29,6 MHz d'horloge pixel. Contrôles visuels passés le 18/09/2026 : damier 1 px
+en grain fin régulier **sans traînée**, et aucun scintillement en régime nominal.
 
 **Piège :** le damier 1 px révèle le *ghosting* (fuite de la ligne précédente). S'il apparaît,
 c'est le temps d'extinction /OE avant changement d'adresse qu'il faut allonger — pas le câblage.

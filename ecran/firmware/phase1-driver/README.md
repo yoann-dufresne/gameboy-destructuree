@@ -53,8 +53,8 @@ canaux CIE séparés, luminosité de base 6.
 | Mire fixe affichée | sonde : `AFFICHE`, adresses actives 96 % | ✅ |
 | Rafraîchissement ≥ 150 Hz | **788 Hz** | ✅ 5× la cible |
 | Cœur 0 saturé ne dégrade pas | **788 Hz, min = max**, au repos comme sous charge | ✅ |
-| Damier 1 px sans ghosting | visuel — ne se mesure pas depuis le firmware | ⬜ |
-| Absence de scintillement | visuel — `/OE` n'en voit rien, c'est du contenu | ⬜ |
+| Damier 1 px sans ghosting | grain fin régulier, aucune traînée | ✅ |
+| Absence de scintillement | stable dans les deux régimes | ✅ |
 
 Le rafraîchissement est **rigoureusement constant** entre les trois phases de la
 recette : au repos, cœur 0 saturé par du calcul continu, et publication à 60 Hz. C'est
@@ -78,6 +78,19 @@ Deux mesures ont servi, et l'une est trompeuse :
 
 Et le compteur de trames du pilote ne prouve rien : il a annoncé 788 Hz parfaitement
 stables pendant que l'écran était noir, puis pendant qu'il clignotait.
+
+## Régime nominal
+
+Publication à 60 Hz d'une image statique, relevé toutes les 15 s :
+
+```
+  regime nominal   donnees 85 %  adresses 96 %  -> AFFICHE
+  regime nominal   allumage moyen 58,3 %  min 57,8  max 59,3  ecart 1,5 pt
+  900 trames publiees
+```
+
+900 trames en 15 s : la cadence est tenue exactement. En phase 2, c'est la réception
+d'une trame réseau qui déclenchera `present()` à la place du réveil périodique.
 
 ## Empreinte
 

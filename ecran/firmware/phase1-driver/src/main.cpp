@@ -196,39 +196,26 @@ int main(void) {
     rapport_sonde("coeur 0 sature");
     sleep_ms(2500);
 
-    printf("\n--- PHASE C : diagnostic du scintillement ---\n");
-    printf("    Alternance 6 s / 6 s, en boucle :\n");
-    printf("      A. image figee, AUCUNE publication\n");
-    printf("      B. publication a 60 Hz d'une image pourtant identique\n");
-    printf("    Si le scintillement va et vient au rythme des 6 s, c'est la\n");
-    printf("    publication qui le cause, pas le rafraichissement.\n\n");
+    printf("\n--- PHASE C : regime nominal, publication a 60 Hz ---\n\n");
+
+    absolute_time_t prochain = get_absolute_time();
+    absolute_time_t prochain_rapport = make_timeout_time_ms(15000);
+    uint32_t trames = 0;
 
     while (true) {
-        /* Le bon instrument pour ce defaut : l'activite des lignes de DONNEES.
-         * /OE pilote l'activation globale, pas le contenu — il ne voit rien
-         * d'une trame noire. Les lignes de donnees, si. */
-        printf("\n[A] image figee, aucune publication\n");
-        rapport_sonde("sans publication");
-        rapport_oe("sans publication");
-        sleep_ms(1200);
+        /* L'image ne change pas encore : en phase 2 c'est la reception d'une
+         * trame reseau qui declenchera la publication. */
+        display::present();
+        trames++;
 
-        printf("[B] publication a 60 Hz de la MEME image\n");
-        {
-            uint32_t total = 0, data_actifs = 0;
-            absolute_time_t prochain = get_absolute_time();
-            for (int i = 0; i < 120; ++i) {
-                display::present();
-                const absolute_time_t f = make_timeout_time_us(4000);
-                do {
-                    total++;
-                    if (gpio_get_all() & MASQUE_DATA) data_actifs++;
-                } while (!time_reached(f));
-                prochain = delayed_by_us(prochain, 16667);
-                sleep_until(prochain);
-            }
-            const uint32_t d = total ? (uint32_t)((uint64_t)data_actifs * 100u / total) : 0;
-            printf("  %-26s donnees %3lu %%\n", "avec publication 60 Hz", (unsigned long)d);
+        prochain = delayed_by_us(prochain, 16667); /* 60 Hz */
+        sleep_until(prochain);
+
+        if (time_reached(prochain_rapport)) {
+            rapport_sonde("regime nominal");
+            rapport_oe("regime nominal");
+            printf("  %lu trames publiees\n\n", (unsigned long)trames);
+            prochain_rapport = make_timeout_time_ms(15000);
         }
-        sleep_ms(1200);
     }
 }
