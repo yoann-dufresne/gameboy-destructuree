@@ -146,11 +146,17 @@ uint8_t *backbuffer() {
 }
 
 void present() {
+    present(tampon);
+}
+
+void present(const uint8_t *bgr) {
     gpio_xor_mask(1u << PIN_MESURE_FLIP);
 
-    /* Synchrone : convertit le tampon en plans de bits et arme la bascule, que
-     * le pilote effectuera en fin de trame. Le tampon est libre au retour. */
-    pilote.update_bgr(tampon);
+    /* Le remaniement des pixels est synchrone — le tampon source est libre au
+     * retour — mais la construction des plans de bits qu'il amorce ne l'est pas :
+     * elle se poursuit par interruption. D'où l'intervalle minimal entre deux
+     * appels, cf. PERIODE_MIN_US. */
+    pilote.update_bgr(bgr);
 }
 
 void set_brightness(uint8_t basis) {

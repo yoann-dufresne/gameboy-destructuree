@@ -16,14 +16,19 @@ struct Stats {
     uint32_t rejets;             /* en-tête invalide, mauvais nœud, hors bornes */
     uint32_t trames;             /* trames complètes présentées */
     uint32_t trames_incompletes; /* dernière tranche reçue mais octets manquants */
+    uint32_t collisions;         /* tranche écrite PENDANT que l'affichage lisait
+                                  * le tampon : déchirure garantie */
+    uint32_t ecartees;           /* trames complètes abandonnées parce qu'une plus
+                                  * récente est arrivée avant qu'on ait pu publier */
 };
 
-/* Associe au WiFi et arme la réception. `tampon` est le tampon d'affichage :
- * les tranches y sont écrites en place. Rend false si l'association échoue. */
-bool connecter(uint8_t node_id, uint8_t *tampon, uint32_t taille);
+/* Associe au WiFi et arme la réception. Rend false si l'association échoue. */
+bool connecter(uint8_t node_id);
 
-/* Vrai une seule fois par trame complète reçue : consomme le drapeau. */
-bool trame_prete();
+/* Rend la dernière trame complète reçue, ou nullptr s'il n'y en a pas de
+ * nouvelle. Le tampon rendu reste stable jusqu'au prochain appel : la réception
+ * remplit l'autre. */
+const uint8_t *trame_a_afficher();
 
 const Stats &stats();
 const char *adresse_ip();

@@ -7,9 +7,15 @@
  *      laissée active, elle ajoute 10 à 100 ms. Tout le reste est cosmétique à côté.
  *   2. API raw de lwIP (`udp_recv`), pas l'API sockets : pas de copie
  *      supplémentaire ni de réveil de tâche.
- *   3. Chaque tranche est écrite DANS LE TAMPON D'AFFICHAGE dès son arrivée, au
+ *   3. Chaque tranche est écrite dans le tampon de réception dès son arrivée, au
  *      lieu d'attendre la trame complète. En BGR888 la charge utile a déjà le bon
  *      format : c'est une simple recopie, sans conversion.
+ *
+ * DOUBLE TAMPON, et ici il est nécessaire — contrairement à celui qu'on avait
+ * superposé côté affichage. La réception court en contexte d'interruption : sans
+ * double tampon, elle écrirait dans le tampon que l'affichage est en train de
+ * convertir, et l'image se déchirerait. Mesuré le 18/09/2026 : 31 écritures
+ * concurrentes en 40 s.
  */
 
 #include "reseau.hpp"
@@ -26,13 +32,15 @@
 
 namespace {
 
-uint8_t *cible = nullptr;
-uint32_t cible_taille = 0;
+/* Deux tampons : la réception remplit l'un pendant que l'affichage lit l'autre. */
+alignas(4) uint8_t tampons[2][FB_OCTETS];
+
+volatile uint8_t idx_reception = 0;
+volatile int8_t idx_pret = -1; /* index d'une trame complète en attente */
+
 uint8_t mon_node_id = 0;
 
 udp_pcb *pcb = nullptr;
-
-volatile bool trame_a_presenter = false;
 
 reseau::Stats compteurs{};
 
@@ -69,7 +77,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
 
     const uint16_t charge = (uint16_t)(p->tot_len - PXL1_ENTETE);
 
-    if (e.offset + charge > cible_taille) {
+    if (e.offset + charge > FB_OCTETS) {
         compteurs.rejets++;
         pbuf_free(p);
         return;
@@ -77,24 +85,31 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
 
     /* Nouvelle trame ? On solde la précédente. */
     if (!frame_en_cours || e.frame_id != frame_courante) {
-        if (frame_en_cours && octets_frame < cible_taille)
+        if (frame_en_cours && octets_frame < FB_OCTETS)
             compteurs.trames_incompletes++;
         frame_courante = e.frame_id;
         frame_en_cours = true;
         octets_frame = 0;
     }
 
-    /* Écriture directe dans le tampon d'affichage : le format BGR888 du
-     * protocole est déjà celui de la dalle. */
-    pbuf_copy_partial(p, cible + e.offset, charge, PXL1_ENTETE);
+    /* Le format BGR888 du protocole est déjà celui de la dalle : simple recopie. */
+    pbuf_copy_partial(p, tampons[idx_reception] + e.offset, charge, PXL1_ENTETE);
     octets_frame += charge;
 
     if (e.flags & PXL1_FLAG_DERNIERE) {
-        if (octets_frame < cible_taille)
+        if (octets_frame < FB_OCTETS)
             compteurs.trames_incompletes++;
         compteurs.trames++;
         frame_en_cours = false;
-        trame_a_presenter = true;
+
+        /* Une trame non encore publiée est abandonnée : on affiche toujours la
+         * plus récente. C'est le bon comportement pour un afficheur, et c'est
+         * aussi ce qui protège le pilote d'un rappel trop rapproché. */
+        if (idx_pret >= 0)
+            compteurs.ecartees++;
+
+        idx_pret = (int8_t)idx_reception;
+        idx_reception ^= 1u;
     }
 
     pbuf_free(p);
@@ -104,10 +119,9 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
 
 namespace reseau {
 
-bool connecter(uint8_t node_id, uint8_t *tampon, uint32_t taille) {
-    cible = tampon;
-    cible_taille = taille;
+bool connecter(uint8_t node_id) {
     mon_node_id = node_id;
+    std::memset(tampons, 0, sizeof(tampons));
 
     if (cyw43_arch_init_with_country(WIFI_PAYS)) {
         printf("  cyw43_arch_init : ECHEC\n");
@@ -143,11 +157,12 @@ bool connecter(uint8_t node_id, uint8_t *tampon, uint32_t taille) {
     return true;
 }
 
-bool trame_prete() {
-    if (!trame_a_presenter)
-        return false;
-    trame_a_presenter = false;
-    return true;
+const uint8_t *trame_a_afficher() {
+    const int8_t idx = idx_pret;
+    if (idx < 0)
+        return nullptr;
+    idx_pret = -1;
+    return tampons[idx];
 }
 
 const Stats &stats() { return compteurs; }

@@ -199,7 +199,7 @@ int main(void) {
     sleep_ms(2500);
 
     printf("\n--- RESEAU ---\n");
-    if (!reseau::connecter(display::node_id(), display::backbuffer(), FB_OCTETS)) {
+    if (!reseau::connecter(display::node_id())) {
         printf("  pas de reseau : la mire reste affichee.\n");
         while (true)
             tight_loop_contents();
@@ -215,18 +215,29 @@ int main(void) {
     absolute_time_t prochain_rapport = make_timeout_time_ms(10000);
     uint32_t trames_au_dernier_rapport = 0;
 
+    absolute_time_t publiable_a = get_absolute_time();
+
     while (true) {
-        if (reseau::trame_prete())
-            display::present();
+        /* On ne publie jamais plus vite que PERIODE_MIN_US : le pilote n'a pas
+         * de garde-fou de reentrance et le reseau, lui, livre par rafales. */
+        if (time_reached(publiable_a)) {
+            const uint8_t *trame = reseau::trame_a_afficher();
+            if (trame != nullptr) {
+                display::present(trame);
+                publiable_a = delayed_by_us(get_absolute_time(), display::PERIODE_MIN_US);
+            }
+        }
 
         if (time_reached(prochain_rapport)) {
             const reseau::Stats &st = reseau::stats();
             const uint32_t delta = st.trames - trames_au_dernier_rapport;
             trames_au_dernier_rapport = st.trames;
-            printf("  %lu trames (%lu/s)  %lu paquets  %lu rejets  %lu incompletes\n",
+            printf("  %lu trames (%lu/s)  %lu paquets  %lu rejets  "
+                   "%lu incompletes  %lu ecartees\n",
                    (unsigned long)st.trames, (unsigned long)(delta / 10),
                    (unsigned long)st.paquets, (unsigned long)st.rejets,
-                   (unsigned long)st.trames_incompletes);
+                   (unsigned long)st.trames_incompletes,
+                   (unsigned long)st.ecartees);
             prochain_rapport = make_timeout_time_ms(10000);
         }
     }

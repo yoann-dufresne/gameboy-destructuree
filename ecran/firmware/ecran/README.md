@@ -33,7 +33,7 @@ l'autre : republier sans redessiner réaffiche la même image.
 > rempli, si bien qu'afficher deux fois la même image alternait **image / noir** —
 > scintillement à 60 Hz. Corrigé le 18/09/2026.
 
-## Deux pièges du pilote amont, consignés dans le code
+## Trois pièges du pilote amont, consignés dans le code
 
 1. **`setBasisBrightness()` est obligatoire après `start()` sur le cœur 1.** Sans cet
    appel, les commandes de ligne restent à zéro : adresse figée à 0, `lit_cycles` à 0,
@@ -42,6 +42,17 @@ l'autre : republier sans redessiner réaffiche la même image.
 2. **`chain_rows` / `chain_cols` : le README amont contredit son propre code.** Le code
    fait `DISPLAY_WIDTH = matrix_panel_width * chain_cols`, donc c'est `chain_cols` qui
    compte les dalles côte à côte. Sans effet à `CHAIN_LEN = 1`, déterminant en phase 5.
+3. **`update_bgr()` n'a aucun garde-fou de réentrance.** Il n'est synchrone que pour le
+   remaniement des pixels ; la construction des plans de bits qu'il amorce se poursuit
+   par interruption à travers toute la séquence BCM. Rappelé en cours de construction,
+   il repart du plan 0 **sans réinitialiser le compteur de plan** : les plans s'écrivent
+   aux mauvais offsets et l'image se brouille. La démo amont publie à 100 Hz, donc une
+   construction tient dans 10 ms : c'est le plancher retenu (`display::PERIODE_MIN_US`).
+
+   Le piège se manifeste quand les publications ne sont **pas régulières** — chez nous
+   elles sont déclenchées par l'arrivée du dernier paquet, et le WiFi livre par rafales.
+   Deux trames peuvent se terminer à 2 ms d'intervalle. D'où le symptôme : des
+   clignotements intermittents, jamais périodiques.
 
 ## Recette — résultats du 18/09/2026
 
