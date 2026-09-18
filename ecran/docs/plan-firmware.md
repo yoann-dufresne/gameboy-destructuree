@@ -364,7 +364,7 @@ Glisser-déposer, ça tourne en 10 minutes sans compilateur et ça isole matéri
 
 ---
 
-### Phase 1 — driver HUB75, écrit chaîne-conscient · 2 à 4 jours
+### Phase 1 — driver HUB75, écrit chaîne-conscient · 2 à 4 jours · ✅ **terminée le 18/09/2026**
 
 **Langage / couche :** C99 + assembleur PIO. Bare-metal, `pico_multicore`, DMA chaînés.
 
@@ -400,6 +400,12 @@ Alternative : [dgrantpete/Pi-Pico-Hub75-Driver](https://github.com/dgrantpete/Pi
 **Critère de sortie :** mire fixe (dégradé + damier 1 px) depuis un buffer statique ;
 **≥ 150 Hz mesurés à l'oscilloscope sur /OE** ; une boucle `while(1)` saturant le cœur 0 ne
 dégrade pas l'image ; photo à 1/250 s sans bandes.
+
+✅ **Atteint** — `firmware/phase1-driver/`. **788 Hz, rigoureusement constants** au repos,
+cœur 0 saturé et sous publication à 60 Hz (min = max sur les trois phases) : l'affichage
+est autonome. Sonde sur les pads : `AFFICHE`, adresses actives 96 %. Empreinte 114 ko de
+RAM sur 520. `clk_sys` retenu : **266 MHz** et non les 200 MHz envisagés — mesuré stable,
+et il donne 29,6 MHz d'horloge pixel. Reste visuel : l'absence de ghosting au damier 1 px.
 
 **Piège :** le damier 1 px révèle le *ghosting* (fuite de la ligne précédente). S'il apparaît,
 c'est le temps d'extinction /OE avant changement d'adresse qu'il faut allonger — pas le câblage.
@@ -581,6 +587,8 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | Phase 1 terminée : 788 Hz constants, cœur 0 libre | Le rafraîchissement ne bouge pas d'un Hz sous charge — l'affichage est bien autonome |
+| 18/09/2026 | `clk_sys` à 266 MHz, pas 200 | Mesuré stable, donne 29,6 MHz d'horloge pixel |
 | 18/09/2026 | Pilote sur le cœur 1 : nécessite `setBasisBrightness()` après `start()` | Sans cela les commandes de ligne restent à zéro — adresse figée à 0, panneau noir, alors que le compteur de trames tourne normalement |
 | 16/09/2026 | **Horloge pixel ≥ 28 MHz, image nette** ; limite de la dalle non atteinte | Plafonné par notre firmware (clk_sys/9 = 29,6 MHz), pas par la dalle |
 | 16/09/2026 | Rafraîchissement mesuré : 1138 Hz en 8 plans, 750 Hz en 10 plans, à 28 MHz | Le modèle théorique était optimiste de ~50 % ; une chaîne de 9 tombe sous 150 Hz quelle que soit la profondeur BCM |
