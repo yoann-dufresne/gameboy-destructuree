@@ -72,8 +72,9 @@ sans raison — le chemin jusqu'ici a coûté plusieurs essais infructueux :
 | Canaux CIE | **séparés** | communs |
 | `clk_sys` | **266 MHz** | 252 MHz |
 
-Lequel de ces quatre écarts cassait l'affichage n'est **pas encore élucidé** — à
-traiter en phase 1 proprement dite, le plan prévoyant le cœur 1 pour l'affichage.
+✅ **Élucidé le 18/09/2026 : c'est le cœur 1**, et lui seul — voir
+[`DIAGNOSTIC.md`](DIAGNOSTIC.md). Les trois autres écarts sont innocents pris
+isolément. Correctif : appeler `setBasisBrightness()` juste après `start()`.
 
 ## Résultats mesurés
 

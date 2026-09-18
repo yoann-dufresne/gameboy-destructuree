@@ -581,6 +581,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | Pilote sur le cœur 1 : nécessite `setBasisBrightness()` après `start()` | Sans cela les commandes de ligne restent à zéro — adresse figée à 0, panneau noir, alors que le compteur de trames tourne normalement |
 | 16/09/2026 | **Horloge pixel ≥ 28 MHz, image nette** ; limite de la dalle non atteinte | Plafonné par notre firmware (clk_sys/9 = 29,6 MHz), pas par la dalle |
 | 16/09/2026 | Rafraîchissement mesuré : 1138 Hz en 8 plans, 750 Hz en 10 plans, à 28 MHz | Le modèle théorique était optimiste de ~50 % ; une chaîne de 9 tombe sous 150 Hz quelle que soit la profondeur BCM |
 | 16/09/2026 | Pilote JuPfu vendorisé ; le firmware passe en C++20 | Sa configuration est un paramètre de patron évalué à la compilation ; aucune conséquence sur les décisions de fond |
