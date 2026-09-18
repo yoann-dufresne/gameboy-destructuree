@@ -386,8 +386,10 @@ L'API ne parle que du rectangle **du nœud** : `hub75_backbuffer()` rend un buff
 
 **Décisions techniques figées ici :**
 - **BCM 8 plans**, pas de PWM.
-- **Double tampon strict**, bascule en fin de trame. Jamais de triple tampon : chaque tampon
-  en plus est une trame de latence en plus.
+- **Double tampon** — mais celui du pilote suffit. Y superposer le nôtre n'apportait rien
+  et introduisait un scintillement à 60 Hz : `present()` basculait vers un tampon non
+  rempli, donc republier la même image alternait image / noir. Constaté le 18/09/2026.
+  Jamais de triple tampon : chaque tampon en plus est une trame de latence en plus.
 - Cœur 1 dédié à l'entretien du rendu.
 - Horloge système **200 MHz** (overclock modéré, sans surtension).
 - Option anti-gigue : `pico_set_binary_type(... copy_to_ram)` supprime la gigue du cache XIP.
@@ -587,6 +589,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | Un seul tampon côté firmware, celui du pilote suffit | Le double tampon superposé faisait alterner image / noir à chaque publication |
 | 18/09/2026 | Phase 1 terminée : 788 Hz constants, cœur 0 libre | Le rafraîchissement ne bouge pas d'un Hz sous charge — l'affichage est bien autonome |
 | 18/09/2026 | `clk_sys` à 266 MHz, pas 200 | Mesuré stable, donne 29,6 MHz d'horloge pixel |
 | 18/09/2026 | Pilote sur le cœur 1 : nécessite `setBasisBrightness()` après `start()` | Sans cela les commandes de ligne restent à zéro — adresse figée à 0, panneau noir, alors que le compteur de trames tourne normalement |

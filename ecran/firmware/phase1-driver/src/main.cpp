@@ -103,6 +103,41 @@ void rapport_sonde(const char *etiquette) {
            (a == 0) ? "NE BALAIE PAS" : (d == 0) ? "NOIR" : "AFFICHE");
 }
 
+/* Rapport cyclique d'allumage, fenêtre par fenêtre.
+ *
+ * /OE est actif bas : la dalle est allumée quand la broche est à 0. Si des trames
+ * sont tronquées, le rapport cyclique chute sur les fenêtres concernées. L'écart
+ * entre fenêtres est donc une mesure objective du scintillement — là où le
+ * compteur de trames du pilote, lui, ne voit rien. */
+struct Oe { uint32_t mini, maxi, moyenne; };
+
+Oe mesurer_oe(uint32_t nb_fenetres, uint32_t fenetre_us) {
+    uint32_t mini = 1000, maxi = 0, somme = 0;
+    for (uint32_t f = 0; f < nb_fenetres; ++f) {
+        uint32_t total = 0, allume = 0;
+        const absolute_time_t fin = make_timeout_time_us(fenetre_us);
+        do {
+            total++;
+            if (!(gpio_get_all() & (1u << PIN_OE))) allume++;
+        } while (!time_reached(fin));
+        const uint32_t pm = total ? (uint32_t)((uint64_t)allume * 1000u / total) : 0;
+        if (pm < mini) mini = pm;
+        if (pm > maxi) maxi = pm;
+        somme += pm;
+    }
+    return {mini, maxi, nb_fenetres ? somme / nb_fenetres : 0};
+}
+
+void rapport_oe(const char *etiquette) {
+    const Oe o = mesurer_oe(120, 4000); /* 120 fenetres de 4 ms = 480 ms */
+    printf("  %-26s allumage moyen %2lu,%01lu %%  min %2lu,%01lu  max %2lu,%01lu  ecart %lu,%01lu pt\n",
+           etiquette,
+           (unsigned long)(o.moyenne / 10), (unsigned long)(o.moyenne % 10),
+           (unsigned long)(o.mini / 10), (unsigned long)(o.mini % 10),
+           (unsigned long)(o.maxi / 10), (unsigned long)(o.maxi % 10),
+           (unsigned long)((o.maxi - o.mini) / 10), (unsigned long)((o.maxi - o.mini) % 10));
+}
+
 /* Charge de calcul pour saturer le cœur 0. `volatile` empêche le compilateur
  * de l'éliminer. */
 volatile uint32_t puits;
@@ -161,13 +196,39 @@ int main(void) {
     rapport_sonde("coeur 0 sature");
     sleep_ms(2500);
 
-    printf("\n--- PHASE C : regime nominal, publication a 60 Hz ---\n");
-    printf("    Reste a verifier a l'oeil : damier 1 px sans trainee.\n\n");
+    printf("\n--- PHASE C : diagnostic du scintillement ---\n");
+    printf("    Alternance 6 s / 6 s, en boucle :\n");
+    printf("      A. image figee, AUCUNE publication\n");
+    printf("      B. publication a 60 Hz d'une image pourtant identique\n");
+    printf("    Si le scintillement va et vient au rythme des 6 s, c'est la\n");
+    printf("    publication qui le cause, pas le rafraichissement.\n\n");
 
-    absolute_time_t prochain = get_absolute_time();
     while (true) {
-        display::present();
-        prochain = delayed_by_us(prochain, 16667); /* 60 Hz */
-        sleep_until(prochain);
+        /* Le bon instrument pour ce defaut : l'activite des lignes de DONNEES.
+         * /OE pilote l'activation globale, pas le contenu — il ne voit rien
+         * d'une trame noire. Les lignes de donnees, si. */
+        printf("\n[A] image figee, aucune publication\n");
+        rapport_sonde("sans publication");
+        rapport_oe("sans publication");
+        sleep_ms(1200);
+
+        printf("[B] publication a 60 Hz de la MEME image\n");
+        {
+            uint32_t total = 0, data_actifs = 0;
+            absolute_time_t prochain = get_absolute_time();
+            for (int i = 0; i < 120; ++i) {
+                display::present();
+                const absolute_time_t f = make_timeout_time_us(4000);
+                do {
+                    total++;
+                    if (gpio_get_all() & MASQUE_DATA) data_actifs++;
+                } while (!time_reached(f));
+                prochain = delayed_by_us(prochain, 16667);
+                sleep_until(prochain);
+            }
+            const uint32_t d = total ? (uint32_t)((uint64_t)data_actifs * 100u / total) : 0;
+            printf("  %-26s donnees %3lu %%\n", "avec publication 60 Hz", (unsigned long)d);
+        }
+        sleep_ms(1200);
     }
 }

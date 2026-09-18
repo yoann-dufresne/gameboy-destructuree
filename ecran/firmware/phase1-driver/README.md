@@ -23,9 +23,15 @@ cmake --build build
 création, interruptions, conversion en plans de bits. Le flux vers la dalle est en
 PIO + DMA — le CPU n'y participe pas.
 
-**Double tampon strict**, jamais trois : chaque tampon supplémentaire est une trame
-de latence de plus. `present()` attend l'acquittement du cœur 1 plutôt que d'écraser,
-ce qui garantit qu'on n'écrit jamais dans un tampon en cours de lecture.
+**Un seul tampon de notre côté**, et c'est délibéré : le pilote tient déjà le sien,
+basculé en fin de trame, donc les mises à jour sont sans déchirure. `present()` est
+synchrone — au retour, le tampon est libre. Le contenu persiste d'une publication à
+l'autre : republier sans redessiner réaffiche la même image.
+
+> Une première version ajoutait un double tampon par-dessus. Il n'apportait rien et
+> était un piège : `present()` basculait vers un tampon que l'appelant n'avait pas
+> rempli, si bien qu'afficher deux fois la même image alternait **image / noir** —
+> scintillement à 60 Hz. Corrigé le 18/09/2026.
 
 ## Deux pièges du pilote amont, consignés dans le code
 
@@ -48,6 +54,7 @@ canaux CIE séparés, luminosité de base 6.
 | Rafraîchissement ≥ 150 Hz | **788 Hz** | ✅ 5× la cible |
 | Cœur 0 saturé ne dégrade pas | **788 Hz, min = max**, au repos comme sous charge | ✅ |
 | Damier 1 px sans ghosting | visuel — ne se mesure pas depuis le firmware | ⬜ |
+| Absence de scintillement | visuel — `/OE` n'en voit rien, c'est du contenu | ⬜ |
 
 Le rafraîchissement est **rigoureusement constant** entre les trois phases de la
 recette : au repos, cœur 0 saturé par du calcul continu, et publication à 60 Hz. C'est
@@ -56,6 +63,21 @@ la démonstration objective que l'affichage est autonome.
 > La mesure vient du compteur de trames du pilote, adossé à la fin de transfert DMA —
 > pas d'un oscilloscope sur `/OE` comme l'envisageait le plan. C'est la même grandeur,
 > relevée en interne.
+
+## Le bon instrument pour un écran noir ou clignotant
+
+Deux mesures ont servi, et l'une est trompeuse :
+
+- **`/OE`** pilote l'activation globale de la dalle, **pas le contenu**. Une trame
+  entièrement noire a exactement le même rapport cyclique qu'une trame pleine. Mesurer
+  `/OE` ne dit donc rien d'un problème d'image — vérifié : 58,6 % contre 58,5 % entre
+  un régime sain et un régime qui clignotait visiblement.
+- **Les lignes de données R1..B2** portent le contenu : c'est là qu'il faut regarder.
+- **Les lignes d'adresse A..E** distinguent « le pilote ne balaie pas » de « il balaie
+  du noir ».
+
+Et le compteur de trames du pilote ne prouve rien : il a annoncé 788 Hz parfaitement
+stables pendant que l'écran était noir, puis pendant qu'il clignotait.
 
 ## Empreinte
 

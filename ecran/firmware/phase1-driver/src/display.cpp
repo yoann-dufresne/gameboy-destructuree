@@ -59,15 +59,19 @@ constexpr Hub75Config CFG = {
 
 Hub75Driver<CFG> pilote;
 
-/* Double tampon strict. Le cœur 0 écrit dans l'un, le cœur 1 convertit l'autre.
- * Jamais de troisième : chaque tampon supplémentaire est une trame de latence
- * de plus (plan §5, phase 1). */
-alignas(4) uint8_t tampon[2][FB_OCTETS];
+/* UN SEUL tampon, et c'est délibéré.
+ *
+ * Le pilote tient déjà son propre double tampon (frame_buffer1_/2_), basculé en
+ * fin de trame : les mises à jour sont donc déjà sans déchirure. Un second double
+ * tampon de notre côté n'apportait rien — et il était un piège : present()
+ * basculait vers un tampon que l'appelant n'avait pas rempli, si bien qu'afficher
+ * deux fois de suite la même image alternait image / noir. Scintillement à 60 Hz
+ * garanti. Constaté le 18/09/2026.
+ *
+ * update_bgr() est synchrone : quand present() rend la main, le pilote a fini de
+ * lire le tampon, qui est donc immédiatement réutilisable. */
+alignas(4) uint8_t tampon[FB_OCTETS];
 
-constexpr uint8_t AUCUNE = 0xff;
-
-volatile uint8_t idx_ecriture = 0;
-volatile uint8_t idx_a_publier = AUCUNE; /* index en attente de conversion */
 volatile bool pilote_pret = false;
 
 uint8_t id_noeud = 0;
@@ -86,19 +90,16 @@ void core1_entry() {
 
     pilote_pret = true;
 
-    /* Le cœur 1 possède le pilote : il doit rester vivant, sinon son NVIC est
-     * démonté et les interruptions DMA cessent. Il consomme les trames publiées
-     * par le cœur 0 — la conversion en plans de bits lui incombe, le flux vers
-     * la dalle est en PIO + DMA. */
-    while (true) {
-        const uint8_t idx = idx_a_publier;
-        if (idx != AUCUNE) {
-            pilote.update_bgr(tampon[idx]);
-            idx_a_publier = AUCUNE; /* acquittement */
-        } else {
-            tight_loop_contents();
-        }
-    }
+    /* Le cœur 1 possède le pilote et ne fait rien d'autre : il sert ses
+     * interruptions DMA. Il doit rester vivant, sinon son NVIC est démonté et
+     * les interruptions cessent — c'est documenté par l'amont.
+     *
+     * La conversion en plans de bits reste sur le cœur 0, comme chez l'amont :
+     * elle coûte quelques centaines de microsecondes par trame, soit moins de
+     * 2 % du cœur 0 à 60 Hz, et la laisser ici retarderait le service des
+     * interruptions du pilote. */
+    while (true)
+        tight_loop_contents();
 }
 
 uint8_t lire_straps() {
@@ -139,21 +140,17 @@ void init() {
 }
 
 uint8_t *backbuffer() {
-    return tampon[idx_ecriture];
+    /* Toujours le même tampon : son contenu persiste d'une publication à
+     * l'autre. Republier sans rien redessiner réaffiche la même image. */
+    return tampon;
 }
 
 void present() {
-    /* Attend que le cœur 1 ait fini la trame précédente. La conversion coûte
-     * quelques centaines de microsecondes pour une dalle : négligeable devant
-     * les 16,7 ms d'une trame Game Boy. Attendre plutôt qu'écraser garantit
-     * qu'on n'écrit jamais dans un tampon en cours de lecture. */
-    while (idx_a_publier != AUCUNE)
-        tight_loop_contents();
-
     gpio_xor_mask(1u << PIN_MESURE_FLIP);
 
-    idx_a_publier = idx_ecriture;
-    idx_ecriture ^= 1u;
+    /* Synchrone : convertit le tampon en plans de bits et arme la bascule, que
+     * le pilote effectuera en fin de trame. Le tampon est libre au retour. */
+    pilote.update_bgr(tampon);
 }
 
 void set_brightness(uint8_t basis) {
