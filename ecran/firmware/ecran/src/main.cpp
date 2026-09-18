@@ -222,7 +222,8 @@ int main(void) {
      * Il reste ensuite au plus une période d'affichage (1/788 Hz = 1,27 ms)
      * avant que la bascule de tampon ne prenne effet. */
     struct Stat { uint32_t n, somme, mini, maxi; };
-    Stat assemblage{0, 0, ~0u, 0}, attente{0, 0, ~0u, 0}, rendu{0, 0, ~0u, 0};
+    Stat assemblage{0, 0, ~0u, 0}, attente{0, 0, ~0u, 0}, rendu{0, 0, ~0u, 0},
+         palette{0, 0, ~0u, 0};
     auto noter = [](Stat &st, uint32_t v) {
         st.n++; st.somme += v;
         if (v < st.mini) st.mini = v;
@@ -235,10 +236,26 @@ int main(void) {
          * precedente : il n'a pas de garde-fou de reentrance. Si on ne consomme
          * pas, la trame reste en attente et une plus recente la remplacera —
          * c'est le bon comportement pour un afficheur. */
+        /* Une commande de luminosité reconstruit les commandes de ligne : cela
+         * se fait ici, jamais dans le contexte d'interruption de la réception. */
+        if (const uint8_t basis = reseau::luminosite_demandee())
+            display::set_brightness(basis);
+
         reseau::Trame t;
         if (!display::occupe() && reseau::trame_a_afficher(t)) {
+            const uint64_t t_recu = time_us_64();
+
+            const uint8_t *bgr = t.pixels;
+            if (t.format == PXL1_FMT_IDX8) {
+                /* Développement de la palette dans le tampon interne de
+                 * l'affichage — déjà alloué, inutilisé en mode réseau. */
+                bgr = display::backbuffer();
+                reseau::developper_idx8(t.pixels, display::backbuffer());
+                noter(palette, (uint32_t)(time_us_64() - t_recu));
+            }
+
             const uint64_t t_debut_rendu = time_us_64();
-            display::present(t.pixels);
+            display::present(bgr);
             while (display::occupe())
                 tight_loop_contents();
             const uint64_t t_pret = time_us_64();
@@ -274,9 +291,14 @@ int main(void) {
             printf("      rendu              %5lu / %5lu / %5lu\n",
                    (unsigned long)moy(rendu), (unsigned long)rendu.mini,
                    (unsigned long)rendu.maxi);
+            if (palette.n)
+                printf("      palette (IDX8)     %5lu / %5lu / %5lu\n",
+                       (unsigned long)moy(palette), (unsigned long)palette.mini,
+                       (unsigned long)palette.maxi);
             printf("      total interne      %5lu us en moyenne\n\n",
-                   (unsigned long)(moy(assemblage) + moy(attente) + moy(rendu)));
-            assemblage = attente = rendu = Stat{0, 0, ~0u, 0};
+                   (unsigned long)(moy(assemblage) + moy(attente) + moy(rendu)
+                                   + moy(palette)));
+            assemblage = attente = rendu = palette = Stat{0, 0, ~0u, 0};
             prochain_rapport = make_timeout_time_ms(10000);
         }
     }

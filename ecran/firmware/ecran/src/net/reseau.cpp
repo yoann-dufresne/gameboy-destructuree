@@ -55,10 +55,53 @@ udp_pcb *pcb = nullptr;
 reseau::Stats compteurs{};
 
 uint16_t frame_courante = 0;
+uint8_t format_courant = PXL1_FMT_BGR888;
 bool frame_en_cours = false;
 uint32_t octets_frame = 0;
+volatile uint8_t format_pret = PXL1_FMT_BGR888;
+
+/* Palette pour le format indexé, en B,G,R comme la dalle. Par défaut une rampe
+ * de gris : une trame indexée s'affiche donc de façon sensée même si la palette
+ * n'a pas encore été reçue. */
+uint8_t palette[PXL1_PALETTE_OCTETS];
+
+void palette_par_defaut() {
+    for (int i = 0; i < PXL1_PALETTE_ENTREES; ++i) {
+        palette[i * 3 + 0] = (uint8_t)i;
+        palette[i * 3 + 1] = (uint8_t)i;
+        palette[i * 3 + 2] = (uint8_t)i;
+    }
+}
+
+/* Taille utile d'une trame selon son format. */
+inline uint32_t taille_trame(uint8_t format) {
+    return (format == PXL1_FMT_IDX8) ? (DISPLAY_W * DISPLAY_H) : (uint32_t)FB_OCTETS;
+}
 
 char ip_texte[16] = "0.0.0.0";
+
+/* Changement de luminosité demandé par une commande. Appliqué par la boucle
+ * principale : setBasisBrightness reconstruit les commandes de ligne, ce qui
+ * n'a rien à faire dans un contexte d'interruption. */
+volatile uint8_t demande_luminosite = 0;
+
+/* Paquet de commande : palette, luminosité. Hors du chemin critique des pixels. */
+void traiter_ctrl(pbuf *p, uint16_t charge) {
+    if (charge < 1)
+        return;
+    uint8_t commande;
+    pbuf_copy_partial(p, &commande, 1, PXL1_ENTETE);
+
+    if (commande == PXL1_CTRL_PALETTE && charge >= 1 + PXL1_PALETTE_OCTETS) {
+        pbuf_copy_partial(p, palette, PXL1_PALETTE_OCTETS, PXL1_ENTETE + 1);
+        compteurs.ctrl++;
+    } else if (commande == PXL1_CTRL_LUMINOSITE && charge >= 2) {
+        uint8_t basis;
+        pbuf_copy_partial(p, &basis, 1, PXL1_ENTETE + 1);
+        demande_luminosite = basis ? basis : 1;
+        compteurs.ctrl++;
+    }
+}
 
 /* Appelé par lwIP à chaque datagramme. Contexte d'interruption en mode
  * `threadsafe_background` : rester court. La publication elle-même est laissée
@@ -83,8 +126,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
     pxl1_entete e;
     pbuf_copy_partial(p, &e, PXL1_ENTETE, 0);
 
-    if (e.magic != PXL1_MAGIC || e.type != PXL1_TYPE_FRAME ||
-        e.node_id != mon_node_id || e.format != PXL1_FMT_BGR888) {
+    if (e.magic != PXL1_MAGIC || e.node_id != mon_node_id) {
         compteurs.rejets++;
         pbuf_free(p);
         return;
@@ -92,7 +134,20 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
 
     const uint16_t charge = (uint16_t)(p->tot_len - PXL1_ENTETE);
 
-    if (e.offset + charge > FB_OCTETS) {
+    if (e.type == PXL1_TYPE_CTRL) {
+        traiter_ctrl(p, charge);
+        pbuf_free(p);
+        return;
+    }
+
+    if (e.type != PXL1_TYPE_FRAME ||
+        (e.format != PXL1_FMT_BGR888 && e.format != PXL1_FMT_IDX8)) {
+        compteurs.rejets++;
+        pbuf_free(p);
+        return;
+    }
+
+    if (e.offset + charge > taille_trame(e.format)) {
         compteurs.rejets++;
         pbuf_free(p);
         return;
@@ -107,6 +162,13 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
      * la réception se bloquerait définitivement — constaté le 18/09/2026.
      * 8 trames valent 133 ms à 60 Hz, très au-delà de tout désordre plausible. */
     constexpr int16_t RESYNC = -8;
+
+    if (age == 0 && frame_en_cours && e.format != format_courant) {
+        /* Changement de format en cours de trame : incohérent, on écarte. */
+        compteurs.rejets++;
+        pbuf_free(p);
+        return;
+    }
 
     if (age < 0 && age > RESYNC) {
         /* Tranche d'une trame déjà soldée, arrivée dans le désordre. L'écarter
@@ -127,6 +189,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
         /* Resynchronisation : on adopte le compteur de l'émetteur. */
         compteurs.resynchros++;
         frame_courante = e.frame_id;
+        format_courant = e.format;
         frame_en_cours = true;
         octets_frame = 0;
         t_premier_courant = time_us_64();
@@ -134,9 +197,10 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
 
     else if (age > 0) {
         /* Nouvelle trame : on solde la précédente. */
-        if (frame_en_cours && octets_frame < FB_OCTETS)
+        if (frame_en_cours && octets_frame < taille_trame(format_courant))
             compteurs.trames_incompletes++;
         frame_courante = e.frame_id;
+        format_courant = e.format;
         frame_en_cours = true;
         octets_frame = 0;
         t_premier_courant = time_us_64();
@@ -147,7 +211,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
     octets_frame += charge;
 
     if (e.flags & PXL1_FLAG_DERNIERE) {
-        if (octets_frame < FB_OCTETS)
+        if (octets_frame < taille_trame(format_courant))
             compteurs.trames_incompletes++;
         compteurs.trames++;
         frame_en_cours = false; /* frame_courante reste la référence d'âge */
@@ -159,6 +223,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
             compteurs.ecartees++;
 
         id_pret = e.frame_id;
+        format_pret = format_courant;
         t_premier_pret = t_premier_courant;
         t_dernier_pret = time_us_64();
         idx_pret = (int8_t)idx_reception;
@@ -175,6 +240,7 @@ namespace reseau {
 bool connecter(uint8_t node_id) {
     mon_node_id = node_id;
     std::memset(tampons, 0, sizeof(tampons));
+    palette_par_defaut();
 
     if (cyw43_arch_init_with_country(WIFI_PAYS)) {
         printf("  cyw43_arch_init : ECHEC\n");
@@ -215,6 +281,7 @@ bool trame_a_afficher(Trame &out) {
     if (idx < 0)
         return false;
     out.pixels = tampons[idx];
+    out.format = format_pret;
     out.id = id_pret;
     out.t_premier_us = t_premier_pret;
     out.t_dernier_us = t_dernier_pret;
@@ -241,6 +308,22 @@ void acquitter(uint16_t frame_id) {
 }
 
 const Stats &stats() { return compteurs; }
+
+void developper_idx8(const uint8_t *indices, uint8_t *sortie) {
+    const uint32_t n = DISPLAY_W * DISPLAY_H;
+    for (uint32_t i = 0; i < n; ++i) {
+        const uint8_t *c = &palette[indices[i] * 3];
+        sortie[i * 3 + 0] = c[0];
+        sortie[i * 3 + 1] = c[1];
+        sortie[i * 3 + 2] = c[2];
+    }
+}
+
+uint8_t luminosite_demandee() {
+    const uint8_t v = demande_luminosite;
+    demande_luminosite = 0;
+    return v;
+}
 
 const char *adresse_ip() { return ip_texte; }
 

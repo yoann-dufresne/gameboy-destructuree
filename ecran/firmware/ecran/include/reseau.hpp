@@ -24,6 +24,7 @@ struct Stats {
                                   * dans le désordre : écartées sans dommage */
     uint32_t resynchros;         /* compteur de l'émetteur reparti en arrière :
                                   * redémarrage, on se recale sur lui */
+    uint32_t ctrl;               /* paquets de commande reçus (palette, luminosité) */
 };
 
 /* Associe au WiFi et arme la réception. Rend false si l'association échoue. */
@@ -31,7 +32,8 @@ bool connecter(uint8_t node_id);
 
 /* Une trame complète, avec les horodatages de son assemblage. */
 struct Trame {
-    const uint8_t *pixels;
+    const uint8_t *pixels;  /* BGR888, ou indices si format == PXL1_FMT_IDX8 */
+    uint8_t format;
     uint16_t id;
     uint64_t t_premier_us; /* arrivée de la première tranche */
     uint64_t t_dernier_us; /* arrivée de la dernière */
@@ -41,9 +43,18 @@ struct Trame {
  * Le tampon reste stable jusqu'au prochain appel : la réception remplit l'autre. */
 bool trame_a_afficher(Trame &out);
 
+/* Développe une trame indexée dans `sortie` (BGR888) en appliquant la palette
+ * courante. `sortie` doit faire DISPLAY_W * DISPLAY_H * 3 octets. */
+void developper_idx8(const uint8_t *indices, uint8_t *sortie);
+
 /* Renvoie un accusé à l'émetteur : c'est lui qui mesure l'aller-retour, sur sa
  * propre horloge, sans qu'aucune synchronisation soit à supposer. */
 void acquitter(uint16_t frame_id);
+
+/* Luminosité demandée par un paquet de commande, 0 si aucune. À appliquer
+ * depuis la boucle principale : la reconstruction des commandes de ligne n'a
+ * rien à faire dans un contexte d'interruption. */
+uint8_t luminosite_demandee();
 
 const Stats &stats();
 const char *adresse_ip();

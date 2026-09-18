@@ -40,18 +40,54 @@ ENTETE = 12
 CHARGE_MAX = 1400
 
 TYPE_FRAME = 0
+TYPE_CTRL = 1
 TYPE_PING = 2
+
 FMT_BGR888 = 0
+FMT_IDX8 = 4
+
 FLAG_DERNIERE = 0x01
+
+CTRL_PALETTE = 0
+CTRL_LUMINOSITE = 1
 
 # Tranches multiples de 3 octets : jamais un pixel coupé en deux.
 CHARGE_UTILE = (CHARGE_MAX // 3) * 3
 
 
-def entete(node_id: int, frame_id: int, offset: int, derniere: bool) -> bytes:
+def entete(node_id: int, frame_id: int, offset: int, derniere: bool,
+           format_: int = FMT_BGR888, type_: int = TYPE_FRAME) -> bytes:
     return MAGIC + struct.pack(
-        "<BBHBBH", TYPE_FRAME, node_id, frame_id & 0xFFFF,
-        FMT_BGR888, FLAG_DERNIERE if derniere else 0, offset)
+        "<BBHBBH", type_, node_id, frame_id & 0xFFFF,
+        format_, FLAG_DERNIERE if derniere else 0, offset)
+
+
+def palette_cube() -> np.ndarray:
+    """Cube 6×6×6 (216 couleurs) complété par 40 gris.
+
+    Palette fixe : elle n'est envoyée qu'une fois, et la quantification se
+    réduit à une division — quelques centaines de microsecondes par trame en
+    numpy. Une palette adaptative rend mieux sur du contenu à couleurs limitées,
+    mais doit être recalculée et renvoyée dès que le contenu change.
+    """
+    pal = np.zeros((256, 3), np.uint8)
+    niveaux = np.array([0, 51, 102, 153, 204, 255], np.uint8)
+    i = 0
+    for r in range(6):
+        for g in range(6):
+            for b in range(6):
+                pal[i] = (niveaux[r], niveaux[g], niveaux[b])
+                i += 1
+    for k in range(40):
+        v = round(k * 255 / 39)
+        pal[216 + k] = (v, v, v)
+    return pal
+
+
+def quantifier_cube(rgb: np.ndarray) -> np.ndarray:
+    """RGB → indices du cube 6×6×6. Pure arithmétique, donc rapide."""
+    n = np.clip((rgb.astype(np.uint16) + 25) // 51, 0, 5).astype(np.uint16)
+    return (n[:, :, 0] * 36 + n[:, :, 1] * 6 + n[:, :, 2]).astype(np.uint8)
 
 
 class Noeud:
@@ -68,7 +104,8 @@ class Noeud:
 
 
 class Emetteur:
-    def __init__(self, chemin: Path, perte: float = 0.0, desordre: float = 0.0):
+    def __init__(self, chemin: Path, perte: float = 0.0, desordre: float = 0.0,
+                 format_: int = FMT_BGR888):
         with open(chemin, "rb") as f:
             conf = tomllib.load(f)
         self.largeur = int(conf["image"]["largeur"])
@@ -82,6 +119,8 @@ class Emetteur:
         # horloge de cette machine — aucune synchronisation à supposer.
         self.envois: dict[int, float] = {}
         self.latences: list[float] = []
+        self.accuses_recus = 0
+        self.accuses_orphelins = 0
         self.octets = 0
         self.paquets = 0
         # Injection de défauts, pour éprouver le réassemblage du firmware.
@@ -89,6 +128,9 @@ class Emetteur:
         self.desordre = desordre / 100.0
         self.perdus = 0
         self.retardes = 0
+        self.format = format_
+        self.palette = palette_cube()
+        self.palette_envoyee = 0.0
 
     def envoyer(self, image_rgb: np.ndarray) -> None:
         """image_rgb : (hauteur, largeur, 3) uint8, ordre R G B."""
@@ -96,21 +138,29 @@ class Emetteur:
             raise ValueError(f"image {image_rgb.shape}, attendu "
                              f"({self.hauteur}, {self.largeur}, 3)")
 
-        # Le protocole transporte du BGR : c'est l'ordre qu'attend la dalle, ce
-        # qui permet au firmware d'écrire la charge utile en place.
-        image_bgr = image_rgb[:, :, ::-1]
+        if self.format == FMT_IDX8:
+            # Un octet par pixel : le débit est divisé par trois. La palette,
+            # elle, voyage dans un paquet de commande, hors du flux de pixels.
+            self.maj_palette()
+            plan = quantifier_cube(image_rgb)
+        else:
+            # Le protocole transporte du BGR : c'est l'ordre qu'attend la dalle,
+            # ce qui permet au firmware d'écrire la charge utile en place.
+            plan = image_rgb[:, :, ::-1]
+
         differes: list[tuple[bytes, tuple[str, int]]] = []
 
         for n in self.noeuds:
-            tuile = image_bgr[n.y0:n.y0 + n.h, n.x0:n.x0 + n.w]
+            tuile = plan[n.y0:n.y0 + n.h, n.x0:n.x0 + n.w]
             charge = np.ascontiguousarray(tuile).tobytes()
             dest = (n.ip, n.port)
 
             offset, total = 0, len(charge)
             while offset < total:
-                bout = min(CHARGE_UTILE, total - offset)
+                bout = min(self.charge_utile(), total - offset)
                 derniere = (offset + bout) >= total
-                paquet = (entete(n.id, self.frame_id, offset, derniere) +
+                paquet = (entete(n.id, self.frame_id, offset, derniere,
+                                 self.format) +
                           charge[offset:offset + bout])
                 offset += bout
 
@@ -140,6 +190,31 @@ class Emetteur:
 
         self.frame_id = (self.frame_id + 1) & 0xFFFF
 
+    def charge_utile(self) -> int:
+        """Taille utile d'une tranche. Multiple de 3 en BGR888 pour ne jamais
+        couper un pixel en deux ; sans contrainte en indexé, un pixel = un octet."""
+        return CHARGE_MAX if self.format == FMT_IDX8 else CHARGE_UTILE
+
+    def maj_palette(self, force: bool = False) -> None:
+        """Renvoie la palette périodiquement : un firmware qui redémarre la
+        retrouve sans intervention."""
+        maintenant = time.monotonic()
+        if not force and maintenant - self.palette_envoyee < 2.0:
+            return
+        self.palette_envoyee = maintenant
+        # La dalle attend du B,G,R.
+        charge = bytes([CTRL_PALETTE]) + self.palette[:, ::-1].tobytes()
+        for n in self.noeuds:
+            paquet = entete(n.id, self.frame_id, 0, True,
+                            self.format, TYPE_CTRL) + charge
+            self.sock.sendto(paquet, (n.ip, n.port))
+
+    def regler_luminosite(self, basis: int) -> None:
+        charge = bytes([CTRL_LUMINOSITE, max(1, min(255, basis))])
+        for n in self.noeuds:
+            paquet = entete(n.id, 0, 0, True, self.format, TYPE_CTRL) + charge
+            self.sock.sendto(paquet, (n.ip, n.port))
+
     def relever_accuses(self) -> None:
         """Vide la file des accusés arrivés, sans bloquer."""
         while True:
@@ -154,9 +229,12 @@ class Emetteur:
             type_, _node, fid = struct.unpack_from("<BBH", data, 4)
             if type_ != TYPE_PING:
                 continue
+            self.accuses_recus += 1
             t0 = self.envois.pop(fid, None)
             if t0 is not None:
                 self.latences.append(time.monotonic() - t0)
+            else:
+                self.accuses_orphelins += 1
 
 
 def choisir_source(nom: str, w: int, h: int, args):
@@ -199,15 +277,29 @@ def main() -> int:
                     help="%% de paquets volontairement non émis")
     ap.add_argument("--desordre", type=float, default=0.0,
                     help="%% de paquets volontairement retardés")
+    ap.add_argument("--format", default="bgr888", choices=["bgr888", "idx8"],
+                    help="bgr888 = 3 octets/pixel ; idx8 = 1 octet + palette")
+    ap.add_argument("--luminosite", type=int,
+                    help="luminosité de base de la dalle, 1 à 255")
     args = ap.parse_args()
 
     if not args.layout.exists():
         sys.exit(f"disposition introuvable : {args.layout}")
 
-    em = Emetteur(args.layout, args.perte, args.desordre)
+    em = Emetteur(args.layout, args.perte, args.desordre,
+                  FMT_IDX8 if args.format == "idx8" else FMT_BGR888)
     print(f"image {em.largeur}×{em.hauteur}, {len(em.noeuds)} nœud(s)")
     for n in em.noeuds:
         print(f"  {n}")
+    octets_trame = em.largeur * em.hauteur * (1 if em.format == FMT_IDX8 else 3)
+    print(f"  format {args.format} — {octets_trame} octets par trame, "
+          f"{octets_trame * 8 * args.fps / 1e6:.2f} Mbit/s à {args.fps:g} img/s")
+    if args.luminosite:
+        em.regler_luminosite(args.luminosite)
+        print(f"  luminosité de base réglée à {args.luminosite}")
+    if em.format == FMT_IDX8:
+        em.maj_palette(force=True)
+        print("  palette envoyée (cube 6×6×6 + 40 gris)")
     if args.perte or args.desordre:
         print(f"  ⚠ injection : {args.perte:g} % de perte, "
               f"{args.desordre:g} % de désordre")
@@ -259,8 +351,12 @@ def main() -> int:
                           f"min {lat[0] * 1000:.1f}  "
                           f"médiane {lat[n // 2] * 1000:.1f}  "
                           f"p95 {lat[int(n * 0.95)] * 1000:.1f}  "
-                          f"max {lat[-1] * 1000:.1f}   ({n} accusés)")
+                          f"max {lat[-1] * 1000:.1f}   "
+                          f"({n} apparies / {em.accuses_recus} recus, "
+                          f"{em.accuses_orphelins} orphelins, "
+                          f"{len(em.envois)} en attente)")
                     em.latences.clear()
+                    em.accuses_recus = em.accuses_orphelins = 0
                 em.octets = em.paquets = em.perdus = em.retardes = 0
                 trames = 0
                 pire_ecart = 0.0

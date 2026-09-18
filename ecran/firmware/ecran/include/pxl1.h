@@ -42,6 +42,17 @@ enum : uint8_t {
     PXL1_FLAG_DERNIERE = 0x01, /* dernière tranche de la trame → présenter */
 };
 
+/* Sous-commandes d'un paquet PXL1_TYPE_CTRL, premier octet de la charge utile.
+ * Les commandes voyagent hors du flux de pixels : rien d'autre que des pixels
+ * ne transite par le chemin critique. */
+enum : uint8_t {
+    PXL1_CTRL_PALETTE    = 0, /* + 256 x 3 octets B,G,R */
+    PXL1_CTRL_LUMINOSITE = 1, /* + 1 octet, luminosité de base 1..255 */
+};
+
+#define PXL1_PALETTE_ENTREES 256
+#define PXL1_PALETTE_OCTETS  (PXL1_PALETTE_ENTREES * 3)
+
 struct __attribute__((packed)) pxl1_entete {
     uint32_t magic;    /*  0 */
     uint8_t  type;     /*  4 */

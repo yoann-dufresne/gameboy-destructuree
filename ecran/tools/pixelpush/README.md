@@ -45,6 +45,39 @@ firmware, ni ce script. `layout-3x3.toml` est déjà écrit pour la phase 5.
 
 L'adresse IP est celle que le firmware annonce sur sa console au démarrage.
 
+## Les deux formats
+
+```bash
+./pixelpush.py --format bgr888      # 3 octets par pixel, sans perte
+./pixelpush.py --format idx8        # 1 octet + palette, débit divisé par 3
+./pixelpush.py --luminosite 12      # commande hors du flux de pixels
+```
+
+`idx8` quantifie sur un **cube 6×6×6 plus 40 gris** : palette fixe, envoyée une fois
+puis rafraîchie toutes les 2 s pour qu'un firmware redémarré la retrouve seul. La
+quantification se réduit à une division — **0,02 ms par trame 64×64** — et l'erreur
+moyenne est de **3,3 %**.
+
+### Ce que l'indexé apporte vraiment
+
+Mesuré dos à dos le 18/09/2026, sur un lien WiFi **dégradé** (ping passé de 3,4 à
+8,3 ms, 2,4 GHz encombré), même émetteur à 60 img/s :
+
+| | BGR888 | IDX8 |
+|---|---|---|
+| Débit émis | 5,95 Mbit/s | 1,98 Mbit/s |
+| Paquets par trame | 9 | 3 |
+| **Trames reçues par le firmware** | **10 img/s** | **60 img/s** |
+| Assemblage d'une trame | 19,3 ms | 7,8 ms |
+
+**Diviser le débit par 3 multiplie par 6 la résistance à un lien dégradé.** Une trame
+de 9 paquets n'arrive entière que si les neuf passent ; à 3 paquets, la probabilité est
+tout autre. C'est l'argument décisif pour le 3×3 — et il est mesuré, plus supposé.
+
+> ⚠️ Les latences ne se comparent **qu'à conditions de lien identiques**. Une mesure
+> prise avant la dégradation ne se compare pas à une mesure prise après : le lien
+> change au fil de la journée, et c'est lui qui domine.
+
 ## Le format
 
 `PXL1_FMT_BGR888` : trois octets par pixel, ordre **B, G, R**. C'est l'ordre qu'attend
@@ -58,7 +91,7 @@ trame 64×64 fait 12 288 octets, soit 9 paquets de 1398 octets utiles au plus.
 |---|---|---|
 | 64×64 | BGR888 | **5,95 Mbit/s** (mesuré) |
 | 192×192 sur 3 nœuds | BGR888 | 53 Mbit/s — trop |
-| 192×192 sur 3 nœuds | IDX8 | 17,7 Mbit/s |
+| 192×192 sur 3 nœuds | IDX8 | 17,7 Mbit/s ✅ **implémenté** |
 | 192×192 sur 3 nœuds | IDX2 | 4,4 Mbit/s |
 
 Le 3×3 imposera un format indexé : prévu par le protocole, pas encore implémenté.

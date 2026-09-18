@@ -329,6 +329,38 @@ Le débit UDP réellement soutenu par un Pico 2 W est de l'ordre de **10–20 Mb
 à **mesurer en phase 4**, c'est exactement le genre de valeur qu'il ne faut pas croire sur
 parole. En mono-dalle (phases 2–3), RGB888 à 60 Hz ne pèse que 5,9 Mbit/s : aucun souci.
 
+### 4.3 IDX8 — implémenté le 18/09/2026
+
+Un octet par pixel, plus une palette de 256 entrées B,G,R transportée par un **paquet
+de commande** (`PXL1_TYPE_CTRL`) : rien d'autre que des pixels ne transite par le chemin
+critique. La palette est renvoyée toutes les 2 s, pour qu'un firmware redémarré la
+retrouve sans intervention. Par défaut le firmware tient une rampe de gris, de sorte
+qu'une trame indexée s'affiche de façon sensée même sans palette reçue.
+
+Côté émetteur, quantification sur un **cube 6×6×6 plus 40 gris** : palette fixe, donc
+la quantification se réduit à une division — 0,02 ms par trame, 3,3 % d'erreur moyenne.
+Côté firmware, le développement coûte **0,25 ms** et se fait dans le tampon interne de
+l'affichage, déjà alloué : aucune mémoire supplémentaire.
+
+**Ce que l'indexé apporte vraiment**, mesuré dos à dos sur un lien dégradé
+(ping passé de 3,4 à 8,3 ms), même émetteur à 60 img/s :
+
+| | BGR888 | IDX8 |
+|---|---|---|
+| Débit émis | 5,95 Mbit/s | 1,98 Mbit/s |
+| Paquets par trame | 9 | 3 |
+| **Reçues par le firmware** | **10 img/s** | **60 img/s** |
+| Assemblage | 19,3 ms | 7,8 ms |
+
+**Diviser le débit par 3 multiplie par 6 la résistance à un lien dégradé** : une trame
+de 9 paquets n'arrive entière que si les neuf passent. L'argument du §4.2 est donc
+confirmé par la mesure, et renforcé — l'indexé ne sert pas qu'à tenir dans la bande
+passante, il rend la chaîne robuste.
+
+> ⚠️ Les latences ne se comparent **qu'à conditions de lien identiques**. Le lien WiFi
+> varie au fil de la journée et domine tout le reste : une mesure prise avant une
+> dégradation ne se compare pas à une mesure prise après.
+
 > ℹ️ Nuance utile : le **temps d'air total** est le même quel que soit le nombre de nœuds
 > (la trame ne traverse l'air qu'une fois, chaque nœud ne recevant que sa part). Ce que le
 > découpage améliore, c'est le **débit à ingérer par nœud** — et c'est lui qui est limitant.
@@ -591,6 +623,7 @@ ecran/
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
 | 16/09/2026 | Protocole tuile-conscient et multi-format dès la v1 | Seule décision coûteuse à prendre en retard |
+| 18/09/2026 | IDX8 implémenté | Sur lien dégradé, il reçoit 60 img/s là où BGR888 tombe à 10 — la robustesse, pas seulement le débit |
 | 18/09/2026 | Phase 4 terminée : latence ~8 ms, débit UDP 24,6 Mbit/s | Deux mesures de latence indépendantes concordent à 0,3 ms |
 | 18/09/2026 | Le facteur limitant du 3×3 est **l'air**, pas le Pico | Le Pico encaisse 24,6 Mbit/s ; c'est le total des trois nœuds sur 2,4 GHz qui ne passe pas en BGR888 |
 | 18/09/2026 | Phase 3 terminée : 7 sources, injection de perte et de désordre | L'injection a trouvé deux bugs de réassemblage dans le firmware |
