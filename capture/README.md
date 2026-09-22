@@ -1,0 +1,65 @@
+# Module CAPTURE — Game Boy Pocket déstructurée
+
+Sous-projet « capture » : le **sniffer du bus LCD** de la Game Boy Pocket. Il prélève les
+signaux que le CPU MGB envoie à son écran, reconstitue la trame 160×144 en 2 bits par pixel,
+et l'émet en UDP vers le module ÉCRAN — dans le **même protocole `PXL1`**, déjà en service.
+
+C'est le « module SOURCE » des specs du dossier parent.
+
+## Cible
+
+**160 × 144 pixels, 2 bits par pixel, 59,73 img/s**, capturés sur le bus LCD par un
+**Raspberry Pi Pico 2 W**, émis en `PXL1` / `IDX2` vers les 3 nœuds de la grille 192 × 192.
+
+> 🔑 La Game Boy produit déjà des pixels sur 2 bits, et le format `IDX2` existe déjà dans
+> `PXL1`. La chaîne est donc **sans conversion de couleur et sans mise à l'échelle** :
+> 2 bits sortent du PPU, 2 bits traversent le WiFi, 4 entrées de palette décident de la
+> teinte à l'arrivée. Tout le problème est le **timing de capture**.
+
+## Matériel
+
+| Rôle | Référence | Qté | Notes |
+|---|---|---|---|
+| Contrôleur | **Raspberry Pi Pico 2 W** | 1 | RP2350 + CYW43439 ; ⚠️ **pas tolérant 5 V** |
+| Console | Game Boy Pocket MGB-001 | 1 | 🔴 elle sera ouverte et modifiée |
+| Tampon | **74LVC244A** (ou 74LVC245A) + support | 1 | haute impédance, entrées tolérantes 5 V |
+| Protection | Résistances 100 Ω | 6 | en série, au départ de chaque prise |
+| Câblage fin | Fil émaillé 0,1–0,2 mm (Kynar) | 1 rlx | pastilles du ruban LCD |
+| Liaison | Connecteur débrochable 6 pts (JST-SH) | 1 | pour pouvoir refermer la console |
+| Alimentation | USB 5 V ou powerbank | 1 | **séparée de la console**, masses communes |
+| Outillage | **Analyseur logique ≥ 8 voies, ≥ 24 MS/s** | 1 | **non négociable** — voir plan §6, phase 0 |
+
+Nomenclature complète : [`docs/plan-firmware.md` §9](docs/plan-firmware.md).
+
+## Pile logicielle
+
+**C++20, pico-sdk 2.x, bare-metal**, PIO + DMA, deux cœurs. Pas de RTOS, pas d'Arduino.
+Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixel : le PIO
+échantillonne, le DMA écrit directement dans le canevas d'émission.
+
+## Documentation
+
+- [`docs/plan-firmware.md`](docs/plan-firmware.md) — **le plan de réalisation** : signaux à
+  prélever et comment les identifier, interface électrique, architecture firmware, ce que le
+  module ÉCRAN sait déjà faire et ce qu'il lui reste à apprendre, phases 0 à 5, nomenclature,
+  journal des décisions.
+
+Le module d'affichage vit dans `../ecran/` — son protocole `PXL1` est la seule interface
+entre les deux sous-projets. Les documents d'architecture du projet global sont dans le
+dossier parent : `Spec_Gameboy_Pocket_Destructuree.md` et
+`Spec_Video_Sniffer_et_Matrice_LED.md` (§4 et §5 = ce module).
+
+## État
+
+Démarrage du sous-projet : pour l'instant, uniquement le plan. Rien n'est encore soudé sur
+la console, et aucune broche n'a été identifiée.
+
+| Phase | État |
+|---|---|
+| Plan de réalisation | ✅ 22/09/2026 |
+| 0 · Identification des signaux à l'analyseur | 🔨 suivante |
+| 1 · Prise de signaux et interface électrique | ⬜ |
+| 2 · Capture PIO + DMA | ⬜ |
+| 3 · `IDX2` de bout en bout | ⬜ |
+| 4 · Mesure de latence et robustesse | ⬜ |
+| 5 · Intégration | ⬜ |
