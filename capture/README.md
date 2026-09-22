@@ -39,10 +39,13 @@ Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixe
 
 ## Documentation
 
-- [`docs/plan-firmware.md`](docs/plan-firmware.md) — **le plan de réalisation** : signaux à
-  prélever et comment les identifier, interface électrique, architecture firmware, ce que le
-  module ÉCRAN sait déjà faire et ce qu'il lui reste à apprendre, phases 0 à 5, nomenclature,
-  journal des décisions.
+- [`docs/plan-firmware.md`](docs/plan-firmware.md) — **les décisions** : ce qu'on capture et
+  pourquoi, interface électrique, architecture firmware, ce qu'on écarte, phases 0 à 5,
+  budget chiffré, nomenclature, journal des décisions.
+- [`docs/etapes-detaillees.md`](docs/etapes-detaillees.md) — **la marche à suivre** : le même
+  chemin, mais étape par étape. Timing du PPU, séquence de mesure à l'analyseur, schéma et
+  ordre de montage, programme PIO instruction par instruction, chaîne DMA, table de
+  diagnostic symptôme → cause, critères de sortie sous forme de cases à cocher.
 
 Le module d'affichage vit dans `../ecran/` — son protocole `PXL1` est la seule interface
 entre les deux sous-projets. Les documents d'architecture du projet global sont dans le

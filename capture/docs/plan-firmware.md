@@ -3,6 +3,9 @@
 *Sous-projet « capture » du Game Boy Pocket déstructuré.*
 Version 1 — 22/09/2026
 
+**Le « pourquoi » est ici. Le « comment », étape par étape, est dans
+[`etapes-detaillees.md`](etapes-detaillees.md).**
+
 ---
 
 ## 0. Décisions figées
