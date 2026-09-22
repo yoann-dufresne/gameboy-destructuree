@@ -149,8 +149,9 @@ et c'est la raison pour laquelle on ne monte pas `clk_sys`.
 | | |
 |---|---|
 | Tournevis **tri-wing Y1** (3,8 mm) | les vis de la coque MGB ne sont pas cruciformes |
-| Analyseur logique ≥ 8 voies, **≥ 24 MS/s**, ≥ 1 M échantillons de profondeur | 24 MS/s donne ~5,7 points par période de `CPG` à 4,2 MHz — suffisant pour compter des fronts, pas pour juger un front |
-| PulseView / `sigrok` | gratuit, et sait enregistrer un `.sr` qu'on pourra **rejouer** (§D.11) |
+| Analyseur logique ≥ 8 voies, **≥ 24 MS/s** | 24 MS/s donne ~5,7 points par période de `CPG` à 4,2 MHz — suffisant pour compter des fronts, pas pour juger un front. Validé : AZDelivery 8 CH 24 MHz (CY7C68013A / fx2lafw) |
+| PulseView / `sigrok` | gratuit, et sait enregistrer un `.sr` qu'on pourra **dépouiller** (§B.3bis) puis **rejouer** (§D.11) |
+| `numpy` côté PC | pour `tools/analyse_sr.py` |
 | Multimètre | VCC, continuité |
 | Pointe de touche fine, ou fil émaillé tacké provisoirement | sonder une pastille de ruban LCD à main levée ne marche pas |
 | **Piles neuves** | et des piles usées pour le test du §B.7 |
@@ -159,6 +160,19 @@ et c'est la raison pour laquelle on ne monte pas `clk_sys`.
 ⚠️ **Alimente la console par ses piles pendant toute la phase 0.** Une alimentation de labo
 partage sa masse avec la terre, donc avec le PC, donc avec l'analyseur : on crée des boucles
 de masse qui inventent des fronts.
+
+**Les limites de l'instrument, et ce qu'elles imposent.** Un analyseur à FX2LP n'a ni mémoire
+ni trigger matériel : il **diffuse** en continu sur l'USB, à 24 Mo/s quand on lui demande
+24 MS/s sur 8 voies. C'est la limite pratique de l'USB 2.0, et des échantillons peuvent être
+perdus selon le contrôleur de la machine. Trois conséquences :
+
+- **captures courtes à 24 MS/s** — 4 trames (67 ms) suffisent largement ;
+- **port USB direct**, sans hub ;
+- **tout ce qui n'est pas l'horloge pixel se capture à 4 MS/s**, où le débit tombe à 4 Mo/s
+  et où une capture de 500 ms passe sans risque. D'où les deux captures du §B.3.
+
+Ses seuils d'entrée sont **fixes** (V_IH = 1,4 V, V_IL = 0,8 V) et il accepte 0 à 5,25 V : sur
+un bus à 3 V, et même à 2,4 V piles usées, il lit sans problème et sans risque pour lui.
 
 ### B.1 Ouvrir, sans casser
 
@@ -169,14 +183,26 @@ de masse qui inventent des fronts.
    MGB) : ne pas tirer sur les coques.
 5. Remettre les piles, vérifier que la console démarre coque ouverte.
 
-### B.2 Les trois règles de sondage
+### B.2 Les quatre règles de sondage
 
 1. **La masse de l'analyseur se branche en premier et se débranche en dernier.** Sur une
-   masse franche de la carte (blindage, plan de masse, borne − des piles).
+   masse franche de la carte (blindage, plan de masse, borne − des piles). Et **le plus court
+   possible** : ces analyseurs n'ont qu'un ou deux fils de masse, et à 4 MHz sur du fil
+   dupont long, le signal sonne — un rebond se compte comme un front de plus.
 2. **Une pointe à la fois.** Un ripage entre deux pastilles voisines met deux sorties du CPU
    en court-circuit.
 3. **Ne jamais sonder avec la console éteinte puis l'allumer** avec des pointes posées : on ne
    voit pas un ripage sur un circuit éteint.
+4. 🔑 **La sonde est elle-même une charge — regarde l'écran d'origine pendant que tu sondes.**
+   Ces analyseurs n'ont pas de tampon d'entrée : la broche du FX2LP (~10 pF) plus le fil
+   dupont (30–50 pF) atterrissent directement sur la sortie du PPU. C'est exactement la
+   question que la phase 1 traite avec le 74LVC244.
+
+   Si l'image d'origine se dégrade visiblement pendant que tu sondes `CPG`, tu viens
+   d'apprendre **gratuitement** que le PPU est près de sa limite : le tampon devient non
+   négociable et les fils devront être encore plus courts. Si elle ne bouge pas, c'est une
+   marge de confort. Dans les deux cas, **note-le dans `signaux-mgb.md` §7** — c'est un
+   préavis à coût nul sur le seul risque 🔴 du sous-projet.
 
 ### B.3 La séquence
 
@@ -184,16 +210,64 @@ de masse qui inventent des fronts.
 |---|---|---|
 | 1 | Mesurer VCC au multimètre, **piles neuves** | 🔬 `VCC_neuf` |
 | 2 | Mesurer VCC après 30 min de jeu, ou avec des piles usées | 🔬 `VCC_use` — c'est **lui** qui décide du tampon |
-| 3 | Photographier la zone des pastilles du ruban LCD, macro, avec une règle | le plan de soudure du §C.5 |
+| 3 | Photographier la zone des pastilles du ruban LCD, macro, avec une règle | le plan de soudure du §C.4 |
 | 4 | Sonder **une** pastille, console allumée sur un écran statique | fréquence et allure |
 | 5 | Répéter jusqu'à avoir un candidat pour chacun des 6 signaux | table de §A.2 |
-| 6 | Capturer les **6 simultanément**, ≥ 2 trames complètes (≥ 35 ms) | le relevé de référence |
-| 7 | Dérouler l'arbre de décision §B.4 | l'attribution |
-| 8 | Faire le **test blanc/noir** §B.5 | la preuve |
-| 9 | Relever la **période minimale de `CPG`** §B.6 | 🔬 budget PIO |
-| 10 | Relever le **déphasage `LD` / `CPG`** §B.7 | 🔬 délai du PIO |
-| 11 | Enregistrer un `.sr` d'**une trame entière**, les 6 voies, 24 MS/s | la matière première du §D.11 |
+| 6 | **Capture LENTE** : les 6 voies, **4 MS/s, ~500 ms** → `releves/lente.sr` | `CPL`, `CP`, `ST`, `FR` |
+| 7 | **Capture RAPIDE** : les 6 voies, **24 MS/s, ~4 trames (67 ms)** → `releves/rapide.sr` | `CPG`, `LD0`, `LD1`, et la matière du §D.11 |
+| 8 | Dépouiller les deux (§B.3bis), puis vérifier à la main sur l'arbre §B.4 | l'attribution |
+| 9 | Faire le **test blanc/noir** §B.5 — deux captures rapides de plus | la preuve |
+| 10 | Relever la **période minimale de `CPG`** §B.6 | 🔬 budget PIO |
+| 11 | Relever le **déphasage `LD` / `CPG`** §B.7 | 🔬 délai du PIO |
 | 12 | Tout consigner dans `docs/signaux-mgb.md` | — |
+
+> 🔑 **Pourquoi deux captures et pas une.** Elles ne répondent pas à la même question, et
+> aucun taux unique ne fait les deux :
+>
+> - à **24 MS/s**, l'horloge pixel est visible (5,7 points par période) mais on ne peut pas
+>   capturer longtemps sans risquer de perdre des échantillons ;
+> - à **4 MS/s**, l'horloge pixel est repliée et illisible, mais on capture 30 trames sans
+>   effort — et c'est ce qu'il faut pour mesurer proprement un signal à 59,73 Hz, qui ne donne
+>   que 4 fronts sur une capture de 4 trames.
+>
+> ⚠️ Ne descends pas **sous 4 MS/s** pour la capture lente : les impulsions de `CPL` et `CP`
+> durent de l'ordre de la microseconde, et en dessous de 3 échantillons par impulsion elles
+> commencent à **disparaître**. L'outil te le dira, mais autant ne pas s'y exposer.
+
+### B.3bis Dépouiller — `tools/analyse_sr.py`
+
+```bash
+./tools/analyse_sr.py docs/releves/lente.sr     # CPL / CP / ST / FR
+./tools/analyse_sr.py docs/releves/rapide.sr    # CPG / LD0 / LD1
+```
+
+L'outil déroule l'arbre du §B.4 tout seul et **donne ses preuves**, pas seulement son verdict.
+Ce qu'il fait mieux qu'un coup d'œil sur PulseView :
+
+| Il mesure | Pourquoi c'est lui qui doit le faire |
+|---|---|
+| le **plus grand silence** dans la trame | c'est ce qui sépare `CPL` (1,09 ms) de `CP` (0,109 ms) ; leurs fréquences ne diffèrent que de 6,5 % et se confondent à l'œil |
+| les **impulsions par salve** et les **salves par trame** | 160 et 144, c'est une preuve ; une fréquence approchante n'en est pas une |
+| la **cadence par l'écart médian**, pas par un comptage sur la durée | un comptage sous-estime toujours, parce que la capture commence et finit au milieu d'une période |
+| la **largeur minimale d'impulsion** | prévient que le taux choisi fait perdre des impulsions, avant qu'on accuse le câblage |
+| la part des fronts de `LD` **tombant dans une salve de `CPG`** | ~100 %, c'est la signature d'une ligne de données |
+
+Il produit en fin de rapport un tableau à recopier tel quel dans `signaux-mgb.md`.
+
+> ⚠️ **L'outil propose, il ne décide pas.** Il annonce une confiance (`haute` / `moyenne` /
+> `faible`) : tout ce qui n'est pas `haute` se vérifie à l'œil dans PulseView avant d'être
+> consigné. Et une attribution `haute` sans le test blanc/noir reste une coïncidence de
+> fréquence — la preuve, c'est le §B.5.
+
+**Pour l'éprouver avant la session**, sans la console :
+
+```bash
+./tools/simuler_bus_gb.py /tmp/essai.sr && ./tools/analyse_sr.py /tmp/essai.sr
+```
+
+`simuler_bus_gb.py` fabrique une capture synthétique dont on connaît le contenu. Elle ne
+valide **rien du projet** — elle valide le dépouilleur. Avoir la console ouverte n'est pas le
+moment de découvrir que l'outil ne lit pas les `.sr` de ta version de PulseView.
 
 ### B.4 L'arbre de décision
 
@@ -275,8 +349,9 @@ et **combien de temps après**.
 - [ ] 🔬 Période minimale de `CPG` relevée et ≥ 200 ns
 - [ ] 🔬 Front d'échantillonnage choisi
 - [ ] 🔬 Polarité de `LD0/LD1` relevée
-- [ ] Un `.sr` d'une trame entière, 6 voies, 24 MS/s, versionné dans `docs/releves/`
-- [ ] `docs/signaux-mgb.md` écrit : photos annotées, table pastille → signal, captures
+- [ ] Les 4 `.sr` versionnés dans `docs/releves/` : `lente`, `rapide`, `blanc`, `noir`
+- [ ] `docs/signaux-mgb.md` rempli : photos annotées, table pastille → signal, verdict GO/NO-GO
+- [ ] 🔑 Noté : **l'écran d'origine s'est-il dégradé pendant le sondage ?** (§B.2, règle 4)
 
 > Tant que cette liste n'est pas cochée, **ne pas sortir le fer à souder**. Souder d'après un
 > brochage trouvé en ligne pour « une autre révision de carte », c'est risquer une pastille
