@@ -157,9 +157,19 @@ et c'est la raison pour laquelle on ne monte pas `clk_sys`.
 | **Piles neuves** | et des piles usées pour le test du §B.7 |
 | Une cartouche avec un écran **tout blanc** accessible | un menu, un écran-titre clair |
 
-⚠️ **Alimente la console par ses piles pendant toute la phase 0.** Une alimentation de labo
-partage sa masse avec la terre, donc avec le PC, donc avec l'analyseur : on crée des boucles
-de masse qui inventent des fronts.
+⚠️ **Alimente la console par ses piles, ou par une alimentation de labo à sortie flottante.**
+Le risque est la **boucle de masse** : si le `−` de l'alimentation est relié à la terre, la
+console se retrouve reliée à l'analyseur par deux chemins (le fil de masse, et la terre par le
+PC), et la boucle invente des fronts.
+
+La plupart des alimentations de labo ont une sortie **flottante**, avec une borne de terre
+verte **séparée** des bornes `+` et `−`. **Vérifie-le** plutôt que de le supposer : ohmmètre
+entre la borne `−` et la borne de terre, alimentation éteinte. Ouvert (> 1 MΩ) = flottante =
+utilisable. Quelques ohms = reliée à la terre : reviens aux piles.
+
+> Une alimentation flottante est même **préférable** aux piles pour la phase 0 : elle
+> reproduit exactement le cas « piles usées » du §3.3, en réglant la tension au lieu
+> d'attendre qu'elles se vident.
 
 **Les limites de l'instrument, et ce qu'elles imposent.** Un analyseur à FX2LP n'a ni mémoire
 ni trigger matériel : il **diffuse** en continu sur l'USB, à 24 Mo/s quand on lui demande

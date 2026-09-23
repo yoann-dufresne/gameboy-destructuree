@@ -2,12 +2,31 @@
 
 *Fiche de la phase 0. À remplir pendant la session, pas après.*
 
-**Statut : ⬜ non commencée**
+**Statut : 🔨 en cours — instrument validé le 23/09/2026**
 Console : MGB-001, n° de série `________`, révision de carte `________`
 Date de la session : `__/__/____`
 Analyseur : AZDelivery 8 CH 24 MHz (CY7C68013A / fx2lafw), PulseView `______`
 
 > Tant que le §7 n'est pas conclu, **aucune soudure** (`etapes-detaillees.md` §B.8).
+
+---
+
+## 0. Instrument — validé le 23/09/2026
+
+| Point | Résultat |
+|---|---|
+| Détection USB | `0925:3881 Lakeview Research Saleae Logic` |
+| Pilote | `fx2lafw`, sigrok-cli 0.7.2 |
+| **Firmware** | ⚠️ volatile : téléversé à **chaque** branchement. Paquet `sigrok-firmware-fx2lafw` requis, il n'est **pas** une dépendance de `sigrok-cli` |
+| Connexion | derrière un **dock USB-C** (pas de port direct sur la machine). Le premier téléversement a échoué 2 fois (`LIBUSB_ERROR_OTHER`) avant de passer — **ne pas débrancher en cours de session** |
+| Taux disponibles | 20 kHz … 48 MHz ; 4 MHz et 24 MHz présents |
+| Sérigraphie | `CH1 … CH8 GND GND` |
+| **Correspondance** | **`CHn` = `D(n-1)`** — vérifié en mettant `CH1` à la masse : seule `D0` est tombée à 0 % |
+| Entrées en l'air | **100 %** → le boîtier a des **résistances de tirage vers le haut**. Le test du doigt ne fonctionne pas dessus, et ces tirages sont une charge de plus sur le PPU (§B.2 règle 4) |
+
+> 🔑 **Le test du doigt a échoué, et c'est une information.** Une entrée tirée vers le haut ne
+> descend pas sous 1,4 V par simple couplage capacitif. Le test concluant est le
+> court-circuit franc à la masse.
 
 ---
 
@@ -29,25 +48,41 @@ Analyseur : AZDelivery 8 CH 24 MHz (CY7C68013A / fx2lafw), PulseView `______`
 
 ---
 
-## 2. Emplacement des prises
+## 2. Le point de prise — connecteur `P2`
 
-Photos macro dans `releves/` :
+**Carte `MGB-ECPU-01` (© 1996).** Le ruban LCD n'est pas soudé : connecteur **ZIF
+`P2`, 18 broches**, repères `1` et `18` sérigraphiés, verrou rabattable.
 
-| Fichier | Ce qu'il montre |
+| | |
 |---|---|
-| `releves/pastilles-ruban.jpg` | zone des pastilles du ruban LCD, avec règle |
-| `releves/pastilles-annotees.png` | la même, annotée après identification |
+| Photos | `releves/carte-mgb.jpg` (vue large), `releves/ruban-lcd.jpg` (gros plan) |
+| Nombre de broches | **18**, confirmé au comptage |
+| Pas | `______ mm` 🔬 (estimé ~1,0 d'après photo ; confirmer par la largeur du ruban) |
+| Rang de broches du CPU en regard | **41 à 64** |
+| Point de masse retenu | `BT−` |
 
-**Correspondance pastille ↔ voie de l'analyseur** (à remplir au fur et à mesure) :
+**Correspondance broche `P2` ↔ voie de l'analyseur ↔ signal** :
 
-| Voie | Repère physique de la pastille | Signal identifié |
-|---|---|---|
-| D0 | | |
-| D1 | | |
-| D2 | | |
-| D3 | | |
-| D4 | | |
-| D5 | | |
+| Broche P2 | Voie | Signal identifié | Preuve |
+|---|---|---|---|
+| 1 | | | |
+| 2 | | | |
+| 3 | | | |
+| 4 | | | |
+| 5 | | | |
+| 6 | | | |
+| 7 | | | |
+| 8 | | | |
+| 9 | | | |
+| 10 | | | |
+| 11 | | | |
+| 12 | | | |
+| 13 | | | |
+| 14 | | | |
+| 15 | | | |
+| 16 | | | |
+| 17 | | | |
+| 18 | | | |
 
 ---
 

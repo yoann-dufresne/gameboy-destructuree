@@ -136,16 +136,26 @@ comportent mal sur du push-pull à plusieurs MHz.
 
 ### 3.4 Où souder, et comment
 
+**Carte constatée le 23/09/2026 : `MGB-ECPU-01` (© 1996).** Le ruban LCD n'y est **pas
+soudé** : il arrive sur un **connecteur ZIF `P2` de 18 broches**, verrouillable, repères `1`
+et `18` sérigraphiés. Pas d'estimation, c'est une observation photographique.
+
 Par ordre de préférence :
 
-1. **Les pastilles du ruban LCD sur la carte mère** — accessibles, et l'écran d'origine reste
-   connecté : la console continue de fonctionner, ce qui est la condition pour déboguer.
+1. **Les broches du connecteur `P2`** — c'est le point retenu. Leurs soudures sont exposées
+   sur le bord du connecteur côté CPU, et l'écran d'origine reste branché : la console
+   continue de fonctionner, ce qui est la condition pour déboguer.
 2. **Les points du mod « bivert »** — le bivert (cf. `../Guide_Mods_Gameboy_Pocket.md` §1)
    consiste précisément à intercaler un inverseur sur `LD0` et `LD1`. Les tutos bivert pour
    MGB documentent donc déjà l'emplacement exact de **deux de nos cinq signaux**. Excellent
    point de départ, et une vérification croisée gratuite de l'identification du §3.2.
-3. **Les broches du CPU MGB** — dernier recours, pas fin, réservé si les pastilles sont
-   inaccessibles.
+3. **Les broches du CPU MGB** — dernier recours. Le rang qui fait face à `P2` est celui des
+   broches **41 à 64**, au pas de 0,65 mm : bien plus fin que `P2`.
+
+> ℹ️ Le connecteur rend techniquement possible un **interposeur FFC 18 points** entre le ruban
+> et `P2`, qui supprimerait toute soudure sur la console. **Écarté le 23/09/2026** : le projet
+> est artistique et le geste de soudure fait partie de la démarche. La piste reste notée ici
+> au cas où une autre console devrait être préservée intacte.
 
 **Règles de câblage — ce sont elles qui décident si l'image d'origine survit :**
 
@@ -533,3 +543,5 @@ capture/
 | 22/09/2026 | Phase 0 = mesure pure, aucune soudure | Les cinq signaux ne sont pas documentés de façon fiable pour cette révision de carte. Souder d'après un schéma trouvé en ligne, c'est risquer une pastille pour rien |
 | 22/09/2026 | Générateur de bus LCD sur 2ᵉ Pico écarté en v1 | On validerait le firmware contre nos propres hypothèses de timing. Gardé comme repli si la soudure bloque |
 | 22/09/2026 | `pxl1.h` dupliqué depuis `../ecran`, avec `PROVENANCE.txt` | Deux dépôts git indépendants ; un lien symbolique entre eux serait pire que la copie |
+| 23/09/2026 | Carte identifiée : `MGB-ECPU-01`, ruban LCD sur connecteur ZIF `P2` 18 broches | Observation photographique, pas une supposition. Change le point de prise de signaux |
+| 23/09/2026 | **Soudure directe sur les broches de `P2`**, pas d'interposeur FFC | L'interposeur supprimerait le risque 🔴, mais le projet est artistique et le geste de soudure fait partie de la démarche. Décision de Yoann |
