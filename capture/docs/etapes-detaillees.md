@@ -474,20 +474,16 @@ après avoir soudé sur la MGB, c'est souder deux fois.
   LD1 (GP1)  ────────►└──────────────┬─────────────────┘
                                      │ 1 mot = 16 pixels
                                      ▼
-                        ┌────── DMA canal A ──────┐   10 mots = 1 ligne
-                        │  RX FIFO → canevas      │
-                        └────────────┬────────────┘
-                              chaîne │ à la fin des 10 mots
-                                     ▼
-                        ┌────── DMA canal B ──────┐   lit l'adresse de la
-                        │  table[l] → A.write_trig│   ligne suivante et
-                        └─────────────────────────┘   RELANCE A
+                        ┌──────── DMA, UN canal ────────┐
+                        │  RX FIFO → framebuffer        │  1 440 mots
+                        │  adresse d'écriture croissante │  = 1 trame entière
+                        └───────────────────────────────┘
 
-  CPL (GP3) ──► IRQ ──► compteur de lignes, déclenche l'émission à 40 / 104 / 144
-  ST  (GP4) ──► IRQ ──► bascule les canevas, remet B au début de la table
+  P2-ST (GP3) ─► IRQ ──► compteur de lignes (144), déclenche un paquet tous les 35
+  P2-S  (GP4) ─► IRQ ──► bascule les framebuffers, réarme le canal DMA
 
                       ┌──────────── cœur 1 ────────────┐
-                      │ lwIP + CYW43  →  9 paquets UDP │
+                      │ lwIP + CYW43  →  5 paquets UDP │
                       └────────────────────────────────┘
 ```
 
@@ -570,47 +566,30 @@ Et à l'intérieur de l'octet 0, `px0` occupe les bits 7:6, comme voulu.
 et GP1 (`LD1`) en bit de poids fort. Si c'est l'inverse de la convention de la console, ou si
 `00` est blanc au lieu de noir : **on permute 4 entrées de palette**. Aucun code ne change.
 
-### D.4 La chaîne DMA, expliquée
+### D.4 Le DMA — un seul canal
 
-Le problème : une ligne GB fait 40 octets, mais la ligne suivante du canevas commence
-48 octets plus loin. Le DMA doit donc « sauter » 8 octets à chaque ligne — ce qu'il ne sait pas
-faire seul.
+> 🔑 **Depuis que l'émetteur est agnostique de l'afficheur (25/09/2026), cette section est
+> devenue presque triviale.** Elle décrivait auparavant deux canaux chaînés déroulant une
+> table de 144 adresses, parce qu'une ligne GB faisait 40 octets dans un canevas de 48. Avec
+> un framebuffer 160×144, **les lignes sont contiguës** et tout ça disparaît.
 
-**La parade standard du RP2350 : deux canaux qui se relancent l'un l'autre.**
+| | Le canal unique |
+|---|---|
+| Lit | RX FIFO du PIO (adresse fixe) |
+| Écrit | le framebuffer (adresse **incrémentée**) |
+| Taille | 32 bits |
+| Nombre | **1 440** transferts = 144 lignes × 10 mots = une trame entière |
+| `dreq` | PIO RX non vide |
+| `bswap` | **oui** (§D.3) |
 
-| | Canal A — les pixels | Canal B — le contrôle |
-|---|---|---|
-| Lit | RX FIFO du PIO (adresse fixe) | `table[]` (adresse **incrémentée**) |
-| Écrit | le canevas (adresse **incrémentée**) | `A.write_addr_trig` (adresse fixe) |
-| Taille | 32 bits | 32 bits |
-| Nombre | **10** transferts = 1 ligne | **1** transfert |
-| `dreq` | PIO RX non vide | permanent |
-| `chain_to` | **B** | lui-même (= pas de chaînage) |
-| `bswap` | **oui** (§D.3) | non |
+À chaque VSYNC : on arrête le canal, on vide le FIFO, on bascule le framebuffer, on réarme le
+canal sur l'autre. Une écriture d'adresse et un compteur, dans une fenêtre de VBlank de
+**1,09 ms** — soit 163 000 cycles à 150 MHz pour un travail qui en demande quelques dizaines.
 
-**Le cycle :** A transfère 10 mots → sa fin déclenche B → B écrit dans `write_addr_trig` de
-A l'adresse de la ligne suivante, ce qui **relance A automatiquement**. Le pointeur de lecture
-de B avance d'un mot à chaque passage, donc il déroule la table tout seul.
-
-**La table**, calculée une fois au démarrage :
-
-```c
-for (int l = 0; l < 144; ++l)
-    table[c][l] = (uint32_t)&canevas[c][(24 + l) * 48 + 4];
-//                                       ^^^^^^^^^^^   ^
-//                              y0 = 24 lignes          x0 = 16 px = 4 octets
-```
-
-> 🔑 `x0 = 16` pixels vaut **exactement 4 octets** en `IDX2`. C'est ce qui permet au DMA
-> d'écrire directement à sa place dans le canevas : il n'y a **pas** de framebuffer 160×144
-> intermédiaire, et **pas** de recopie vers un canevas 192×192.
-
-Deux tables (une par canevas), 144 × 4 octets = **576 octets chacune**. À chaque VSYNC, on
-pointe B sur la table de l'autre canevas.
-
-⚠️ **Ce que le DMA ne sait pas** : il compte des mots, pas des lignes. Si un front de `CPG`
-est raté, tout décale et ne se rattrape **jamais** dans la trame. D'où l'IRQ `CPL`, qui n'est
-pas décorative : c'est le **contrôle d'intégrité** de la chaîne.
+⚠️ **Ce que le DMA ne sait toujours pas** : il compte des mots, pas des lignes. Si un front
+d'horloge pixel est raté, tout décale et ne se rattrape **jamais** dans la trame. D'où l'IRQ
+sur `P2-ST`, qui n'est pas décorative : c'est le **contrôle d'intégrité**, et la phase 0 a
+établi qu'elle donne exactement **144 impulsions par trame**.
 
 ### D.5 Les deux interruptions
 
@@ -632,41 +611,41 @@ dispose de toute la VBlank (**1,09 ms**) :
   1. vérifier : lignes == 144 ?  sinon → compteur trames_douteuses++
   2. arrêter les canaux A et B    (abort, au cas où une ligne serait en cours)
   3. vider le FIFO RX du PIO      (sinon les restes d'une ligne ratée polluent la suivante)
-  4. basculer : canevas_actif ^= 1
-  5. réarmer B sur table[canevas_actif], amorcer A sur sa première ligne
+  4. basculer : tampon_actif ^= 1
+  5. réarmer le canal DMA sur trame[tampon_actif], 1 440 mots
   6. lignes = 0 ; trames++
-  7. réveiller le cœur 1 pour émettre le canevas qui vient d'être terminé
+  7. réveiller le cœur 1 pour émettre la trame qui vient d'être terminée
 ```
 
 > ⚠️ **L'ordre 2-3-4-5 n'est pas négociable.** Vider le FIFO avant d'arrêter les canaux laisse
-> le PIO le remplir à nouveau. Basculer le canevas avant d'arrêter A laisse A écrire quelques
-> mots dans le canevas qu'on est en train d'émettre — une déchirure, intermittente, et donc
-> pénible à trouver.
+> le PIO le remplir à nouveau. Basculer le tampon avant d'arrêter le canal laisse celui-ci
+> écrire quelques mots dans la trame qu'on est en train d'émettre — une déchirure,
+> intermittente, et donc pénible à trouver.
 
 > 🔬 **Si `ST` se révèle être `FR`** (alternance à 29,86 Hz au lieu d'une impulsion à
 > 59,73 Hz), le firmware doit déclencher sur **les deux fronts** au lieu du seul front
 > montant. C'est un paramètre, pas une réécriture — mais il faut l'avoir prévu.
 
-### D.6 Le canevas
+### D.6 Le framebuffer
 
 ```c
-uint8_t canevas[2][192 * 192 / 4];   /* 2 × 9 216 = 18 432 octets */
+uint8_t trame[2][160 * 144 / 4];   /* 2 × 5 760 = 11 520 octets */
 ```
 
-Au démarrage, on le remplit **une fois** avec l'indice de la couleur du cadre. Ensuite, le DMA
-n'écrit **que** les fenêtres de 40 octets. La marge n'est plus jamais touchée : **elle ne coûte
-rien par trame**, ni en CPU ni en mémoire.
+Rien d'autre. Pas de marge à pré-remplir, pas de cadre à dessiner, pas de zone que le DMA
+n'écrirait pas : **chaque octet du tampon est écrit à chaque trame**.
 
-C'est aussi là que se dessinera plus tard un vrai cadre (§G) — sans toucher au protocole ni au
-module écran.
+> Le cadre, le centrage et le choix des teintes appartiennent désormais au module ÉCRAN
+> (plan §5.3). C'est ce qui rend ce sous-projet indépendant de la géométrie d'arrivée — et ce
+> qui charge l'autre d'un travail qu'il n'avait pas.
 
 ### D.7 Le firmware : fichiers et responsabilités
 
 | Fichier | Responsabilité | Ne contient pas |
 |---|---|---|
-| `include/config.h` | brochage, géométrie, placement dans le canevas, `D` du PIO | de la logique |
+| `include/config.h` | brochage, géométrie de la **source** (160×144), `D` du PIO | de la logique, et **rien sur l'afficheur** |
 | `src/capture.pio` | les 3 instructions | quoi que ce soit d'autre |
-| `src/capture.cpp` | PIO, DMA, les 2 IRQ, les canevas, les compteurs | le réseau |
+| `src/capture.cpp` | PIO, DMA, les 2 IRQ, les framebuffers, les compteurs | le réseau |
 | `src/net/reseau.cpp` | lwIP, CYW43, l'émission `PXL1` | la capture |
 | `src/main.cpp` | démarrage, console, recette de phase | de la mécanique |
 | `include/pxl1.h` | copie conforme de `../../ecran`, + `PROVENANCE.txt` | **aucune modification** |
@@ -678,7 +657,7 @@ exactement ce qui casse la compatibilité entre deux dépôts. Si le protocole d
 ### D.8 Prouver par l'image — deux instruments, dans cet ordre
 
 **D'abord l'ASCII, parce qu'il ne demande rien.** Sur commande (une touche sur la console
-USB), vider la partie GB du canevas, un pixel sur deux dans chaque direction, 4 caractères :
+USB), vider le framebuffer, un pixel sur deux dans chaque direction, 4 caractères :
 
 ```
   80 colonnes × 72 lignes, avec " ", ".", ":", "#"
@@ -689,7 +668,7 @@ lisible pour reconnaître un écran-titre** — donc pour répondre à la seule 
 phase 2 : *est-ce qu'on capture la bonne chose ?*
 
 **Ensuite le PNG, pour le détail.** `tools/gbdump.py` : demande un vidage, reçoit les
-9 216 octets en hexadécimal sur l'USB, écrit un PNG 192×192 en 4 gris. Sert à juger l'ordre
+5 760 octets en hexadécimal sur l'USB, écrit un PNG 160×144 en 4 gris. Sert à juger l'ordre
 des pixels, les bords, les colonnes.
 
 > 🔑 Contrairement au module écran, où le compteur de trames annonçait 788 Hz parfaitement
@@ -711,7 +690,7 @@ des pixels, les bords, les colonnes.
 
 | Ce que montre l'image | Cause presque certaine | Quoi faire |
 |---|---|---|
-| **Rien**, canevas resté à la couleur du cadre | `CPG` n'arrive pas sur GP2, ou le PIO n'est pas démarré | test de continuité §C.5, puis relire le FIFO à la main |
+| **Rien**, framebuffer vide ou figé | `CPG` n'arrive pas sur GP2, ou le PIO n'est pas démarré | test de continuité §C.5, puis relire le FIFO à la main |
 | Pixels mélangés **par groupes de 4**, motif régulier | `bswap` ou `in_shiftdir` (§D.3) | inverser l'un des deux, pas les deux |
 | Image **décalée horizontalement**, le décalage **grandit** ligne après ligne | un front de `CPG` raté ou compté en trop | augmenter/diminuer `D`, vérifier le front choisi (§B.7) |
 | Image décalée horizontalement d'un montant **constant** | erreur d'amorçage : le `wait 0` manque, ou la ligne démarre au mauvais moment | vérifier l'ordre 2-3-4-5 du §D.5 |
@@ -736,7 +715,7 @@ comprend, ne prouve rien d'autre que notre cohérence avec nous-mêmes.
 |---|---|
 | Quoi | un 2ᵉ Pico rejoue échantillon par échantillon les 6 voies du `.sr`, en PIO + DMA |
 | Coût mémoire | 24 MS/s × 16,74 ms = **402 000 échantillons**, un octet chacun ⇒ **402 ko** sur les 520 ko du RP2350. Ça tient, tout juste, pour **une** trame en boucle |
-| Ce que ça prouve | la **plomberie** : chaîne DMA, `bswap`, offsets du canevas, comptage des lignes, IRQ |
+| Ce que ça prouve | la **plomberie** : DMA, `bswap`, comptage des lignes, IRQ, découpage en paquets |
 | Ce que ça ne prouve **pas** | la tenue analogique : fronts réels, rebonds, niveaux à piles usées, diaphonie |
 
 C'est donc un **accélérateur de développement**, pas un critère de sortie. La phase 2 n'est
@@ -775,6 +754,14 @@ firmware écran, qui tournent depuis le 18/09 — puis on remplace `pixelpush` p
 | 2 | `reseau.cpp`, filtre de `sur_paquet()` | la condition `e.format != PXL1_FMT_BGR888 && e.format != PXL1_FMT_IDX8` doit accepter `IDX2` |
 | 3 | `reseau.cpp` + `reseau.hpp` | `developper_idx2(const uint8_t *indices, uint8_t *sortie)`, jumeau de `developper_idx8` : 1 octet → 4 pixels → palette → B,G,R |
 | 4 | `main.cpp`, vers la ligne 249 | le `if (t.format == PXL1_FMT_IDX8)` devient un aiguillage à deux branches |
+| 5 | `pxl1.h` | ajouter `PXL1_CTRL_GEOMETRIE = 2` (largeur, hauteur, format) — §E.5bis |
+| 6 | `reseau.cpp`, `traiter_ctrl()` | mémoriser la géométrie annoncée par la source |
+| 7 | `reseau.cpp`, `taille_trame()` | **la déduire de la SOURCE**, plus de l'affichage |
+| 8 | `main.cpp` | **placer** la source 160×144 dans l'affichage : recadrage, centrage, marges |
+
+> ⚠️ **Les modifications 5 à 8 sont nouvelles**, conséquence de l'émetteur agnostique
+> (25/09/2026). Elles ne sont pas des retouches : la n° 8 est un **compositeur**, et le
+> firmware du module écran n'en a jamais eu. À inscrire à son propre plan.
 
 **Ce qui ne change pas**, et c'est l'essentiel :
 
@@ -813,37 +800,59 @@ sniffer : il servira encore quand la console sera refermée.
 
 ### E.5 Côté CAPTURE — l'émission
 
-**Ce que le cœur 1 fait, à chaque réveil :**
+**Ce que le cœur 1 fait, à chaque réveil** (un réveil tous les 35 lignes, plus un à la VSYNC) :
 
 ```
-  pour le nœud n réveillé (0, 1 ou 2) :
-      base   = n * 3072                      /* son rectangle dans le canevas */
-      reste  = 3072
-      offset = 0
-      tant que reste > 0 :
-          taille = min(reste, 1400)
-          entete = { magic, FRAME, n, frame_id, IDX2,
-                     (reste == taille ? DERNIERE : 0), offset }
-          sendto(ip[n], entete + canevas[base + offset .. +taille])
-          offset += taille ; reste -= taille
+  taille = min(5760 - offset, 1400)
+  derniere = (offset + taille == 5760)
+  entete = { magic, FRAME, node_id=0, frame_id, IDX2,
+             (derniere ? DERNIERE : 0), offset }
+  sendto(ip_recepteur, entete + trame[offset .. offset+taille])
+  offset += taille
 ```
 
-Soit **3 paquets par nœud** : 1400, 1400, 272 octets. **9 paquets par trame**, 538 par seconde.
+**5 paquets par trame** : 1400 × 4 + 160. **299 paquets par seconde.**
 
 | Point d'attention | Pourquoi |
 |---|---|
-| `frame_id` **identique pour les 3 nœuds** | c'est lui qui les fait afficher la même trame ; il s'incrémente par trame GB, pas par paquet |
-| `PXL1_FLAG_DERNIERE` sur le **3ᵉ paquet de chaque nœud** | c'est ce qui déclenche l'affichage. Le poser trop tôt affiche une trame tronquée |
-| `offset` en octets **dans la charge du nœud**, pas dans le canevas | c'est la convention de `pxl1.h` ; le nœud 1 commence à `offset = 0`, pas à 3072 |
-| `cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM)` | ⚠️ **le levier de latence**. Le firmware écran l'a mesuré : sans lui, 10 à 100 ms s'ajoutent par trame |
-| Émission depuis le **cœur 1**, jamais depuis une IRQ de capture | une IRQ qui bloque dans lwIP fait rater des fronts de `CPG` |
+| `node_id` = **0**, toujours | un émetteur, un récepteur. Le champ reste dans l'en-tête pour ne pas le casser |
+| `frame_id` s'incrémente **par trame GB** | c'est lui qui solde une trame côté récepteur |
+| `PXL1_FLAG_DERNIERE` sur le **5ᵉ paquet** | c'est ce qui déclenche l'affichage. Trop tôt = trame tronquée |
+| `offset` en octets **dans la trame source** | 0, 1400, 2800, 4200, 5600 |
+| `cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM)` | ⚠️ **le levier de latence**, mesuré par le module écran : sans lui, 10 à 100 ms s'ajoutent |
+| Émission depuis le **cœur 1**, jamais depuis une IRQ de capture | une IRQ qui bloque dans lwIP fait rater des fronts d'horloge pixel |
 
 **Deux variantes, dans cet ordre :**
 
-1. **Simple** — tout émettre à la VSYNC : 9 paquets d'affilée. À écrire en premier.
-2. **Pipelinée** — émettre le nœud 0 à la ligne 40, le nœud 1 à la ligne 104, le nœud 2 à la
-   VSYNC. Gagne jusqu'à **11,3 ms** sur le haut de l'image. Le compteur de lignes du §D.5
-   existe déjà : **c'est un `if`**, pas une réécriture. À faire si la phase 4 le demande.
+1. **Simple** — tout émettre à la VSYNC : 5 paquets d'affilée. À écrire en premier.
+2. **Pipelinée** — un paquet dès que ses 35 lignes sont capturées. Gagne jusqu'à **11,9 ms**
+   sur le haut de l'image. Le compteur de lignes sur `P2-ST` existe déjà : c'est un `if`.
+
+| Paquet | Lignes GB | Prêt après |
+|---|---|---|
+| 0 | 0 – 34 | 3,8 ms |
+| 1 | 35 – 69 | 7,6 ms |
+| 2 | 70 – 104 | 11,4 ms |
+| 3 | 105 – 139 | 15,2 ms |
+| 4 | 140 – 143 | 15,7 ms |
+
+### E.5bis Annoncer la géométrie — `PXL1_CTRL_GEOMETRIE`
+
+Le récepteur déduisait jusqu'ici la taille d'une trame de **sa propre** géométrie. Un
+émetteur agnostique doit donc lui annoncer celle de la **source** :
+
+```
+  PXL1_CTRL_GEOMETRIE = 2
+      uint16 largeur   = 160
+      uint16 hauteur   = 144
+      uint8  format    = PXL1_FMT_IDX2
+```
+
+Émise avec la palette, **toutes les 2 secondes**. Un récepteur redémarré retrouve seul de
+quoi interpréter le flux — comportement déjà en place pour la palette.
+
+⚠️ **Cette sous-commande est à ajouter dans `pxl1.h`, donc dans `../ecran` d'abord**, puis à
+recopier ici (§D.7). Le protocole évolue dans le dépôt qui le possède.
 
 ### E.6 La palette — 4 entrées, envoyées toutes les 2 secondes
 
@@ -880,7 +889,8 @@ dans `config.h`, avec une réservation DHCP sur la box pour qu'elles ne bougent 
 ### E.8 ✅ Critère de sortie de la phase 3
 
 - [ ] La recette §E.4 est entièrement verte, **sans le sniffer**
-- [ ] Un jeu tourne sur la console et **s'affiche sur la grille 192×192**
+- [ ] Un jeu tourne sur la console et **s'affiche sur la grille** — suppose que le
+      module ÉCRAN sache recevoir une source 160×144 et la placer (plan §5.3)
 - [ ] **59,73 img/s** reçues par les 3 nœuds
 - [ ] Les 3 rangées affichent **la même trame** : aucune déchirure sur un scrolling horizontal
 - [ ] Aucun scintillement sur **10 minutes** de jeu
@@ -971,7 +981,7 @@ sniffer, sans aucune hypothèse de synchronisation entre les cartes.
 | **Antenne du Pico** | ⚠️ Le carré d'antenne du Pico 2 W ne doit avoir **ni masse, ni métal, ni batterie** dans son voisinage immédiat. C'est le point le plus souvent négligé, et il se paie en trames perdues qu'on attribue au firmware |
 | **Alimentation** | Powerbank ou USB, **jamais les piles de la console**. Masses communes, VCC jamais reliés |
 | **Sortie de la console** | Option élégante : réutiliser le **port link (EXT)**, qui est déjà un connecteur 6 points avec son ouverture dans la coque. Contrepartie : on sacrifie la fonction link. À trancher, pas avant que tout le reste marche |
-| **Le cadre** | Les 16 px de marge horizontale et 24 px verticale sont libres. Bordure, titre, indicateur de batterie — dessinés une fois dans le canevas au démarrage, donc **gratuits** (§D.6) |
+| **Le cadre** | ⚠️ **N'est plus du ressort de ce module.** Depuis que l'émetteur est agnostique (plan §5.3), bordure, centrage et habillage appartiennent au module ÉCRAN, qui dispose de 16 px de marge horizontale et 24 px verticale |
 | **Remontage** | Vérifier que le ruban LCD d'origine n'est pas pincé, et que le module ne force sur rien avant de visser |
 
 ---

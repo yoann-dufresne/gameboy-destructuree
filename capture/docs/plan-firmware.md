@@ -17,8 +17,8 @@ Version 1 — 22/09/2026
 | **Interface électrique** | **100 Ω en série** sur chaque prise, **liaison directe** au Pico. Pas de tampon | oui — le tampon reste une option si l'image se dégrade |
 | **Protocole de sortie** | **`PXL1`**, réutilisé tel quel — le module ÉCRAN ne change pas d'interface | non |
 | **Format** | **`IDX2`**, le format natif de la Game Boy, déjà réservé dans le protocole | non |
-| **Mise à l'échelle** | **aucune** — 160×144 posés en 1:1 dans les 192×192 de la grille | non |
-| **Composition du cadre** | **sur le sniffer** : il émet un canevas 192×192 complet | oui |
+| **Mise à l'échelle** | **aucune** — la trame native sort telle quelle | non |
+| **Périmètre de l'émetteur** | **la trame Game Boy brute, rien d'autre** : 160×144 en `IDX2`. Aucune connaissance de l'afficheur | non |
 | **Langage** | **C++20**, pico-sdk 2.x bare-metal, PIO + DMA, 2 cœurs | non |
 | **`clk_sys`** | **150 MHz**, la valeur par défaut — pas les 266 MHz du module écran | oui |
 | **Alimentation** | **séparée de la console**, masses communes | non |
@@ -213,10 +213,10 @@ exactement l'erreur que le module écran a payée en phase 0 avec les adresses A
  CPG ──► PIO SM0 : wait 0 / wait 1 / in pins,2   (autopush 32 bits = 16 pixels)
                         │
                         ▼
-                    DMA ──► canevas 192×192 IDX2, directement à la bonne ligne
+                    DMA ──► framebuffer 160×144 IDX2, lignes contiguës
                         │
- CPL ──► PIO SM1 ───────┘   (ré-arme le DMA ligne par ligne)
- ST  ──► IRQ GPIO ──► bascule les canevas, réveille le cœur 1
+ P2-ST ► IRQ GPIO ──► compte les lignes (144), déclenche un paquet tous les 35
+ P2-S  ► IRQ GPIO ──► bascule les tampons, réarme le DMA, réveille le cœur 1
 
  cœur 1 : lwIP + CYW43 ──► 3 × 3 paquets UDP PXL1/IDX2
 ```
@@ -225,71 +225,105 @@ exactement l'erreur que le module écran a payée en phase 0 avec les adresses A
   À 150 MHz, une itération dure 20 ns ; l'horloge pixel culmine à ~4,2 MHz, soit 238 ns par
   pixel : **plus de 10× de marge.** Autopush à 32 bits = 16 pixels par mot, 10 mots par ligne.
 - **DMA** — le FIFO du PIO alimente la mémoire sans le CPU. Le CPU **ne touche aucun pixel**.
-- **IRQ VSYNC** — bascule les canevas, remet le DMA à zéro, réveille l'émission.
+- **IRQ VSYNC** — bascule les tampons, réarme le DMA, réveille l'émission.
 - **Cœur 1** — pile réseau (lwIP + CYW43). Séparer capture (cœur 0) et réseau (cœur 1) évite
   que le WiFi ne fasse rater un front d'horloge. C'est le même découpage que le module écran,
   pour la même raison.
 
-### 5.2 Pas de tampon intermédiaire : le DMA écrit dans le canevas
+### 5.2 Le framebuffer : la trame native, et rien de plus
 
-Une ligne GB fait 160 px × 2 bits = **40 octets**. Le canevas fait 192 px × 2 bits =
-**48 octets par ligne**. L'image est centrée : `x0 = (192−160)/2 = 16` pixels, soit
-**exactement 4 octets** en `IDX2`.
+Une ligne GB fait 160 px × 2 bits = **40 octets**. Le framebuffer en fait 144 :
 
-> 🔑 L'offset horizontal tombe sur une frontière d'octet. Le DMA peut donc écrire les
-> 40 octets d'une ligne **directement dans le canevas**, à 4 octets du bord. Il n'y a pas de
-> framebuffer 160×144 à recopier ensuite vers un canevas 192×192 : **cette recopie n'existe
-> pas.** Que `(192−160)/2` soit un multiple de 4 est une coïncidence heureuse — mais elle
-> découle du choix 192×192 fait par le module écran, qui était déjà motivé par le 1:1.
+```
+  160 × 144 × 2 bits  =  5 760 octets
+  double tampon       =  11,5 ko  sur les 520 ko du RP2350
+```
 
-Empreinte mémoire :
+> 🔑 **Les lignes sont contiguës.** C'est ce qui fait disparaître toute la mécanique
+> d'adressage : il n'y a ni décalage horizontal à ménager, ni pas de ligne différent du
+> contenu, ni table d'adresses à dérouler. Le PIO produit 10 mots par ligne, le DMA les écrit
+> les uns après les autres, et les frontières de ligne sont **implicites**.
 
-| | |
+**Conséquence sur la chaîne DMA** : là où un canevas plus large aurait exigé deux canaux
+chaînés déroulant une table de 144 adresses (pour sauter de 40 à 48 octets à chaque ligne),
+il suffit ici d'**un seul canal**, de **1 440 mots**, réarmé à chaque VSYNC. Le canal de
+contrôle et la table n'existent pas.
+
+⚠️ Ce que le DMA ne sait toujours pas : il compte des mots, pas des lignes. Un front d'horloge
+pixel raté décale tout et ne se rattrape jamais dans la trame. D'où le compteur d'intégrité
+sur `P2-ST` — **144 impulsions par trame**, mesuré en phase 0.
+
+### 5.3 Ce que l'émetteur ne fait pas
+
+Le sniffer **ignore tout de l'afficheur**. Il ne connaît ni sa géométrie, ni le nombre de
+nœuds, ni le découpage. Il émet une trame Game Boy, vers un récepteur, point.
+
+| Responsabilité | Où elle vit |
 |---|---|
-| Canevas 192×192 en `IDX2` | 9 216 octets |
-| Double tampon | **18,4 ko** sur les 520 ko du RP2350 |
-| Reste (pile réseau, pile lwIP, tampons UDP) | quelques dizaines de ko |
+| Capturer 160×144 en `IDX2` | **ici**, module CAPTURE |
+| Émettre la trame en UDP | **ici** |
+| Recadrer, centrer, dessiner un cadre | **module ÉCRAN** |
+| Répartir sur N nœuds | **module ÉCRAN** |
+| Choisir les 4 teintes | **module ÉCRAN** (palette) |
 
-Aucune tension mémoire — au contraire du module écran, dont les plans de bits pèsent 370 ko
-en 3×3.
+> ⚠️ **La complexité n'a pas disparu, elle a changé de côté.** Le module ÉCRAN doit désormais
+> savoir recevoir une source **plus petite que son affichage**, la placer, et la répartir.
+> Aujourd'hui son firmware déduit la taille d'une trame de sa **propre** géométrie
+> (`taille_trame()` renvoie `DISPLAY_W × DISPLAY_H`) : il faut donc qu'il apprenne la
+> géométrie de la **source**. Voir §5.4.
+>
+> C'est un travail réel, à inscrire au plan du module écran. Le noter ici évite qu'il tombe
+> entre les deux sous-projets.
 
-### 5.3 Où va quoi : le découpage en nœuds
+### 5.4 Annoncer la géométrie de la source
 
-L'image GB est **centrée** dans la grille : `x0 = 16`, `y0 = (192−144)/2 = 24`. Elle occupe
-donc les lignes 24 à 167 du canevas, et se trouve **à cheval sur les trois nœuds** :
+`PXL1` n'a pas de champ de dimensions : le récepteur a toujours déduit la taille d'une trame
+de son propre affichage. Avec un émetteur agnostique, ça ne tient plus.
 
-| Nœud | Lignes du canevas | Lignes GB | Prêt à émettre après… |
-|---|---|---|---|
-| 0 | 0 – 63 | 0 – 39 (40 lignes) + 24 lignes de marge haute | ligne 40 ⇒ **4,3 ms** |
-| 1 | 64 – 127 | 40 – 103 (64 lignes) | ligne 104 ⇒ **11,3 ms** |
-| 2 | 128 – 191 | 104 – 143 (40 lignes) + 24 lignes de marge basse | ligne 144 ⇒ **15,7 ms** |
+**Extension retenue : une sous-commande `CTRL`.**
 
-(une ligne GB dure 456 / 4 194 304 = **108,7 µs**.)
+```
+  PXL1_CTRL_GEOMETRIE = 2
+      + uint16 largeur      (160)
+      + uint16 hauteur      (144)
+      + uint8  format       (PXL1_FMT_IDX2)
+```
 
-**L'émission est donc naturellement pipelinée** : on n'attend pas la fin de la trame pour
-émettre, on envoie la part d'un nœud dès que ses lignes sont capturées. C'est le « envoi par
-tranches » de la spec §5.2, mais découpé selon une frontière qui a déjà un sens — celle des
-nœuds — plutôt qu'en tranches de 24 lignes arbitraires.
+Émise avec la palette, **toutes les 2 secondes**, comme elle. Un récepteur redémarré
+retrouve seul de quoi interpréter le flux, sans intervention — c'est le comportement déjà
+en place pour la palette.
 
-### 5.4 Émettre le cadre, ou ne pas l'émettre
+Trois raisons de passer par `CTRL` plutôt que d'élargir l'en-tête :
 
-Le sniffer capture 160×144 ; il émet 192×192. Les 13 824 pixels de marge (37,5 % du canevas)
-sont émis à chaque trame alors qu'ils ne changent jamais.
+1. l'en-tête de 12 octets est figé et déjà déployé ; l'élargir casserait le module écran ;
+2. la géométrie change au plus une fois par démarrage : elle n'a rien à faire dans le chemin
+   critique des pixels ;
+3. `CTRL` est précisément la voie prévue pour ce qui n'est pas du pixel (plan `ecran` §4.1).
 
-| Option | Débit total | Paquets/trame | Verdict |
-|---|---|---|---|
-| **Canevas complet 192×192, `IDX2`** | **4,40 Mbit/s** (1,47 par nœud) | **9** | ✅ retenu |
-| Sous-rectangle 160×144 seul | 2,75 Mbit/s | 9 aussi, ou bien ~40 si on suit les lignes | ❌ |
-| Canevas complet, `IDX8` | 17,6 Mbit/s (5,9 par nœud) | 27 | ❌ sans intérêt ici |
+### 5.4bis Débit et découpage en paquets
 
-Le sous-rectangle demanderait au firmware du module ÉCRAN de connaître un rectangle plus
-petit que sa dalle — ce qu'il ne sait pas faire aujourd'hui (`charge_noeud()` renvoie la
-taille de l'affichage entier). Pour **1,65 Mbit/s** d'économie sur un lien qui en encaisse
-24,6, on ne touche pas au protocole. **Décision : le sniffer compose le canevas complet.**
+| | Valeur |
+|---|---|
+| Trame | **5 760 octets** |
+| Débit | **2,75 Mbit/s** (5 760 × 59,727 × 8) |
+| Paquets par trame | **5** — 1400 × 4 + 160 |
+| Paquets par seconde | **299** |
+| Lignes par paquet de 1400 o | **35** (1400 / 40) |
 
-Bénéfice secondaire : la marge devient un vrai cadre, librement dessinable côté sniffer
-(entrée de palette dédiée, bordure, plus tard un indicateur de batterie), sans rien changer
-au protocole ni au module écran.
+**L'émission reste pipelinée**, et plus simplement qu'avant : un paquet part dès que ses
+35 lignes sont capturées.
+
+| Paquet | Lignes GB | Prêt après |
+|---|---|---|
+| 0 | 0 – 34 | **3,8 ms** |
+| 1 | 35 – 69 | **7,6 ms** |
+| 2 | 70 – 104 | **11,4 ms** |
+| 3 | 105 – 139 | **15,2 ms** |
+| 4 | 140 – 143 | **15,7 ms** |
+
+Comparé au découpage par nœud de la version précédente, c'est **le même principe avec une
+frontière plus naturelle** : celle du paquet, qui ne dépend d'aucune hypothèse sur
+l'afficheur.
 
 ### 5.5 Le format `IDX2`, octet par octet
 
@@ -324,7 +358,7 @@ recompiler : vert DMG, gris, bivert, ou n'importe quoi d'autre.
 |---|---|
 | **Capture par interruption CPU sur CPG** | ❌ 4 MHz d'interruptions, ~240 ns par pixel pour entrer et sortir d'un handler. Impossible, et c'est précisément ce à quoi sert le PIO |
 | **Lire la VRAM par le bus cartouche** | ❌ il faudrait reconstruire le PPU : fenêtre, sprites, priorités, registres. C'est écrire un émulateur pour ne pas souder cinq fils |
-| **Réduire à la source (64×58, 4 bpp)** | ❌ le 192×192 accueille le 160×144 en 1:1 ; la réduction a disparu avec la grille 3×3 |
+| **Réduire ou mettre à l'échelle à la source** | ❌ l'émetteur sort la trame native. Toute transformation appartient à l'afficheur, qui seul connaît sa géométrie |
 | **RLE ou `IDX4`** | ❌ `IDX2` est déjà natif et plus compact. Compresser un format natif de 2 bits, c'est du travail pour rien |
 | **Générateur de bus LCD sur un 2ᵉ Pico, pour développer sans ouvrir la console** | 🔶 tentant, écarté en v1 : on validerait le firmware contre **nos propres hypothèses de timing**, pas contre la console. À garder comme repli si la soudure bloque |
 | **Faire transiter par un PC** | ❌ un saut de plus, une machine à allumer, et la latence mesurée du lien direct est déjà de ~8 ms |
@@ -368,7 +402,7 @@ reprise d'effort à la colle. Alimentation du sniffer **séparée**, masses comm
 PIO + DMA + IRQ VSYNC. Pas encore de réseau : on prouve **par l'image** qu'on a capturé la
 bonne chose.
 
-- `tools/gbdump.py` récupère un canevas par la console USB et l'écrit en PNG ;
+- `tools/gbdump.py` récupère une trame par la console USB et l'écrit en PNG ;
 - compteurs : lignes par trame (doit valoir 144), pixels par ligne (160), trames par seconde.
 
 **Critère de sortie :**
@@ -435,13 +469,13 @@ point le plus souvent négligé), alimentation définitive, cadre dessiné dans 
 | Horloge pixel, moyenne | **1,38 M impulsions/s** | 160 × 144 × 59,73 |
 | Horloge pixel, crête | **~4,2 MHz** 🔬 | à mesurer en phase 0 |
 | Budget PIO par pixel | **238 ns**, soit ~12 itérations de boucle | 3 instructions à 150 MHz |
-| Trame GB brute | **5 760 octets** | 160 × 144 × 2 bits |
-| Canevas émis | **9 216 octets** | 192 × 192 × 2 bits |
-| Par nœud | **3 072 octets**, **3 paquets** | 192 × 64 × 2 bits, MTU 1400 |
-| Débit total | **4,40 Mbit/s** | 9 216 × 59,73 × 8 |
-| Débit par nœud | **1,47 Mbit/s** | à comparer aux 24,6 Mbit/s mesurés |
-| Paquets par seconde | **538** | 9 × 59,73 |
-| RAM | **18,4 ko** | 2 canevas |
+| **Trame émise** | **5 760 octets** | 160 × 144 × 2 bits — la trame native |
+| **Débit** | **2,75 Mbit/s** | 5 760 × 59,73 × 8 |
+| **Paquets par trame** | **5** | 1400 × 4 + 160 |
+| Paquets par seconde | **299** | 5 × 59,73 |
+| Lignes par paquet | **35** | 1400 / 40 |
+| **RAM** | **11,5 ko** | 2 framebuffers |
+| Transferts DMA par trame | **1**, de 1 440 mots | lignes contiguës |
 
 ---
 
@@ -495,7 +529,7 @@ capture/
 ├── firmware/
 │   └── sniffer/
 │       ├── CMakeLists.txt
-│       ├── include/config.h            ← brochage, géométrie, placement dans le canevas
+│       ├── include/config.h            ← brochage, géométrie SOURCE (160×144)
 │       ├── include/pxl1.h              ← copie conforme de ../ecran (+ PROVENANCE.txt)
 │       ├── src/main.cpp
 │       ├── src/capture.cpp             ← PIO + DMA + IRQ VSYNC
@@ -503,7 +537,7 @@ capture/
 └── tools/
     ├── console.py                      ← console série (DTR)
     ├── flash.sh                        ← flash UF2
-    ├── gbdump.py                       ← canevas → PNG (phase 2)
+    ├── gbdump.py                       ← trame 160×144 → PNG (phase 2)
     └── pxl1recv.py                     ← nœud factice sur PC, affiche ce qu'on émet (phase 3)
 ```
 
@@ -535,8 +569,8 @@ capture/
 |---|---|---|
 | 22/09/2026 | Sous-projet ouvert, distinct du module écran | Deux dépôts, une seule interface : le protocole `PXL1`. Le module écran est terminé jusqu'à sa phase 4 et n'a pas à bouger pour nous |
 | 22/09/2026 | Format `IDX2`, pas `IDX8` | C'est le format natif du PPU : zéro conversion à la source, 4,4 Mbit/s au lieu de 17,6, et 9 paquets par trame au lieu de 27. La mesure du 18/09 sur lien dégradé dit que le nombre de paquets compte plus que le débit |
-| 22/09/2026 | Le sniffer émet le canevas **192×192 complet**, marges comprises | Le firmware du module écran ne connaît pas de sous-rectangle. 1,65 Mbit/s d'économie ne justifient pas de toucher au protocole sur un lien qui encaisse 24,6 Mbit/s |
-| 22/09/2026 | Pas de framebuffer intermédiaire : le DMA écrit dans le canevas | `x0 = 16` pixels = **4 octets pile** en `IDX2`. La recopie 160×144 → 192×192 n'existe pas |
+| ~~22/09/2026~~ | ~~Le sniffer émet le canevas **192×192 complet**~~ — **annulé le 25/09/2026** | Le firmware du module écran ne connaît pas de sous-rectangle. 1,65 Mbit/s d'économie ne justifient pas de toucher au protocole sur un lien qui encaisse 24,6 Mbit/s |
+| ~~22/09/2026~~ | ~~Pas de framebuffer intermédiaire : le DMA écrit dans le canevas~~ — **sans objet depuis le 25/09/2026**, le framebuffer EST la trame | `x0 = 16` pixels = **4 octets pile** en `IDX2`. La recopie 160×144 → 192×192 n'existe pas |
 | 22/09/2026 | `clk_sys` laissé à 150 MHz | Marge PIO déjà supérieure à 10× ; et monter `clk_sys` obligerait à rediviser l'horloge SPI du CYW43, ce qui a coûté une journée au module écran |
 | 22/09/2026 | stdio sur USB, UART par défaut désactivé | GP0/GP1 portent LD0/LD1. Même piège que sur le module écran, où ils portaient R1/G1 |
 | 22/09/2026 | LD0, LD1, CPG sur GP0, GP1, GP2 — contigus | `in pins, 2` exige un groupe contigu. Le module écran a payé cette leçon en phase 0 avec les adresses A–E non contiguës |
@@ -548,4 +582,6 @@ capture/
 | 23/09/2026 | **Soudure directe sur les broches de `P2`**, pas d'interposeur FFC | L'interposeur supprimerait le risque 🔴, mais le projet est artistique et le geste de soudure fait partie de la démarche. Décision de Yoann |
 | 25/09/2026 | Seuils vérifiés sur datasheets : RP2350 et 74LVC244A ont le **même** `V_IH` = 2,0 V à 3,3 V | La formule `0,65 × IOVDD` ne vaut que pour IOVDD = 1,8 V. Le tampon n'améliorait donc pas la marge de niveau, contrairement à ce qui était écrit |
 | 25/09/2026 | **Tampon 74LVC244A abandonné**, liaison directe + 100 Ω | Les trois arguments sont tombés à la vérification : niveaux identiques ; GPIO0–5 sont `Digital IO (FT)`, donc protégés même Pico hors tension ; tolérance 5 V inutile sans portage DMG. Reste la charge capacitive, et la phase 0 a mesuré le PPU insensible à 40–60 pF |
+| 25/09/2026 | **L'émetteur devient agnostique de l'afficheur** : il émet la trame GB native 160×144 en `IDX2`, et rien d'autre | Un émetteur, un récepteur. Recadrage, placement et répartition remontent au module ÉCRAN. Gain mesurable : 5 760 o au lieu de 9 216 (−37,5 %), 5 paquets au lieu de 9, 11,5 ko au lieu de 18,4 — et **la chaîne DMA passe de deux canaux avec table de 144 adresses à un seul canal**, les lignes étant contiguës |
+| 25/09/2026 | Sous-commande `PXL1_CTRL_GEOMETRIE` ajoutée au protocole | Le récepteur déduisait la taille d'une trame de sa propre géométrie. Avec un émetteur agnostique il doit apprendre celle de la source. Par `CTRL` et pas par l'en-tête : celui-ci est figé et déployé |
 | 25/09/2026 | **La longueur du câble devient un paramètre de conception** | Sans tampon, le câble pend directement sur le PPU. ≈ 1 pF/cm : rester **sous 20 cm** |
