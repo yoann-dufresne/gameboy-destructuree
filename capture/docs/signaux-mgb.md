@@ -100,6 +100,44 @@ deux questions (`etapes-detaillees.md` §B.3) :
 
 ---
 
+## 3bis. ⚠️ TABLE CORRIGÉE — mesurée le 25/09/2026
+
+**La table de `Spec_Video_Sniffer_et_Matrice_LED.md` §4.1 est fausse sur 5 signaux
+sur 6.** Ce qui suit la remplace. Chaque ligne est une mesure, pas une hypothèse ;
+les `.sr` correspondants sont dans `releves/`.
+
+| Sérigraphie | Mesuré | Fonction réelle | Relevé |
+|---|---|---|---|
+| **`CP`** | 160 impulsions/ligne visible, 143,9 salves/trame, période min **208 ns**, silence 1,156 ms | **horloge pixel** | `cp-rapide.sr` |
+| **`P2-ST`** | **8596 fronts/s** (144/trame), silence **1,196 ms** | **verrou de ligne** (STrobe) — muet en VBlank | `p2-st.sr` |
+| **`P2-S`** | **59,71 Hz**, r.cycl. 0,65 % = **une ligne** | **départ de trame** (Start) — le VSYNC | `p2-s.sr` |
+| **`P2-CPL`** | 9196 fronts/s (**154**/trame), silence 109 µs | **horloge de ligne** — bat aussi en VBlank | `p2-cpl.sr` |
+| **`P2-FR`** | cadence 4598 Hz, r.cycl. 50 %, période min 1 ligne | **inversion LIGNE**, pas trame | `p2-fr.sr` |
+| **`CPG`** | 616/trame = 4/ligne × 154 ; motif 28,5 / 46,8 / 3,0 / 30,5 µs ; impulsions de 1 µs | **indéterminée** — non requise | `cpg.sr` |
+
+> 🔑 **Ce que la spec appelait `CPG` n'est pas l'horloge pixel, et ce qu'elle appelait
+> `ST` n'est pas le départ de trame.** Souder d'après elle aurait mis l'horloge pixel
+> sur un signal à 4 impulsions/ligne et le VSYNC sur un signal à 144/trame. Le firmware
+> n'aurait produit que du bruit, et la cause aurait été cherchée dans le PIO.
+
+**Brochage corrigé pour la phase 1** — c'est ce tableau qui fait foi :
+
+| GPIO | Point de test | Rôle |
+|---|---|---|
+| GP0 | `P2-LD0` | donnée, bit 0 |
+| GP1 | `P2-LD1` | donnée, bit 1 |
+| GP2 | **`CP`** | horloge pixel (le plan disait `CPG`) |
+| GP3 | **`P2-ST`** | marqueur de ligne visible (le plan disait `CPL`) |
+| GP4 | **`P2-S`** | VSYNC (le plan disait `ST`) |
+| GP5 | **`P2-CPL`** | réserve, horloge de ligne 154/trame |
+| GND | **`P2-GND`** | masse locale, au milieu du groupe |
+
+> ℹ️ `P2-ST` est **meilleur** que ce que le plan espérait : 144 impulsions par trame,
+> c'est exactement le compte de lignes du canevas, et son silence de 1,09 ms en VBlank
+> offre un détecteur de frontière de trame en prime.
+
+---
+
 ## 4. Dépouillement
 
 ```bash
