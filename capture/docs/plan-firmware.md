@@ -14,7 +14,7 @@ Version 1 — 22/09/2026
 |---|---|---|
 | **Ce qu'on capture** | Le **bus LCD** de la MGB — 5 signaux prélevés, l'écran d'origine reste branché | non |
 | **Contrôleur** | **1 × Raspberry Pi Pico 2 W** | non |
-| **Interface électrique** | **74LVC244A** alimenté en 3,3 V + 100 Ω en série sur chaque prise | oui, mais à ne pas risquer |
+| **Interface électrique** | **100 Ω en série** sur chaque prise, **liaison directe** au Pico. Pas de tampon | oui — le tampon reste une option si l'image se dégrade |
 | **Protocole de sortie** | **`PXL1`**, réutilisé tel quel — le module ÉCRAN ne change pas d'interface | non |
 | **Format** | **`IDX2`**, le format natif de la Game Boy, déjà réservé dans le protocole | non |
 | **Mise à l'échelle** | **aucune** — 160×144 posés en 1:1 dans les 192×192 de la grille | non |
@@ -470,7 +470,7 @@ point le plus souvent négligé), alimentation définitive, cadre dessiné dans 
 | S6 | Fil émaillé 0,1–0,2 mm (Kynar / wire-wrap) | 1 rlx | soudures fines |
 | S7 | Connecteur JST-SH **8 pts** + embase | 1 paire | liaison débrochable. **6 signaux + 2 masses** : LD0, LD1, CP, P2-ST, P2-S, CPL(réserve). Une masse par paquet de 3, torsadée avec eux (§3.4) |
 | S8 | Perfboard + barrettes | 1 | carte du tampon, à loger DANS la console |
-| S11 | Condensateur 100 nF céramique | 1 | découplage du 74LVC244, au plus près de sa broche VCC |
+| S11 | ~~Condensateur 100 nF~~ | 0 | servait au découplage du tampon, abandonné avec lui |
 | S9 | Alim USB 5 V ou powerbank | 1 | **séparée de la console** |
 | S10 | Colle chaude ou UV | — | reprise d'effort, obligatoire |
 | T1 | **Analyseur logique ≥ 8 voies, ≥ 24 MS/s** | 1 | **non négociable**. Repli : 2ᵉ Pico + `sigrok` |
@@ -546,3 +546,6 @@ capture/
 | 22/09/2026 | `pxl1.h` dupliqué depuis `../ecran`, avec `PROVENANCE.txt` | Deux dépôts git indépendants ; un lien symbolique entre eux serait pire que la copie |
 | 23/09/2026 | Carte identifiée : `MGB-ECPU-01`, ruban LCD sur connecteur ZIF `P2` 18 broches | Observation photographique, pas une supposition. Change le point de prise de signaux |
 | 23/09/2026 | **Soudure directe sur les broches de `P2`**, pas d'interposeur FFC | L'interposeur supprimerait le risque 🔴, mais le projet est artistique et le geste de soudure fait partie de la démarche. Décision de Yoann |
+| 25/09/2026 | Seuils vérifiés sur datasheets : RP2350 et 74LVC244A ont le **même** `V_IH` = 2,0 V à 3,3 V | La formule `0,65 × IOVDD` ne vaut que pour IOVDD = 1,8 V. Le tampon n'améliorait donc pas la marge de niveau, contrairement à ce qui était écrit |
+| 25/09/2026 | **Tampon 74LVC244A abandonné**, liaison directe + 100 Ω | Les trois arguments sont tombés à la vérification : niveaux identiques ; GPIO0–5 sont `Digital IO (FT)`, donc protégés même Pico hors tension ; tolérance 5 V inutile sans portage DMG. Reste la charge capacitive, et la phase 0 a mesuré le PPU insensible à 40–60 pF |
+| 25/09/2026 | **La longueur du câble devient un paramètre de conception** | Sans tampon, le câble pend directement sur le PPU. ≈ 1 pF/cm : rester **sous 20 cm** |

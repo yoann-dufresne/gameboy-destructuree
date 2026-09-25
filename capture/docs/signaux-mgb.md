@@ -53,7 +53,9 @@ lieu et place des piles.
 
 **Décision d'interface** (`etapes-detaillees.md` §C.2) :
 
-- [x] **74LVC244A retenu**, alimenté en 3,3 V.
+- [x] **Liaison directe, sans tampon.** Décision du 25/09/2026 après vérification
+  des datasheets — les deux composants ont le même `V_IH`, et les `GPIO0`–`GPIO5`
+  du RP2350 sont `Digital IO (FT)`, donc protégés même hors tension.
 
 Valeurs vérifiées sur les datasheets réelles, pas sur les familles :
 
@@ -88,7 +90,8 @@ Valeurs vérifiées sur les datasheets réelles, pas sur les familles :
 > et la marge est de **1,1 V** des deux côtés. La question des niveaux ne se pose
 > alors pas du tout, et seul le rôle n° 1 compte.
 
-**Ce qu'on commande :** 74LVC244A (ou 74LVC245A) + support, 6 × 100 Ω, 100 nF.
+**Ce qu'on commande :** 6 × 100 Ω, fil Kynar, connecteur JST-SH 8 pts, perfboard.
+Voir [`liste-achats.md`](liste-achats.md).
 
 ---
 
@@ -325,7 +328,7 @@ elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
 ## 7. Conclusion de la phase 0
 
 - [x] Les 5 signaux sont attribués, chacun par **fréquence ET test blanc/noir**
-- [x] `VCC` relevé dans les deux états → **tampon 74LVC244A retenu** (pour l'isolation, pas pour les niveaux)
+- [x] `VCC` relevé dans les deux états → **liaison directe**, tampon abandonné
 - [x] Période minimale de l'horloge pixel ≥ 200 ns (**208 ns**)
 - [x] Front d'échantillonnage choisi (**descendant**, `D` = 0)
 - [x] Polarité relevée (**`00` = blanc**)

@@ -26,82 +26,32 @@ précis, trouvés via un moteur de recherche, sont donnés en second et marqués
 
 ---
 
-## 1. Le tampon — la seule pièce où l'authenticité compte
+## 1. ~~Le tampon 74LVC244A~~ — **abandonné le 25/09/2026**
 
-### ⚠️ Le piège : les contrefaçons
+Les trois arguments qui le justifiaient sont tombés à la lecture des datasheets :
 
-Beaucoup de circuits logiques vendus sur AliExpress sont des **`74HC244` remarqués `LVC`**.
-Ce serait le pire cas ici :
-
-| Composant | V_IH à VCC = 3,3 V | Face aux 2,2 V de la console |
-|---|---|---|
-| **74LVC244A** (voulu) | **2,0 V** | fonctionne, 200 mV de marge |
-| 74HC244 (contrefaçon) | 0,7 × 3,3 = **2,31 V** | **ne commute jamais** |
-
-Le symptôme serait pervers : *« ça marche sur alimentation stable, ça ne marche plus sur
-piles »*. Des heures perdues à soupçonner le câblage.
-
-### 🔬 Test de recette, avec le matériel que tu as déjà
-
-Alimente la puce en 3,3 V, applique une tension réglable sur une entrée (alim de labo),
-monte doucement, note à quelle tension la sortie bascule (multimètre) :
-
-| Bascule vers | Verdict |
+| Argument | Verdict |
 |---|---|
-| **~2,0 V** | vrai LVC ✅ |
-| **~2,3 V** | HC remarqué ❌ — jette |
+| Rattrape les niveaux marginaux | ❌ RP2350 et SN74LVC244A ont le **même** `V_IH` = **2,0 V** à 3,3 V |
+| Protège la console si le Pico est hors tension | ❌ `GPIO0`–`GPIO5` sont `Digital IO (FT)` — protégés nativement sous 3,63 V avec IOVDD à 0 V |
+| Tolérance 5 V | ⭕ vrai, mais sert seulement à un portage DMG, hors périmètre |
+| Isole le PPU de la capacité du câble | 🔶 le seul qui tienne — et la phase 0 a mesuré le PPU **insensible à 40–60 pF** |
 
-> 💡 **Alternative recommandée pour cette pièce précise** : prends-la chez un vrai
-> distributeur (TME, Reichelt, Mouser) pour 1–2 € + port. C'est le seul composant de la liste
-> où ça vaut le détour, et ça t'évite le test ci-dessus.
+**Décision : liaison directe, avec les 100 Ω conservés.**
 
-### Les liens
+> ℹ️ **Il reste une option, pas une pièce morte.** Si la vérification 2 du §C.5 montre l'image
+> d'origine dégradée, ou si la scénographie impose d'éloigner le Pico au-delà de ~20 cm, il se
+> réinsère entre les résistances et le connecteur. Les liens et le test de recette contre les
+> contrefaçons restent en annexe de ce document.
 
-| | |
-|---|---|
-| 🔍 **Recherche** | https://fr.aliexpress.com/w/wholesale-sn74lvc244an.html |
-| 🔍 Recherche large | https://fr.aliexpress.com/w/wholesale-74lvc244.html |
-| 📦 Article *(non vérifié)* | https://fr.aliexpress.com/item/1005006959118600.html |
-| 📦 Article *(non vérifié)* | https://fr.aliexpress.com/item/1005005917361678.html |
-
-Les deux annonces sont intitulées *« 5PCS/LOT SN74LVC244AN SN74LVC245AN SN74LVC373AN »* —
-donc à variante sélectionnable. **Vérifie que tu choisis bien `SN74LVC244AN` et le boîtier
-DIP-20.**
-
-**À vérifier sur l'annonce :** boîtier **DIP-20** (`N`), pas TSSOP (`PW`) ni SOIC (`DW`) ·
-marquage `LVC`, jamais `HC` ni `HCT` · **Quantité : 5** (tu en tueras un).
-**~2–4 €**
-
-### Repli si le DIP est introuvable
-
-Le `SN74LVC245AN` (transceiver) fait le même travail : relie `DIR` à VCC et les 8 voies vont
-dans le sens A→B. Même brochage d'alimentation, même V_IH.
-
-Sinon, CMS + carte d'adaptation :
-
-| | |
-|---|---|
-| 🔍 Recherche | https://fr.aliexpress.com/w/wholesale-sop20-to-dip20-adapter-board.html |
-| 📦 Article *(non vérifié)* | https://fr.aliexpress.com/item/32821305070.html — *20 pcs* |
-| 📦 Article *(non vérifié)* | https://fr.aliexpress.com/item/32821253912.html — *10 pcs* |
-
-⚠️ Prends la **carte d'adaptation** (plaquette PCB à souder), pas le « programmer adapter
-socket » à pince ZIF, qui est fait pour programmer et non pour rester dans un montage.
-**~2–3 €**
+⚠️ **Conséquence : la longueur du câble devient un paramètre de conception.** Sans tampon, il
+pend directement sur les sorties du PPU, à ≈ 1 pF/cm. **Rester sous 20 cm.**
 
 ---
 
-## 2. Support DIP-20
+## 2. ~~Support DIP-20~~ et ~~condensateur 100 nF~~ — abandonnés avec le tampon
 
-Pour insérer la puce **après** avoir testé la carte à vide, et la remplacer sans dessouder.
-C'est l'étape 3 du §C.4 : continuité sur les 20 broches, puis insertion.
-
-| | |
-|---|---|
-| 🔍 Recherche | https://fr.aliexpress.com/w/wholesale-dip20-ic-socket.html |
-
-**À vérifier :** 20 broches · type « tulipe » (contacts tournés) de préférence aux
-contacts estampés. **Quantité : 10.** **~1–2 €**
+Le support servait à insérer le 244 sans le souder ; le condensateur à le découpler.
 
 ---
 
@@ -239,15 +189,16 @@ Si tu ne les as pas déjà, ce n'est pas optionnel : c'est la différence entre 
 
 | # | Pièce | ~Prix |
 |---|---|---|
-| 1 | 74LVC244A DIP-20 × 5 | 2–4 € |
-| 2 | Support DIP-20 × 10 | 1–2 € |
-| 3 | Kit de résistances | 3–5 € |
-| 4 | Kit de condensateurs | 3–5 € |
+| 3 | Kit de résistances (pour les 6 × 100 Ω) | 3–5 € |
 | 5 | Fil Kynar 30 AWG multicolore | 4–7 € |
 | 6 | JST-SH 1,0 mm 8 pts pré-serti + embases | 3–5 € |
 | 7 | Perfboard | 3–5 € |
 | 8 | Flux + étain fin + tresse | 5–8 € |
-| | **Total** | **~25–40 €** |
+| | **Total** | **~18–30 €** |
+
+> ~~74LVC244A, support DIP-20, condensateur 100 nF~~ — abandonnés, voir §1.
+> Si tu veux garder l'option ouverte sans recommander plus tard, ajoute le 244
+> (~2–4 €) : il coûte moins cher que trois semaines d'attente supplémentaires.
 
 **Commande tout en une fois** — 2 à 4 semaines de livraison depuis la Chine, et deux
 commandes séparées font deux attentes.
@@ -289,13 +240,26 @@ commandes séparées font deux attentes.
 | Diaphonie entre fils voisins | 108–149 fronts sur 66,7 ms | justifie les **2 masses** du connecteur 8 points |
 | Pas du connecteur `P2` | ~1 mm | fixe le calibre du fil |
 
-### Pourquoi le tampon, exactement
+### Pourquoi pas de tampon — le raisonnement complet
 
-Ce n'est **pas** un argument de niveau : RP2350 et 74LVC244A ont le **même** V_IH de 2,0 V à
-3,3 V. C'est :
+| Fait vérifié | Source |
+|---|---|
+| `GPIO0`–`GPIO5` sont de type **`Digital IO (FT)`** | RP2350, table 1427 |
+| Un pad FT laisse passer *« very little current »* sous **3,63 V** avec **IOVDD = 0 V** | RP2350 §14.9 |
+| Nos signaux plafonnent à **3,1 V** | mesure phase 0 |
+| `Ci` du 74LVC244A = **4 pF** | SCAS414AG §5.5 |
+| Le PPU encaisse **40–60 pF** sans dégrader son image | mesure phase 0, 3 sondes |
+| Un câble présente **≈ 1 pF/cm** | ordre de grandeur usuel |
 
-1. **L'isolation du PPU** — ~5 pF d'entrée, et la console ne voit rien de ce qui se passe en
-   aval : Pico débranché, broche mal configurée, câble capacitif. C'est le rôle qui compte
-   pour une installation qui tourne sans surveillance.
-2. **La tolérance 5 V** — portage éventuel sur DMG sans rien changer.
-3. **La régénération du front** — 3,3 V plein à ±24 mA en sortie, insensible au câble en aval.
+Les pads d'entrée des deux composants ont des capacités comparables, de quelques pF. **La
+différence n'était donc pas la puce, mais où se trouve le câble** — et un câble de 20 cm
+(~20 pF + 4 pF de pad) reste sous ce que le PPU a déjà encaissé sans broncher.
+
+### Annexe — si le tampon doit revenir
+
+Test de recette contre les contrefaçons (`74HC244` remarqué `LVC` : V_IH = 2,31 V, il ne
+commuterait jamais face aux 2,2 V de la console) : alimenter en 3,3 V, monter une tension sur
+une entrée, noter où la sortie bascule. **~2,0 V** = vrai LVC · **~2,3 V** = contrefaçon.
+
+🔍 https://fr.aliexpress.com/w/wholesale-sn74lvc244an.html — boîtier **DIP-20**, marquage
+`LVC` et jamais `HC`.

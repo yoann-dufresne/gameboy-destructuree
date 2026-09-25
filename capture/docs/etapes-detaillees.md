@@ -377,78 +377,63 @@ et **combien de temps après**.
 ### C.1 Le schéma
 
 ```
-   CARTE MGB                     CARTE TAMPON (dans la console)        HORS CONSOLE
-   ─────────                     ─────────────────────────────         ────────────
+   CARTE MGB                    PETITE CARTE (dans la console)      HORS CONSOLE
+   ─────────                    ──────────────────────────────      ────────────
 
-   pastille LD0 ──[100 Ω]──┬──── 1A1 ┐                    ┌ 1Y1 ─────┐
-   pastille LD1 ──[100 Ω]──┼──── 1A2 │                    │ 1Y2 ─────┤
-   pastille CPG ──[100 Ω]──┼──── 1A3 │   74LVC244A        │ 1Y3 ─────┤  JST-SH
-   pastille CPL ──[100 Ω]──┼──── 1A4 │   alimenté en      │ 1Y4 ─────┤  7 points   ──► Pico
-   pastille ST  ──[100 Ω]──┼──── 2A1 │   3,3 V PAR LE     │ 2Y1 ─────┤
-   pastille CP  ──[100 Ω]──┼──── 2A2 │   PICO             │ 2Y2 ─────┤  (6 signaux
-   masse ───────────────┬──┴──── GND ┘                    └ GND ─────┘   + 1 masse)
-                        │              1OE, 2OE → GND
-                        │              100 nF entre VCC et GND, collé au boîtier
-                        │
-                     torsadée avec les 6 signaux, < 10 cm
+   broche P2-LD0 ──[100 Ω]──┬──────────────────────────────────┐
+   broche P2-LD1 ──[100 Ω]──┤                                  │
+   broche CP     ──[100 Ω]──┤                                  │  JST-SH
+   broche P2-ST  ──[100 Ω]──┤        6 résistances             ├  8 points   ──► Pico
+   broche P2-S   ──[100 Ω]──┤        + embase du connecteur    │  < 20 cm
+   broche P2-CPL ──[100 Ω]──┤        + reprise d'effort        │
+   P2-GND ───────────────┬──┴──────────────────────────────────┘
+                         │           (2 masses au connecteur)
+                      torsadée avec les signaux, < 10 cm
 ```
 
-> 🔑 **Le connecteur débrochable se place APRÈS le tampon, pas avant.** C'est contre-intuitif
-> — on voudrait pouvoir débrancher au plus près de la console — mais avant le tampon les
-> signaux sont fragiles (faible capacité d'attaque du PPU, niveaux marginaux à piles usées) ;
-> après, ce sont des sorties 3,3 V push-pull capables de tirer 24 mA, qui supportent 30 cm de
-> câble sans broncher. **La carte tampon vit donc dans la console.**
+> 🔑 **Pas de tampon.** Décision du 25/09/2026, après vérification des datasheets — voir
+> §C.2. La petite carte ne porte plus que les 6 résistances, l'embase, et la reprise
+> d'effort des fils fins. Elle reste dans la console, au plus près des broches.
 
-### C.2 Pourquoi chaque composant
+> ⚠️ **La longueur du câble est devenue un paramètre de conception.** Sans tampon, il pend
+> directement sur les sorties du PPU : ≈ 1 pF/cm. La phase 0 a mesuré le PPU insensible à
+> **40–60 pF** (les sondes de l'analyseur, sans résistance série) — donc **rester sous 20 cm**
+> laisse une marge confortable. Au-delà, remettre le tampon en question.
+
+### C.2 Pourquoi chaque composant — et pourquoi pas de tampon
 
 | Composant | Ce qu'il fait | Ce qui se passe sans lui |
 |---|---|---|
-| **100 Ω en série** | limite le courant si une broche du Pico est mal configurée en sortie ; amortit les réflexions sur du fil volant | un court-circuit entre une sortie du PPU et une sortie du Pico peut détruire l'un ou l'autre. 100 Ω ramène le pire cas à 33 mA |
-| **74LVC244A** | **isole** la console de tout ce qui est en aval (~5 pF d'entrée), tolère 5 V (`V_I` = 0–5,5 V), et ressort du 3,3 V plein à ±24 mA | ⚠️ **Ce n'est pas un argument de niveau** : RP2350 et 74LVC244A ont le **même** V_IH de **2,0 V** à 3,3 V (datasheets vérifiées le 25/09/2026). Sans tampon, le Pico voit directement le PPU : une broche mal configurée, un débranchement à chaud ou la capacité du câble remontent jusqu'à la console |
-| **100 nF de découplage** | fournit le courant de commutation local | 8 sorties qui commutent à quelques MHz tirent des pointes de courant ; sans découplage elles se voient sur toutes les voies. **Le composant le plus souvent oublié** |
-| **`1OE` et `2OE` à la masse** | maintient les sorties actives | sorties en haute impédance : le Pico ne voit rien, et on cherche le problème du mauvais côté |
-| **Masse torsadée** | referme le circuit au plus court | à 4 MHz sur du fil volant, une masse lointaine crée des fronts fantômes |
+| **100 Ω en série** | limite le courant si une broche du Pico est mal configurée en sortie ; amortit les réflexions sur du fil volant | un court-circuit franc entre une sortie du PPU et une sortie du Pico. 100 Ω ramène le pire cas à 33 mA. **C'est la seule protection qui reste : ne pas les supprimer** |
+| **Masse torsadée** | referme le circuit au plus court | à 4 MHz sur du fil volant, une masse lointaine crée des fronts fantômes — **constaté en phase 0** : les voies voisines de l'horloge pixel dans le faisceau ramassaient du signal |
+| **Reprise d'effort** | immobilise les fils fins | un fil émaillé qui bouge arrache sa broche |
 
-> ✅ **Vérifié le 25/09/2026 sur les datasheets** (RP2350 §14.9, TI SCAS414AG §5.3) :
-> `V_IH` = **2,0 V** pour les deux composants à 3,3 V. La formule `0,65 × IOVDD`,
-> qu'une première version de ce document appliquait, ne vaut **que pour IOVDD = 1,8 V**.
->
-> Mesuré sur la carte : `VCC` = 3,1 V sur alimentation stable (marge **1,1 V**), 2,2 V à
-> 2,4 V d'entrée (marge **200 mV**). Le tampon reste retenu — pour l'isolation du PPU, pas
-> pour rattraper des niveaux.
+**Pourquoi le tampon 74LVC244A a été abandonné** (25/09/2026, après lecture des datasheets) :
 
-### C.3 Brochage du 74LVC244A (DIP-20)
+| Argument invoqué | Verdict |
+|---|---|
+| « Il rattrape les niveaux marginaux » | ❌ **Faux.** RP2350 (§14.9) et SN74LVC244A (SCAS414AG §5.3) ont le **même** `V_IH` = **2,0 V** à 3,3 V. La formule `0,65 × IOVDD` ne vaut que pour IOVDD = 1,8 V |
+| « Il protège la console si le Pico est hors tension » | ❌ **Faux.** `GPIO0`–`GPIO5` sont `Digital IO (FT)` : *« very little current flows into the pin whilst it is below 3.63 V and IOVDD is 0 V »*. Nos signaux plafonnent à 3,1 V |
+| « Ses entrées tolèrent 5 V » | ⭕ vrai, mais ne sert qu'à un portage DMG, hors périmètre |
+| « Il isole le PPU de la capacité du câble » | 🔶 **le seul qui tienne** — et la phase 0 a mesuré le PPU insensible à 40–60 pF, soit plus qu'un câble de 20 cm ne présente |
 
-| Broche | Nom | Notre usage | | Broche | Nom | Notre usage |
-|---|---|---|---|---|---|---|
-| 1 | 1OE | → **GND** | | 20 | VCC | → **3,3 V du Pico** |
-| 2 | 1A1 | ← LD0 | | 19 | 2OE | → **GND** |
-| 3 | 2Y4 | *(libre)* | | 18 | 1Y1 | → GP0 (LD0) |
-| 4 | 1A2 | ← LD1 | | 17 | 2A4 | *(libre)* |
-| 5 | 2Y3 | *(libre)* | | 16 | 1Y2 | → GP1 (LD1) |
-| 6 | 1A3 | ← CPG | | 15 | 2A3 | *(libre)* |
-| 7 | 2Y2 | → GP5 (CP, réserve) | | 14 | 1Y3 | → GP2 (CPG) |
-| 8 | 1A4 | ← CPL | | 13 | 2A2 | ← CP (réserve) |
-| 9 | 2Y1 | → GP4 (ST) | | 12 | 1Y4 | → GP3 (CPL) |
-| 10 | GND | → **GND** | | 11 | 2A1 | ← ST |
-
-⚠️ Le 244 **entrelace** entrées et sorties, et les groupes 1 et 2 vont en sens inverse sur le
-boîtier. Recopier ce tableau, ne pas déduire de la logique apparente.
+> ℹ️ **Le tampon reste une option, pas une pièce morte.** Si la vérification 2 du §C.5 montre
+> l'image d'origine dégradée, ou si la scénographie impose d'éloigner le Pico, il se réinsère
+> entre les résistances et le connecteur. Le plan §9 garde sa référence.
 
 ### C.4 Ordre de montage
 
 | # | Action | Vérification avant de passer à la suite |
 |---|---|---|
-| 1 | Monter la carte tampon **entièrement hors console** : support DIP, résistances, découplage, connecteur | continuité au multimètre sur les 20 broches du support |
-| 2 | Alimenter la carte seule en 3,3 V, **sans le 244** | 3,3 V sur la broche 20 du support, 0 V sur 10, 1, 19 |
-| 3 | Insérer le 244, injecter 3,3 V sur chaque entrée à la main | la sortie correspondante suit. **7 entrées testées une par une** |
-| 4 | 🔴 Souder les 6 fils émaillés sur les pastilles MGB | loupe : pas de pont entre pastilles voisines |
-| 5 | 🔴 **Colle chaude** sur les 6 fils dès leur sortie de la carte | le fil ne bouge plus quand on tire doucement dessus |
-| 6 | Souder les 6 fils côté carte tampon, **< 10 cm**, torsadés avec la masse | continuité pastille → entrée du 244 |
-| 7 | Fixer la carte tampon dans la console, connecteur vers la sortie | rien ne touche le blindage |
+| 1 | Monter la petite carte **entièrement hors console** : 6 × 100 Ω et embase du connecteur | continuité au multimètre, résistance mesurée ≈ 100 Ω entre chaque entrée et sa broche du connecteur |
+| 2 | 🔴 Souder les 6 fils fins sur les **broches de `P2`** | loupe : **aucun pont** entre broches voisines. Continuité vers `P2` et **isolement** vis-à-vis des voisines |
+| 3 | 🔴 **Colle chaude** sur les 6 fils dès leur sortie de la carte | le fil ne bouge plus quand on tire doucement dessus |
+| 4 | Souder les 6 fils côté petite carte, **< 10 cm**, torsadés avec la masse | continuité broche `P2` → broche du connecteur, à travers les 100 Ω |
+| 5 | Fixer la petite carte dans la console, connecteur vers la sortie | rien ne touche le blindage |
+| 6 | Confectionner le câble vers le Pico, **< 20 cm** | ⚠️ sans tampon, sa capacité pèse sur le PPU |
 
-⚠️ **L'étape 3 se fait avant l'étape 4.** Découvrir que le 244 est mort ou mal câblé après
-avoir soudé sur la carte MGB, c'est souder deux fois.
+⚠️ **L'étape 1 se fait avant l'étape 2.** Découvrir une erreur de câblage sur la petite carte
+après avoir soudé sur la MGB, c'est souder deux fois.
 
 ### C.5 Les cinq vérifications avant de brancher le Pico
 
@@ -456,18 +441,19 @@ avoir soudé sur la carte MGB, c'est souder deux fois.
 |---|---|---|---|
 | 1 | **La console joue normalement**, module non alimenté | 10 minutes de jeu | le tampon charge le bus même non alimenté : vérifier que ses entrées ne sont pas alimentées par les signaux (diodes de protection) |
 | 2 | **L'écran d'origine est intact** | photo avant/après, **même image, même luminosité, même angle** | retirer, chercher un pont ou une piste abîmée |
-| 3 | Tension de sortie du tampon **≤ 3,45 V** | multimètre sur chaque sortie | ne pas brancher le Pico |
-| 4 | Les 6 signaux, relevés **côté connecteur**, ressemblent à ceux de la phase 0 | analyseur | fil coupé, soudure froide, ou pastille arrachée |
+| 3 | Tension sur chaque broche du connecteur **≤ 3,2 V** | multimètre | une tension supérieure signifie qu'on n'est pas sur le signal attendu |
+| 4 | Les 6 signaux, relevés **côté connecteur**, ont les signatures de la phase 0 | `./tools/sonde.sh` — l'horloge pixel doit donner **1,376 M fronts/s** | fil coupé, soudure froide, ou broche arrachée |
 | 5 | Les fronts sont **nets** : pas de rebond, pas de palier | analyseur, zoom maximal | masse trop longue, ou fils non torsadés |
 
-> ⚠️ **Vérification 3 avant tout branchement du Pico.** Le RP2350 n'est pas tolérant 5 V.
-> C'est le seul point de ce projet où une erreur coûte une carte.
+> 🔑 **La vérification 4 se fait avec l'outil de la phase 0**, et les signatures attendues sont
+> déjà écrites dans `signaux-mgb.md` §3bis. C'est le bénéfice d'avoir tout mesuré avant : la
+> recette du câblage est une comparaison, pas une découverte.
 
 ### C.6 ✅ Critère de sortie de la phase 1
 
 - [ ] La console démarre, joue et s'éteint normalement, module **branché** puis **débranché**
 - [ ] Son écran d'origine est **identique** à la photo d'avant, sur la même image
-- [ ] Les 6 sorties du tampon sont entre 0 et 3,45 V
+- [ ] Les 6 signaux, relevés au connecteur, ont les signatures de `signaux-mgb.md` §3bis
 - [ ] Les 6 signaux relevés côté connecteur ont l'allure de ceux de la phase 0
 - [ ] La console se **referme**, connecteur sorti
 - [ ] Une photo du montage fini est dans `docs/`
