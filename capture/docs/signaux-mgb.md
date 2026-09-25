@@ -309,13 +309,27 @@ elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
 - [x] Les `.sr` sont versionnés dans `releves/` (10 captures)
 - [x] Cette fiche est remplie
 
-**Observation libre — l'écran d'origine pendant le sondage** (§B.2, règle 4) :
+**Observation — l'écran d'origine pendant le sondage** (§B.2, règle 4) :
 
-> `____________________________________________________________________`
->
-> S'il s'est dégradé pendant qu'on sondait `CPG`, c'est que le PPU est près de
-> sa limite : le tampon de la phase 1 devient non négociable, et il faut
-> raccourcir encore les fils.
+> ✅ **Aucune dégradation observée.** L'image d'origine est restée identique
+> pendant toute la séance, y compris avec **trois pointes posées simultanément**
+> dont une sur l'horloge pixel à 4 MHz.
+
+Ce que ça permet de conclure, et ce que ça ne permet pas :
+
+| | |
+|---|---|
+| Charge du sondage | broche FX2LP ~10 pF **+ fil dupont long 30–50 pF**, **sans résistance série**, ≈ **40–60 pF** par voie |
+| Charge de la phase 1 | **100 Ω en série** + entrée 74LVC244 ~5 pF + fil court ≈ **15–25 pF**, amortie |
+
+> 🔑 **La prise définitive chargera le PPU deux à trois fois MOINS que ce qu'on
+> vient de lui faire subir — et ça n'a rien dégradé.** Le risque n° 5 du §H
+> (« le PPU supporte-t-il la charge ajoutée ») est donc largement levé, par
+> mesure et non par calcul.
+
+> ⚠️ Observation sur **cet** exemplaire, avec **cette** charge. Elle ne dispense
+> ni des 100 Ω, ni des fils courts, ni de la photo avant/après de la
+> vérification 2 du §C.5 — qui reste le critère de sortie de la phase 1.
 
 **Verdict : ✅ GO phase 1.**
 

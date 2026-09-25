@@ -998,7 +998,7 @@ Un plan honnête dit où il peut se tromper. Par ordre de probabilité décroiss
 | 2 | **`LD0/LD1` sont stables autour d'un front de `CPG`** | régler `D`, ou échantillonner sur l'autre front | 🟢 prévu |
 | 3 | **`in_shiftdir` gauche + `bswap` donnent le bon ordre** | inverser l'un des deux | 🟢 se voit en une image |
 | 4 | **La période minimale de `CPG` est ≥ 200 ns** | si elle est nettement plus courte, le modèle du §A.1 est faux — **s'arrêter et comprendre** avant de coder | 🟡 |
-| 5 | **Le PPU supporte la charge ajoutée** | réduire à 4 signaux (abandonner la réserve `CP`), raccourcir encore les fils | 🟡 |
+| 5 | ~~**Le PPU supporte la charge ajoutée**~~ | **levé le 25/09/2026** : trois pointes d'analyseur (40–60 pF chacune, sans résistance série) n'ont rien dégradé. La prise définitive charge 2 à 3× moins | 🟢 |
 | 6 | **Le tampon tient dans la coque** | le sortir par le port link ou la trappe à piles, en gardant les fils < 10 cm côté pastilles | 🟡 |
 | 7 | **`IDX2` coûte ~1 ms par nœud côté écran** | si c'est nettement plus, développer par blocs de 4 pixels avec une table de 256 entrées pré-développées | 🟢 |
 | 8 | **Les 3 nœuds tiennent 4,4 Mbit/s cumulés** | déjà mesuré à 24,6 Mbit/s pour un nœud seul le 18/09 : très large | 🟢 |
