@@ -518,12 +518,30 @@ def comparer(chemin_a, chemin_b):
                     cpg = m
         fenetres[cle] = (cap, cpg)
 
-    print("\n  Niveau moyen pendant les salves de l'horloge pixel :")
+    # Sans horloge pixel dans l'une des captures, on ne peut pas restreindre aux
+    # salves. Le dire explicitement : une première version annonçait « aucune
+    # voie ne bascule », ce qui envoie chercher le problème du mauvais côté.
+    manquantes = [cle for cle, (_, cpg) in fenetres.items() if cpg is None]
+    degrade = bool(manquantes)
+    if degrade:
+        print(f"\n  ⚠️  Horloge pixel absente de la capture "
+              f"{' et '.join(manquantes)}.")
+        print("     Impossible de restreindre la comparaison aux salves : la sonde")
+        print("     de l'horloge pixel a-t-elle décroché ?")
+        print("     → repli sur les niveaux BRUTS, VBlank et HBlank comprises.")
+        print("       Moins rigoureux, mais un écart franc reste concluant.")
+
+    titre = ("niveaux BRUTS (repli)" if degrade
+             else "niveau moyen pendant les salves de l'horloge pixel")
+    print(f"\n  {titre} :")
     print(f"  {'voie':<6}{'A':>10}{'B':>10}{'écart':>10}   verdict")
     candidats = []
     for i in range(a.n_voies):
-        na = _niveau_en_salve(*fenetres["A"], i)
-        nb = _niveau_en_salve(*fenetres["B"], i)
+        if degrade:
+            na, nb = float(a.bits(i).mean()), float(b.bits(i).mean())
+        else:
+            na = _niveau_en_salve(*fenetres["A"], i)
+            nb = _niveau_en_salve(*fenetres["B"], i)
         if na is None or nb is None:
             print(f"  {a.noms[i]:<6}{'—':>10}{'—':>10}{'—':>10}   "
                   "pas de salve de référence")
@@ -562,8 +580,12 @@ def comparer(chemin_a, chemin_b):
 
     # La polarité, qui décide de l'ordre de la palette — pas du firmware.
     if len(candidats) == 2:
-        moy_a = np.mean([_niveau_en_salve(*fenetres["A"], a.noms.index(c))
-                         for c in candidats])
+        if degrade:
+            moy_a = float(np.mean([a.bits(a.noms.index(c)).mean()
+                                   for c in candidats]))
+        else:
+            moy_a = np.mean([_niveau_en_salve(*fenetres["A"], a.noms.index(c))
+                             for c in candidats])
         print(f"\n  Polarité : dans A, les lignes de données sont à "
               f"{moy_a * 100:.0f} % de niveau haut.")
         print("     Si A est l'image BLANCHE et que ce chiffre est bas, alors "

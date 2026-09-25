@@ -234,12 +234,28 @@ trancher à la main les cas « moyenne » et « faible ») :
 ./tools/analyse_sr.py --comparer docs/releves/blanc.sr docs/releves/noir.sr
 ```
 
+**Fait le 25/09/2026**, comparaison restreinte aux salves de l'horloge pixel.
+
 | | Valeur |
 |---|---|
-| Voies qui basculent | `______` et `______` |
-| Écart mesuré | `____ %` et `____ %` |
-| Niveau des données sur l'image **blanche** | `____ %` |
-| **Polarité : `00` est-il blanc ?** | ⬜ oui (attendu) ⬜ non |
+| Voies qui basculent | **D1** et **D3** (les deux lignes de données) |
+| Écart mesuré | **61,3 %** et **79,4 %** |
+| Niveau des données sur l'image claire | **10,3 %** et **8,5 %** |
+| Niveau des données sur l'image sombre | **71,6 %** et **88,0 %** |
+| Toutes les autres voies | 100 % → 100 %, écart **0,0 %** |
+| **Polarité : `00` est-il blanc ?** | ✅ **oui** — bas = clair, conforme à l'attendu |
+
+> Exactement **deux** voies basculent, et elles basculent **ensemble**. C'est ce
+> qu'aucune mesure de fréquence ne pouvait établir.
+
+**Indépendance des deux lignes**, prouvée sur l'image sombre à 4 niveaux :
+`D1 ≠ D3` sur **41,65 %** des échantillons. Sur l'écran de titre à 2 niveaux
+elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
+4 gris les sépare franchement.
+
+> ℹ️ **On ne sait pas laquelle est `LD0` et laquelle est `LD1`**, et on ne peut
+> pas le savoir depuis le bus seul. Sans conséquence : l'ordre se corrige en
+> permutant les 4 entrées de palette, sans recompiler le firmware de capture.
 
 > La polarité ne change **aucune ligne de firmware** : elle décide de l'ordre
 > des 4 entrées de palette. Elle est notée ici pour ne pas la redécouvrir en
@@ -251,26 +267,26 @@ trancher à la main les cas « moyenne » et « faible ») :
 
 | Mesure | Valeur | Verdict |
 |---|---|---|
-| **Période minimale de `CPG`** | `_____ ns` | ⬜ ≥ 200 ns ✅ ⬜ 100–200 🔶 ⬜ < 100 ❌ arrêter |
-| Impulsions par salve de `CPG` | `_____` | attendu 160 |
-| Salves par trame | `_____` | attendu 144 |
-| Plus grand silence de `CPL` | `_____ ms` | attendu ≈ 1,09 (la VBlank) |
-| Plus grand silence de `CP` | `_____ ms` | attendu ≈ 0,109 (une ligne) |
-| Largeur minimale des impulsions `CPL` | `_____ ns` | fixe le taux minimal de la capture lente |
-| **Front d'échantillonnage de `LD`** | ⬜ montant ⬜ descendant | `LD` change sur l'autre front |
-| Délai `D` estimé | `___` cycles PIO | à affiner par l'image en phase 2 |
+| **Période minimale de l'horloge pixel (`CP`)** | **208 ns** | ✅ bande ≥ 200 ns. Valeur vraie 238 ns, quantifiée à 5 échantillons |
+| Impulsions par salve de `CP` | **160** | ✅ exactement l'attendu |
+| Salves par trame | **143,9** | ✅ 144, bords de capture tronqués |
+| Plus grand silence de `P2-ST` | **1,196 ms** | ✅ la VBlank |
+| Plus grand silence de `P2-CPL` | **0,109 ms** | ✅ une ligne — il bat aussi en VBlank |
+| Temps haut de `CP` | **125 ns** | 3 échantillons |
+| **Front d'échantillonnage de `LD`** | ✅ **DESCENDANT** | `LD` change sur le front montant (209/256 à +0 éch) |
+| Délai `D` | **0** | le front descendant tombe déjà au milieu de la fenêtre stable |
 
 ---
 
 ## 7. Conclusion de la phase 0
 
-- [ ] Les 5 signaux sont attribués, chacun par **fréquence ET test blanc/noir**
-- [ ] `VCC` relevé dans les deux états → interface tranchée
-- [ ] Période minimale de `CPG` ≥ 200 ns
-- [ ] Front d'échantillonnage choisi
-- [ ] Polarité relevée
-- [ ] Les 4 `.sr` sont versionnés dans `releves/`
-- [ ] Cette fiche est remplie
+- [x] Les 5 signaux sont attribués, chacun par **fréquence ET test blanc/noir**
+- [ ] 🔬 `VCC` relevé dans les deux états → interface tranchée — **seul point restant**
+- [x] Période minimale de l'horloge pixel ≥ 200 ns (**208 ns**)
+- [x] Front d'échantillonnage choisi (**descendant**, `D` = 0)
+- [x] Polarité relevée (**`00` = blanc**)
+- [x] Les `.sr` sont versionnés dans `releves/` (10 captures)
+- [x] Cette fiche est remplie
 
 **Observation libre — l'écran d'origine pendant le sondage** (§B.2, règle 4) :
 
