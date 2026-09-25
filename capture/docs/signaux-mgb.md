@@ -136,6 +136,75 @@ les `.sr` correspondants sont dans `releves/`.
 > c'est exactement le compte de lignes du canevas, et son silence de 1,09 ms en VBlank
 > offre un détecteur de frontière de trame en prime.
 
+### Phase d'échantillonnage — mesurée le 25/09/2026 (§B.7)
+
+Capture `releves/donnees.sr` : `LD0`, `LD1` et `CP` simultanément, 24 MS/s.
+
+```
+  Décalage des 256 transitions de LD après le front MONTANT de CP :
+     +0 éch (   0 ns)  209  ████████████████████████████████████████████
+     +1 éch (  42 ns)   47  ███████████
+     au-delà            0
+```
+
+| Mesure | Valeur |
+|---|---|
+| Période pixel | 250 ns (quantifié ; valeur vraie 238) |
+| Temps haut de `CP` | **125 ns** (3 échantillons) |
+| **`LD` change sur le front MONTANT** | 100 % des transitions à +0 ou +1 échantillon |
+| Fenêtre stable | ~50 ns → 238 ns après le front montant |
+
+> 🔑 **On échantillonne donc sur le front DESCENDANT de `CP`**, à 125 ns du front
+> montant : au milieu de la fenêtre stable, 75 ns de marge avant, 113 ns après.
+
+**Programme PIO retenu** — les deux `wait` sont inversés par rapport au plan §D.2 :
+
+```
+.wrap_target
+    wait 1 gpio 2        ; attendre que CP soit haut
+    wait 0 gpio 2        ; front DESCENDANT — LD est stable depuis 125 ns
+    in   pins, 2
+.wrap
+```
+
+**`D` = 0.** Le front descendant tombe déjà au bon endroit, aucun délai n'est nécessaire.
+
+### `LD0` et `LD1` — qualifiées
+
+| Preuve | Valeur |
+|---|---|
+| Fronts dans une salve de `CP` | **100,0 %** |
+| Silence maximal | 15,1 ms — muettes hors de la bande d'image |
+| `LD0` ≠ `LD1` | **4 échantillons sur 1 600 000** (0,000 %) |
+
+Les deux lignes sont **identiques** sur cette image : l'écran de démarrage sans
+cartouche n'a que deux niveaux, donc les 2 bits valent toujours `00` ou `11`.
+C'est une confirmation forte qu'il s'agit bien des deux lignes de données — et
+c'est déjà un demi-test blanc/noir.
+
+🔬 **Polarité, à confirmer** : `LD` est bas **97,76 %** du temps sur un écran de
+démarrage à fond clair avec logo sombre. Cohérent avec `00` = blanc, l'hypothèse
+du plan. À prouver formellement avec une cartouche (§5).
+
+### ⚠️ Diaphonie entre fils de sonde
+
+| Voie | Connectée ? | Fronts sur 66,7 ms |
+|---|---|---|
+| D2 (`CP`) | oui | 91 681 |
+| D3 | **non** | 108 |
+| D4 | **non** | 149 |
+| D5, D6, D7 | non | **0** |
+
+Les deux voisines immédiates de `CP` ramassent du signal, les lointaines non.
+C'est de la **diaphonie capacitive entre fils volants**, pas une boucle de masse
+— une boucle affecterait toutes les voies. L'alimentation flottante est donc
+confirmée une seconde fois.
+
+Sans conséquence sur la mesure (99,98 % de niveau haut), mais **c'est un
+avant-goût de la phase 1** : à 4 MHz, des fils parallèles non torsadés couplent.
+La règle « une masse torsadée par paquet de signaux » du §3.4 n'est pas
+décorative.
+
 ---
 
 ## 4. Dépouillement
