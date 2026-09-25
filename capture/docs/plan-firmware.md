@@ -465,11 +465,12 @@ point le plus souvent négligé), alimentation définitive, cadre dessiné dans 
 | S1 | Raspberry Pi Pico 2 W | 1 | ⚠️ pas tolérant 5 V |
 | S2 | Game Boy Pocket MGB-001 fonctionnelle | 1 | 🔴 sera ouverte et modifiée |
 | S3 | 74LVC244A (ou 74LVC245A) + support | 1 | tampon haute impédance |
-| S4 | Résistance 100 Ω | 6 | en série, côté console |
+| S4 | Résistance 100 Ω | 6 | en série, côté console — une par signal prélevé |
 | S5 | Résistance 10 kΩ | 2 | pull-down, si besoin constaté |
 | S6 | Fil émaillé 0,1–0,2 mm (Kynar / wire-wrap) | 1 rlx | soudures fines |
-| S7 | Connecteur JST-SH 6 pts + embase | 1 paire | liaison débrochable |
-| S8 | Perfboard + barrettes | 1 | carte du tampon |
+| S7 | Connecteur JST-SH **8 pts** + embase | 1 paire | liaison débrochable. **6 signaux + 2 masses** : LD0, LD1, CP, P2-ST, P2-S, CPL(réserve). Une masse par paquet de 3, torsadée avec eux (§3.4) |
+| S8 | Perfboard + barrettes | 1 | carte du tampon, à loger DANS la console |
+| S11 | Condensateur 100 nF céramique | 1 | découplage du 74LVC244, au plus près de sa broche VCC |
 | S9 | Alim USB 5 V ou powerbank | 1 | **séparée de la console** |
 | S10 | Colle chaude ou UV | — | reprise d'effort, obligatoire |
 | T1 | **Analyseur logique ≥ 8 voies, ≥ 24 MS/s** | 1 | **non négociable**. Repli : 2ᵉ Pico + `sigrok` |

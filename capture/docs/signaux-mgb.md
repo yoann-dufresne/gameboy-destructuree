@@ -36,10 +36,15 @@ Mesuré le 25/09/2026, au multimètre, entre le test point `VCC` et `P2-GND`.
 Console alimentée par une alimentation de laboratoire à sortie flottante, en
 lieu et place des piles.
 
-| Entrée | `VCC` carte | Marge contre V_IH du RP2350 (≈ 0,65 × 3,3 = 2,145 V) |
+| Entrée | `VCC` carte | Marge contre V_IH du RP2350 (**2,0 V**) |
 |---|---|---|
-| **3,2 V** (piles neuves) | **3,1 V** | **955 mV** |
-| **2,4 V** (piles usées) | **2,2 V** | **55 mV** |
+| **3,2 V** (piles neuves) | **3,1 V** | **1 100 mV** |
+| **2,4 V** (piles usées) | **2,2 V** | **200 mV** |
+
+> ⚠️ **Correction du 25/09/2026.** Une première version de cette fiche annonçait
+> 55 mV, en appliquant `V_IH = 0,65 × IOVDD` à 3,3 V. C'est faux : la datasheet
+> RP2350 §14.9 ne donne cette formule **que pour IOVDD = 1,8 V**. À 2,5 V c'est
+> 1,7 V, et **à 3,3 V c'est 2,0 V fixe**. La marge réelle est de 200 mV.
 
 > 🔑 **Le `VCC` logique n'est PAS régulé** : il suit l'entrée à 0,1–0,2 V près.
 > Le `DMG-REG` régule les tensions de polarisation du LCD (`V1`–`V5`, `VEE`),
@@ -48,22 +53,40 @@ lieu et place des piles.
 
 **Décision d'interface** (`etapes-detaillees.md` §C.2) :
 
-- [x] **74LVC244A OBLIGATOIRE**, alimenté en 3,3 V.
+- [x] **74LVC244A retenu**, alimenté en 3,3 V.
 
-55 mV de marge, ce n'est pas une marge. Avec le 74LVC244A (V_IH = 2,0 V sur
-2,7–3,6 V d'alimentation) la marge passe à **200 mV**, et surtout **ce qui sort
-du tampon est du 3,3 V plein** quel que soit l'état des piles : le front est
-régénéré, pas subi.
+Valeurs vérifiées sur les datasheets réelles, pas sur les familles :
 
-> ℹ️ **Nuance pour l'installation.** Si la console y est alimentée par une source
-> stable plutôt que par des piles, `VCC` reste à 3,1 V et la marge est de 955 mV.
-> Le tampon reste au BOM, mais sa justification devient son **autre** rôle :
-> isoler le PPU de tout ce qui est en aval (§C.2), qui ne dépend pas de la
-> tension.
+| | V_IH | Source |
+|---|---|---|
+| RP2350, IO standard, IOVDD 3,3 V | **2,0 V** | datasheet RP2350 §14.9 |
+| SN74LVC244A, VCC 2,7–3,6 V | **2,0 V** | SCAS414AG, §5.3 |
+| SN74LVC244A, VCC 2,3–2,7 V | **1,7 V** | idem |
 
-> 🔬 Les V_IH cités sont ceux des familles. À confronter aux datasheets des
-> composants réellement achetés — l'écart entre 55 et 200 mV ne se renversera
-> pas pour autant.
+> 🔑 **Les deux composants ont le MÊME seuil à 3,3 V.** Le tampon n'améliore donc
+> **pas** la marge d'entrée : elle vaut 200 mV dans les deux cas à piles
+> fatiguées. Ce n'est pas l'argument de niveau qui le justifie.
+
+**Ce qui le justifie réellement :**
+
+1. **Isolation du PPU** — il ne présente que ~5 pF et absorbe tout ce qui se
+   passe en aval. Le Pico peut planter, être débranché, mal configurer une
+   broche : la console ne le voit pas. C'est le rôle qui compte pour une
+   installation qui tournera sans surveillance.
+2. **Tolérance 5 V** — `V_I` = 0 à 5,5 V (datasheet). Si le montage est un jour
+   porté sur une DMG (bus 5 V), la même carte fonctionne.
+3. **Régénération du front** — ce qui sort est du 3,3 V plein avec ±24 mA de
+   capacité, donc insensible à la longueur du câble en aval.
+
+> ℹ️ **Variante si le fonctionnement sur piles usées devient critique** :
+> alimenter le 244 en **2,5 V** au lieu de 3,3 V. Son V_IH tombe à 1,7 V
+> (marge d'entrée **500 mV**) et sa sortie à 2,5 V reste 500 mV au-dessus du
+> seuil du RP2350. C'est mieux des deux côtés — au prix d'un régulateur 2,5 V,
+> que le Pico ne fournit pas. Non retenu en v1.
+
+> ℹ️ **Sur alimentation stable** — le cas de l'installation — `VCC` reste à 3,1 V
+> et la marge est de **1,1 V** des deux côtés. La question des niveaux ne se pose
+> alors pas du tout, et seul le rôle n° 1 compte.
 
 **Ce qu'on commande :** 74LVC244A (ou 74LVC245A) + support, 6 × 100 Ω, 100 nF.
 
@@ -302,7 +325,7 @@ elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
 ## 7. Conclusion de la phase 0
 
 - [x] Les 5 signaux sont attribués, chacun par **fréquence ET test blanc/noir**
-- [x] `VCC` relevé dans les deux états → **tampon 74LVC244A obligatoire**
+- [x] `VCC` relevé dans les deux états → **tampon 74LVC244A retenu** (pour l'isolation, pas pour les niveaux)
 - [x] Période minimale de l'horloge pixel ≥ 200 ns (**208 ns**)
 - [x] Front d'échantillonnage choisi (**descendant**, `D` = 0)
 - [x] Polarité relevée (**`00` = blanc**)

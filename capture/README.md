@@ -42,6 +42,10 @@ Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixe
 - [`docs/plan-firmware.md`](docs/plan-firmware.md) — **les décisions** : ce qu'on capture et
   pourquoi, interface électrique, architecture firmware, ce qu'on écarte, phases 0 à 5,
   budget chiffré, nomenclature, journal des décisions.
+- [`docs/signaux-mgb.md`](docs/signaux-mgb.md) — **les relevés de la phase 0** : la table
+  corrigée des signaux LCD, le brochage qui fait foi, les mesures et leur verdict.
+- [`docs/liste-achats.md`](docs/liste-achats.md) — **la liste d'achats de la phase 1**, avec
+  la justification de chaque pièce par une mesure et les datasheets vérifiées.
 - [`docs/etapes-detaillees.md`](docs/etapes-detaillees.md) — **la marche à suivre** : le même
   chemin, mais étape par étape. Timing du PPU, séquence de mesure à l'analyseur, schéma et
   ordre de montage, programme PIO instruction par instruction, chaîne DMA, table de

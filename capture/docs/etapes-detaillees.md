@@ -404,15 +404,18 @@ et **combien de temps après**.
 | Composant | Ce qu'il fait | Ce qui se passe sans lui |
 |---|---|---|
 | **100 Ω en série** | limite le courant si une broche du Pico est mal configurée en sortie ; amortit les réflexions sur du fil volant | un court-circuit entre une sortie du PPU et une sortie du Pico peut détruire l'un ou l'autre. 100 Ω ramène le pire cas à 33 mA |
-| **74LVC244A** | régénère les niveaux, isole la console de tout ce qui est en aval, tolère 5 V en entrée | à `VCC_use ≈ 2,4 V`, un niveau haut de 2,4 V contre un V_IH du RP2350 de ≈ 0,65 × 3,3 = **2,15 V** ne laisse que **0,25 V de marge**. Le 244, spécifié V_IH = 2,0 V, en laisse 0,4 — et surtout **ce qui en sort est du 3,3 V plein** quelle que soit l'usure des piles |
+| **74LVC244A** | **isole** la console de tout ce qui est en aval (~5 pF d'entrée), tolère 5 V (`V_I` = 0–5,5 V), et ressort du 3,3 V plein à ±24 mA | ⚠️ **Ce n'est pas un argument de niveau** : RP2350 et 74LVC244A ont le **même** V_IH de **2,0 V** à 3,3 V (datasheets vérifiées le 25/09/2026). Sans tampon, le Pico voit directement le PPU : une broche mal configurée, un débranchement à chaud ou la capacité du câble remontent jusqu'à la console |
 | **100 nF de découplage** | fournit le courant de commutation local | 8 sorties qui commutent à quelques MHz tirent des pointes de courant ; sans découplage elles se voient sur toutes les voies. **Le composant le plus souvent oublié** |
 | **`1OE` et `2OE` à la masse** | maintient les sorties actives | sorties en haute impédance : le Pico ne voit rien, et on cherche le problème du mauvais côté |
 | **Masse torsadée** | referme le circuit au plus court | à 4 MHz sur du fil volant, une masse lointaine crée des fronts fantômes |
 
-> 🔬 Les valeurs de V_IH ci-dessus sont celles des familles ; **les confronter aux datasheets
-> des composants réellement achetés** avant de conclure. Si `VCC_use` mesuré en phase 0
-> dépasse 3,0 V, le tampon devient un confort plutôt qu'une nécessité — mais il reste
-> recommandé, parce qu'il protège la console de tout ce qui arrive en aval.
+> ✅ **Vérifié le 25/09/2026 sur les datasheets** (RP2350 §14.9, TI SCAS414AG §5.3) :
+> `V_IH` = **2,0 V** pour les deux composants à 3,3 V. La formule `0,65 × IOVDD`,
+> qu'une première version de ce document appliquait, ne vaut **que pour IOVDD = 1,8 V**.
+>
+> Mesuré sur la carte : `VCC` = 3,1 V sur alimentation stable (marge **1,1 V**), 2,2 V à
+> 2,4 V d'entrée (marge **200 mV**). Le tampon reste retenu — pour l'isolation du PPU, pas
+> pour rattraper des niveaux.
 
 ### C.3 Brochage du 74LVC244A (DIP-20)
 
