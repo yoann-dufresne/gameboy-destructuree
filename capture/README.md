@@ -72,8 +72,8 @@ la console, et aucune broche n'a été identifiée.
 |---|---|
 | Plan de réalisation | ✅ 22/09/2026 |
 | Outillage de la phase 0 | ✅ 22/09/2026 |
-| 0 · Identification des signaux à l'analyseur | 🔨 **en cours** — fiche : [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
-| 1 · Prise de signaux et interface électrique | ⬜ |
+| 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
+| 1 · Prise de signaux et interface électrique | 🔨 suivante — tampon 74LVC244A **obligatoire** |
 | 2 · Capture PIO + DMA | ⬜ |
 | 3 · `IDX2` de bout en bout | ⬜ |
 | 4 · Mesure de latence et robustesse | ⬜ |

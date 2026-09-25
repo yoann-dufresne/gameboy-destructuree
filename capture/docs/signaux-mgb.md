@@ -2,7 +2,7 @@
 
 *Fiche de la phase 0. À remplir pendant la session, pas après.*
 
-**Statut : 🔨 en cours — instrument validé le 23/09/2026**
+**Statut : ✅ PHASE 0 TERMINÉE le 25/09/2026**
 Console : MGB-001, n° de série `________`, révision de carte `________`
 Date de la session : `__/__/____`
 Analyseur : AZDelivery 8 CH 24 MHz (CY7C68013A / fx2lafw), PulseView `______`
@@ -32,19 +32,40 @@ Analyseur : AZDelivery 8 CH 24 MHz (CY7C68013A / fx2lafw), PulseView `______`
 
 ## 1. 🔬 Tension logique
 
-| Mesure | Valeur | Conditions |
+Mesuré le 25/09/2026, au multimètre, entre le test point `VCC` et `P2-GND`.
+Console alimentée par une alimentation de laboratoire à sortie flottante, en
+lieu et place des piles.
+
+| Entrée | `VCC` carte | Marge contre V_IH du RP2350 (≈ 0,65 × 3,3 = 2,145 V) |
 |---|---|---|
-| `VCC` piles neuves | `_____ V` | à la mise sous tension, console allumée |
-| `VCC` piles usées | `_____ V` | après `___` min de jeu, ou piles usagées |
-| Où mesuré | `____________` | point de mesure sur la carte |
+| **3,2 V** (piles neuves) | **3,1 V** | **955 mV** |
+| **2,4 V** (piles usées) | **2,2 V** | **55 mV** |
+
+> 🔑 **Le `VCC` logique n'est PAS régulé** : il suit l'entrée à 0,1–0,2 V près.
+> Le `DMG-REG` régule les tensions de polarisation du LCD (`V1`–`V5`, `VEE`),
+> pas l'alimentation logique. Le plan §3.3 envisageait les deux cas sans
+> trancher ; c'est tranché.
 
 **Décision d'interface** (`etapes-detaillees.md` §C.2) :
 
-- [ ] `VCC_usé ≥ 3,0 V` → tampon **recommandé** (protège la console de l'aval)
-- [ ] `VCC_usé < 3,0 V` → tampon **obligatoire** (marge contre V_IH du RP2350)
-- [ ] `VCC ≈ 5 V` → tampon **obligatoire**, alimenté en 3,3 V
+- [x] **74LVC244A OBLIGATOIRE**, alimenté en 3,3 V.
 
-**Ce qu'on commande :** `________________________________`
+55 mV de marge, ce n'est pas une marge. Avec le 74LVC244A (V_IH = 2,0 V sur
+2,7–3,6 V d'alimentation) la marge passe à **200 mV**, et surtout **ce qui sort
+du tampon est du 3,3 V plein** quel que soit l'état des piles : le front est
+régénéré, pas subi.
+
+> ℹ️ **Nuance pour l'installation.** Si la console y est alimentée par une source
+> stable plutôt que par des piles, `VCC` reste à 3,1 V et la marge est de 955 mV.
+> Le tampon reste au BOM, mais sa justification devient son **autre** rôle :
+> isoler le PPU de tout ce qui est en aval (§C.2), qui ne dépend pas de la
+> tension.
+
+> 🔬 Les V_IH cités sont ceux des familles. À confronter aux datasheets des
+> composants réellement achetés — l'écart entre 55 et 200 mV ne se renversera
+> pas pour autant.
+
+**Ce qu'on commande :** 74LVC244A (ou 74LVC245A) + support, 6 × 100 Ω, 100 nF.
 
 ---
 
@@ -281,7 +302,7 @@ elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
 ## 7. Conclusion de la phase 0
 
 - [x] Les 5 signaux sont attribués, chacun par **fréquence ET test blanc/noir**
-- [ ] 🔬 `VCC` relevé dans les deux états → interface tranchée — **seul point restant**
+- [x] `VCC` relevé dans les deux états → **tampon 74LVC244A obligatoire**
 - [x] Période minimale de l'horloge pixel ≥ 200 ns (**208 ns**)
 - [x] Front d'échantillonnage choisi (**descendant**, `D` = 0)
 - [x] Polarité relevée (**`00` = blanc**)
@@ -296,4 +317,8 @@ elles étaient confondues (46 échantillons d'écart sur 800 000) ; une image à
 > sa limite : le tampon de la phase 1 devient non négociable, et il faut
 > raccourcir encore les fils.
 
-**Verdict : ⬜ GO phase 1  ⬜ NO-GO, raison : `___________________________`**
+**Verdict : ✅ GO phase 1.**
+
+Tous les critères de sortie sont atteints. Le brochage corrigé du §3bis fait foi
+pour la soudure, et il ne ressemble pas à celui du plan : `CP` est l'horloge pixel,
+`P2-ST` le marqueur de ligne visible, `P2-S` le VSYNC.
