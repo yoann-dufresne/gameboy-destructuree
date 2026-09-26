@@ -112,14 +112,63 @@ Les compteurs s'affichent seuls toutes les 5 s.
 La palette `diag` rend une erreur d'ordre de bits immédiatement visible — chaque
 indice a sa couleur.
 
+## Recette — résultats du 26/09/2026
+
+Console : Game Boy Pocket MGB-ECPU-01, alimentation de laboratoire à 3,2 V,
+Pokémon Version Rouge. Liaison directe, sans tampon, 6 fils + masse.
+
+```
+  cadence          59.723 img/s   (attendu 59,727)  sur 181 s
+  trames            10828
+  lignes/trame        144        (attendu 144)
+  trames douteuses      0
+  mots restants         0
+  debordements FIFO     0
+  trames perdues        0
+```
+
+| Critère | Mesure | |
+|---|---|---|
+| Image reconnaissable | **écran de titre Pokémon Version Rouge, pixel exact** | ✅ |
+| Cadence | **59,723 img/s**, écart **0,007 %** | ✅ |
+| Lignes par trame | **144** sur **10 828 trames** | ✅ |
+| Trames douteuses | **0** | ✅ |
+| Mots restants | **0** — le DMA n'a jamais manqué un front | ✅ |
+| Débordements FIFO | **0** | ✅ |
+
+> 🔑 **Ce qui prouve la chaîne, c'est le petit texte.** « ©1995-1999 GAME FREAK inc. »
+> est parfaitement lisible dans le PNG. Une erreur d'un seul pixel — front mal choisi,
+> octet inversé, décalage de bit — l'aurait réduit en bouillie. Voir
+> [`../../docs/releves/phase2-premiere-trame.png`](../../docs/releves/phase2-premiere-trame.png).
+
+**Transitoire de démarrage.** Le premier essai montrait 8 trames douteuses et
+4 débordements FIFO, tous **figés** — le DMA armé au milieu d'une trame rend les
+premières incomplètes. La commande `r` a été ajoutée pour le démontrer plutôt que
+le supposer : après remise à zéro, 10 828 trames sans une seule erreur.
+
+## Deux bugs trouvés en éprouvant le firmware
+
+**1. `GP5` jamais initialisée.** `capture::init()` appelait `gpio_init()` sur GP3 et
+GP4 mais pas sur GP5, la réserve. Sans cet appel l'entrée du pad reste désactivée et
+`gpio_get()` renvoie 0 quoi qu'il arrive sur le fil. Le diagnostic annonçait donc
+« fil non branché » sur un câblage sain.
+
+> ⚠️ **Un diagnostic qui ment est pire qu'un diagnostic absent** : il envoie démonter
+> ce qui marche. Corrigé, `GP5` donne 1 840 transitions sur 100 ms — l'attendu étant
+> 9 196 Hz × 2 × 0,1 = 1 839.
+
+**2. Cadence mesurée sur une fenêtre d'une seconde.** Elle ne rendait que des entiers,
+59 ou 60, et ne permettait pas de vérifier les 59,727 attendus. Moyennée sur toute la
+durée d'observation, la résolution tombe à 0,017 img/s sur 60 s.
+
 ## Critère de sortie de la phase 2
 
-- [ ] Le vidage ASCII montre un écran **reconnaissable**
-- [ ] Le PNG est net : pas de décalage, pas de cisaillement, pas de groupes de 4 inversés
-- [ ] **59,73 img/s** ± 0,1 sur 60 secondes
-- [ ] **144 lignes/trame sur 10 000 trames**, `trames douteuses` = 0
-- [ ] `mots restants` = 0 et `débordements` = 0 sur la même durée
-- [ ] L'image reste correcte après 30 min et après un cycle d'extinction de la console
+- [x] Le vidage ASCII montre un écran **reconnaissable**
+- [x] Le PNG est net : pas de décalage, pas de cisaillement, pas de groupes de 4 inversés
+- [x] **59,73 img/s** ± 0,1 → **59,723**
+- [x] **144 lignes/trame sur 10 000 trames** → **10 828**, `trames douteuses` = 0
+- [x] `mots restants` = 0 et `débordements` = 0 sur la même durée
+- [ ] L'image reste correcte après **30 min** et après un **cycle d'extinction** de la console
 
 La table de diagnostic symptôme → cause est dans
 [`../../docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.

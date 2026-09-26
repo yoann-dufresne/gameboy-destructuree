@@ -39,10 +39,10 @@ volatile uint16_t id_pret = 0;
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
 Stats compteurs{};
 
-/* Cadence : on compte les trames sur une fenêtre glissante d'une seconde. */
-volatile uint32_t trames_fenetre = 0;
-uint64_t t_fenetre = 0;
-float cadence_mesuree = 0.0f;
+/* Cadence : moyennée depuis la remise à zéro. Une fenêtre d'une seconde ne
+ * donne qu'un entier — 59 ou 60 — et ne permet pas de vérifier les 59,727
+ * attendus. Sur 60 s, la résolution tombe à 0,017 img/s. */
+uint64_t t_depart = 0;
 
 /* ──────────────────────────────────────────────────────────── armement DMA */
 
@@ -98,7 +98,6 @@ void sur_vsync() {
 
     lignes = 0;
     compteurs.trames++;
-    trames_fenetre = trames_fenetre + 1;
 
     gpio_xor_mask(1u << PIN_MESURE_VSYNC);
 }
@@ -129,6 +128,12 @@ void init() {
     gpio_set_dir(PIN_LIGNE, GPIO_IN);
     gpio_init(PIN_VSYNC);
     gpio_set_dir(PIN_VSYNC, GPIO_IN);
+    /* La réserve n'est pas utilisée par la capture, mais elle DOIT être
+     * initialisée : sans gpio_init() l'entrée du pad reste désactivée et
+     * gpio_get() renvoie 0 quoi qu'il arrive sur le fil. Le diagnostic
+     * annonçait alors « fil non branché » sur un câblage sain. */
+    gpio_init(PIN_LIGNE154);
+    gpio_set_dir(PIN_LIGNE154, GPIO_IN);
 
     offset_pio = pio_add_program(pio, &gb_pixels_program);
     gb_pixels_init(pio, sm, offset_pio);
@@ -153,7 +158,7 @@ void init() {
 
     armer_dma(idx_capture);
     pio_sm_set_enabled(pio, sm, true);
-    t_fenetre = time_us_64();
+    t_depart = time_us_64();
 }
 
 const uint8_t *trame_prete() {
@@ -169,14 +174,19 @@ uint16_t numero_trame() { return id_pret; }
 const Stats &stats() { return compteurs; }
 
 float cadence() {
-    const uint64_t maintenant = time_us_64();
-    const uint64_t ecoule = maintenant - t_fenetre;
-    if (ecoule >= 1000000ull) {
-        cadence_mesuree = (float)trames_fenetre * 1e6f / (float)ecoule;
-        trames_fenetre = 0;
-        t_fenetre = maintenant;
-    }
-    return cadence_mesuree;
+    const uint64_t ecoule = time_us_64() - t_depart;
+    if (ecoule < 100000ull)
+        return 0.0f;
+    return (float)compteurs.trames * 1e6f / (float)ecoule;
+}
+
+float duree_observation() {
+    return (float)(time_us_64() - t_depart) * 1e-6f;
+}
+
+void reinitialiser() {
+    compteurs = Stats{};
+    t_depart = time_us_64();
 }
 
 } // namespace capture

@@ -57,8 +57,8 @@ void vidage_hex(const uint8_t *t) {
 
 void afficher_stats() {
     const capture::Stats &s = capture::stats();
-    printf("\n  cadence          %6.2f img/s   (attendu 59,73)\n",
-           (double)capture::cadence());
+    printf("\n  cadence          %6.3f img/s   (attendu 59,727)  sur %.0f s\n",
+           (double)capture::cadence(), (double)capture::duree_observation());
     printf("  trames           %6lu\n", (unsigned long)s.trames);
     printf("  lignes/trame     %6lu        (attendu %d)\n",
            (unsigned long)s.lignes_derniere, LIGNES_VISIBLES);
@@ -123,6 +123,7 @@ void diagnostic_broches() {
 void aide() {
     printf("\n  a = vidage ASCII    p = vidage PNG (hex)    s = compteurs\n"
            "  g = etat brut des 6 entrees (le fil est-il branche ?)\n"
+           "  r = remise a zero des compteurs\n"
            "  h = cette aide\n\n");
 }
 
@@ -167,6 +168,11 @@ int main() {
                 afficher_stats();
             else if (c == 'g')
                 diagnostic_broches();
+            else if (c == 'r') {
+                capture::reinitialiser();
+                printf("\n  compteurs remis a zero — si une erreur reapparait\n"
+                       "  maintenant, ce n'est PAS un transitoire de demarrage\n");
+            }
             else if (c == 'h')
                 aide();
         }
@@ -176,6 +182,5 @@ int main() {
             t_stats = time_us_64();
             afficher_stats();
         }
-        capture::cadence();   /* entretient la fenêtre de mesure */
     }
 }

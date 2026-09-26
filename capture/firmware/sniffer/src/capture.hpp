@@ -35,7 +35,17 @@ uint16_t numero_trame();
 
 const Stats &stats();
 
-/* Cadence mesurée sur la dernière fenêtre d'observation, en trames/seconde. */
+/* Remet les compteurs et la mesure de cadence à zéro. Sert à démontrer qu'une
+ * erreur est un transitoire de démarrage : après remise à zéro, elle ne doit
+ * plus jamais réapparaître. */
+void reinitialiser();
+
+/* Secondes écoulées depuis la dernière remise à zéro. */
+float duree_observation();
+
+/* Cadence MOYENNE depuis la dernière remise à zéro, en trames/seconde.
+ * Moyennée sur toute la durée : une fenêtre d'une seconde ne donne que des
+ * entiers (59 ou 60) et ne permet pas de vérifier les 59,73 attendus. */
 float cadence();
 
 } // namespace capture

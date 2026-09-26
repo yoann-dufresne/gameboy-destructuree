@@ -81,7 +81,7 @@ la console, et aucune broche n'a été identifiée.
 | Outillage de la phase 0 | ✅ 22/09/2026 |
 | 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
 | 1 · Prise de signaux | ✅ 26/09/2026 — [`docs/recette-cablage.md`](docs/recette-cablage.md) |
-| 2 · Capture PIO + DMA | 🔨 firmware écrit et compilé : [`firmware/sniffer/`](firmware/sniffer/) — reste à flasher |
+| 2 · Capture PIO + DMA | 🔨 **26/09/2026 — ça capture** : 10 828 trames, 0 erreur, 59,723 img/s. Reste l'endurance 30 min |
 | 3 · `IDX2` de bout en bout | ⬜ |
 | 4 · Mesure de latence et robustesse | ⬜ |
 | 5 · Intégration | ⬜ |
