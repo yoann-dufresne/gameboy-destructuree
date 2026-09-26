@@ -76,12 +76,33 @@ La vérification 4 est **passée**. Les autres demandent tes yeux et ton multim�
 
 | # | Vérification | État |
 |---|---|---|
-| 1 | La console joue normalement, module non alimenté | ⬜ |
-| 2 | **L'écran d'origine est identique** — photo avant/après, même image, même angle | ⬜ |
-| 3 | Tension sur chaque broche du connecteur **≤ 3,2 V** | ⬜ |
+| 1 | La console tourne | ✅ **prouvé par la capture** : 59,71 Hz, 144 lignes/trame, données actives |
+| 2 | ~~L'écran d'origine est identique~~ | ⚠️ **SANS OBJET** — voir ci-dessous |
+| 3 | Tension sur chaque broche du connecteur ≤ 3,2 V | ✅ 26/09/2026 |
 | 4 | Les 6 signaux ont les signatures de la phase 0 | ✅ **ci-dessus** |
 | 5 | Fronts nets, sans rebond | ✅ dans la limite de l'instrument |
 | — | La console **se referme** | ⬜ |
 
-> ⚠️ La vérification 2 est celle qui ne se rattrape pas. Sans la photo d'avant, il n'y a rien
-> à comparer — et c'est précisément le contrôle qui dit si la soudure a dégradé le PPU.
+### La vérification 2 est devenue sans objet
+
+**L'écran d'origine n'est plus connecté** : le connecteur `P2` a dû être dessoudé pour
+souder les fils. La question « l'ajout de charge a-t-il dégradé la capacité du PPU à piloter
+son écran ? » ne se pose donc plus — le PPU ne pilote que nos fils.
+
+**Ce qui la remplace, et qu'on a déjà :**
+
+| Ce qu'on voulait savoir | Ce qu'on mesure |
+|---|---|
+| Le PPU sort-il un signal sain ? | **160 impulsions par salve** · période min **208 ns** · **zéro front parasite** |
+| La charge a-t-elle changé quelque chose ? | **valeurs identiques à la phase 0**, quand l'écran était encore branché |
+| La console tourne-t-elle ? | **59,71 Hz, 144 lignes, données actives** |
+
+> 🔑 **Coup de chance de séquencement.** Le test blanc/noir du §B.5 — qui a prouvé que
+> `P2-LD0` et `P2-LD1` sont les lignes de données et que `00` = blanc — a été fait pendant
+> que l'écran fonctionnait encore. Il ne serait plus refaisable aujourd'hui.
+
+> ⚠️ **À acter :** le dessoudage de `P2` va au-delà de ce que le plan prévoyait. L'écran
+> d'origine n'est plus rebranchable sans ressouder un connecteur. Pour un projet qui remplace
+> cet écran par une matrice LED, c'est dans la logique — mais ce n'est plus réversible.
+
+**Verdict phase 1 : ✅ close le 26/09/2026.**

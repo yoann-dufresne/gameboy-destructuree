@@ -1,0 +1,77 @@
+;
+; Module CAPTURE — échantillonnage du bus LCD de la Game Boy
+;
+; Trois instructions, et chacune est justifiée par une mesure de la phase 0.
+;
+.program gb_pixels
+
+; Délai entre le front descendant et l'échantillonnage, en cycles PIO.
+; 🔬 Mesuré nul en phase 0 : le front descendant tombe déjà au milieu de la
+; fenêtre stable. `PUBLIC` l'exporte en C, où un static_assert vérifie qu'il
+; n'a pas divergé de config.h — pioasm ne sait pas lire un en-tête C.
+.define PUBLIC DELAI 0
+
+.wrap_target
+    wait 1 pin 2          ; attendre que l'horloge pixel soit HAUTE
+    wait 0 pin 2 [DELAI]  ; front DESCENDANT — LD est stable depuis 125 ns
+    in   pins, 2          ; échantillonner LD0 et LD1
+.wrap
+
+; ── Pourquoi cet ordre de `wait`, et pas l'inverse
+;
+; La phase 0 a mesuré que LD change sur le front MONTANT de l'horloge :
+; 209 des 256 transitions à +0 échantillon, 47 à +1, aucune au-delà. Le front
+; montant est donc exactement l'instant de la transition — le pire moment pour
+; échantillonner.
+;
+; Le temps haut de l'horloge étant de 125 ns et sa période de 238 ns, le front
+; DESCENDANT tombe au milieu de la fenêtre stable : 75 ns de marge avant,
+; 113 ns après. D'où l'inversion, et d'où DELAI = 0.
+;
+; ── Pourquoi `wait 1` AVANT `wait 0`
+;
+; Le `wait 1` garantit qu'on verra le prochain front descendant. Sans lui, si
+; l'horloge est déjà basse à l'amorçage, `wait 0` passe immédiatement et on
+; échantillonne un pixel fantôme, décalant toute la ligne.
+;
+; ── `pin 2` et non `gpio 2`
+;
+; `WAIT ... PIN n` est relatif à IN_BASE, donc suit le brochage de config.h.
+; `WAIT ... GPIO n` serait absolu et se désynchroniserait d'un changement de
+; brochage sans que rien ne le signale.
+
+% c-sdk {
+#include "hardware/clocks.h"
+#include "config.h"
+
+static inline void gb_pixels_init(PIO pio, uint sm, uint offset) {
+    pio_sm_config c = gb_pixels_program_get_default_config(offset);
+
+    /* LD0, LD1 et l'horloge pixel sont lus par le PIO. `in pins, 2` prend les
+     * deux premiers à partir d'IN_BASE ; `wait ... pin 2` vise le troisième. */
+    sm_config_set_in_pins(&c, PIN_IN_BASE);
+    for (uint i = 0; i < PIN_IN_N; ++i)
+        pio_gpio_init(pio, PIN_IN_BASE + i);
+    pio_sm_set_consecutive_pindirs(pio, sm, PIN_IN_BASE, PIN_IN_N, false);
+
+    /* Décalage à GAUCHE + bswap du DMA = disposition IDX2 attendue, pixel de
+     * gauche dans les bits de poids fort. Démonstration en §D.3 du guide. */
+    sm_config_set_in_shift(&c, /*shift_right=*/false, /*autopush=*/true,
+                           /*push_threshold=*/32);
+
+    /* 8 mots de tampon = 128 pixels : le DMA a ~30 µs pour réagir, il lui en
+     * faut 0,1. */
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    /* Pleine vitesse : le rythme est imposé par l'horloge de la console, pas
+     * par celle du PIO. */
+    sm_config_set_clkdiv(&c, 1.0f);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+/* Garde-fou : le délai vit dans le .pio (pioasm ne lit pas config.h), et
+ * config.h le documente. Si les deux divergent, la compilation échoue. */
+static_assert(gb_pixels_DELAI == DELAI_ECHANTILLON,
+              "DELAI du .pio et DELAI_ECHANTILLON de config.h ont divergé");
+%}

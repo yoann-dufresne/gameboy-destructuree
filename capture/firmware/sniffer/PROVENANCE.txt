@@ -1,0 +1,4 @@
+pico_sdk_import.cmake
+  Copié depuis ../../../ecran/firmware/ecran/, lui-même issu de
+  pico-sdk/external/ (SDK 2.x). Non modifié.
+  Recopié le 26/09/2026.

@@ -59,6 +59,7 @@ Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixe
 |---|---|
 | [`tools/analyse_sr.py`](tools/analyse_sr.py) | dépouille une capture PulseView `.sr` et propose l'attribution des 6 signaux, **avec ses preuves**. `--comparer blanc.sr noir.sr` pour le test blanc/noir |
 | [`tools/simuler_bus_gb.py`](tools/simuler_bus_gb.py) | capture `.sr` synthétique, pour éprouver le dépouilleur avant d'ouvrir la console. Ne valide rien du projet |
+| [`tools/gbdump.py`](tools/gbdump.py) | récupère une trame du sniffer et en fait un PNG. L'instrument de la phase 2 |
 | [`tools/console.py`](tools/console.py) | console série du Pico (`cat /dev/ttyACM0` ne suffit pas : il faut asserter DTR) |
 | [`tools/flash.sh`](tools/flash.sh) | flashe un `.uf2`, bascule en BOOTSEL par la touche 1200 bauds |
 
@@ -79,8 +80,8 @@ la console, et aucune broche n'a été identifiée.
 | Plan de réalisation | ✅ 22/09/2026 |
 | Outillage de la phase 0 | ✅ 22/09/2026 |
 | 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
-| 1 · Prise de signaux | 🔨 26/09/2026 — soudure faite, signatures conformes : [`docs/recette-cablage.md`](docs/recette-cablage.md). Reste les contrôles visuels |
-| 2 · Capture PIO + DMA | ⬜ |
+| 1 · Prise de signaux | ✅ 26/09/2026 — [`docs/recette-cablage.md`](docs/recette-cablage.md) |
+| 2 · Capture PIO + DMA | 🔨 firmware écrit et compilé : [`firmware/sniffer/`](firmware/sniffer/) — reste à flasher |
 | 3 · `IDX2` de bout en bout | ⬜ |
 | 4 · Mesure de latence et robustesse | ⬜ |
 | 5 · Intégration | ⬜ |

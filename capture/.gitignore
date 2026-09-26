@@ -19,3 +19,6 @@ __pycache__/
 
 # Identifiants WiFi : jamais versionnés
 secrets.h
+
+# Sortie de gbdump
+trame-*.png
