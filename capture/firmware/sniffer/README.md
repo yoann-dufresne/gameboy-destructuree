@@ -161,6 +161,31 @@ GP4 mais pas sur GP5, la réserve. Sans cet appel l'entrée du pad reste désact
 59 ou 60, et ne permettait pas de vérifier les 59,727 attendus. Moyennée sur toute la
 durée d'observation, la résolution tombe à 0,017 img/s sur 60 s.
 
+## Cycle d'extinction de la console — 26/09/2026
+
+Le cas d'usage réel : dans une installation, la console et le Pico ne
+s'allumeront jamais exactement en même temps.
+
+**Protocole** : compteurs remis à zéro, ligne de base propre (657 trames,
+0 erreur), console coupée ~10 s, rallumée, puis observation.
+
+| Observation | Résultat |
+|---|---|
+| Pendant la coupure | compteurs **gelés**, aucun plantage. Le PIO reste bloqué sur son `wait` |
+| Au rallumage | **5 trames douteuses, 5 débordements** — le transitoire attendu, le DMA étant armé au milieu d'une trame |
+| **Resynchronisation** | **automatique**, sans intervention |
+| Après remise à zéro | **3 566 trames, 0 erreur**, cadence **59,728** (écart 0,002 %) |
+| **Image** | **correcte, non décalée** — voir `phase2-apres-cycle.png` |
+
+> 🔑 **La cadence moyenne affichée pendant l'essai — 55,769 — n'était pas un défaut.**
+> 9 537 trames à 59,727 img/s représentent 159,7 s de fonctionnement ; l'observation
+> durait 171 s. La différence, **11,3 s**, est exactement la durée de la coupure. Une
+> moyenne qui inclut un trou n'est pas une cadence dégradée.
+
+> ℹ️ Détail qui confirme que la capture est **vivante** : l'écran de titre affiche
+> Chenipan sur la première trame et Pikachu après le cycle. Il fait défiler ses
+> sprites — ce n'est pas une trame figée en cache.
+
 ## Critère de sortie de la phase 2
 
 - [x] Le vidage ASCII montre un écran **reconnaissable**
@@ -168,7 +193,8 @@ durée d'observation, la résolution tombe à 0,017 img/s sur 60 s.
 - [x] **59,73 img/s** ± 0,1 → **59,723**
 - [x] **144 lignes/trame sur 10 000 trames** → **10 828**, `trames douteuses` = 0
 - [x] `mots restants` = 0 et `débordements` = 0 sur la même durée
-- [ ] L'image reste correcte après **30 min** et après un **cycle d'extinction** de la console
+- [x] L'image reste correcte après un **cycle d'extinction** de la console
+- [ ] L'image reste correcte après **30 min** de capture continue
 
 La table de diagnostic symptôme → cause est dans
 [`../../docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
