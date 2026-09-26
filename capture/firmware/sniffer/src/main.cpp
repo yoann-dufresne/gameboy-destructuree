@@ -72,8 +72,57 @@ void afficher_stats() {
            (unsigned long)s.perdues);
 }
 
+/* Lit l'état brut des 6 entrées pendant 100 ms. Répond à la question « le fil
+ * est-il branché ? » sans rien supposer du PIO ni du DMA — c'est le premier
+ * diagnostic à lancer quand les compteurs restent à zéro. */
+void diagnostic_broches() {
+    struct { uint8_t gpio; const char *nom; } E[] = {
+        {PIN_LD0,      "GP0  P2-LD0   donnee 0"},
+        {PIN_LD1,      "GP1  P2-LD1   donnee 1"},
+        {PIN_PIXCLK,   "GP2  CP       HORLOGE PIXEL"},
+        {PIN_LIGNE,    "GP3  P2-ST    ligne visible"},
+        {PIN_VSYNC,    "GP4  P2-S     vsync"},
+        {PIN_LIGNE154, "GP5  P2-CPL   reserve"},
+    };
+    const int N = 6;
+    uint32_t haut[N] = {0}, transitions[N] = {0}, total = 0;
+    uint32_t masque = 0;
+    for (int i = 0; i < N; ++i) masque |= 1u << E[i].gpio;
+
+    uint32_t prec = gpio_get_all() & masque;
+    const uint64_t fin = time_us_64() + 100000;   /* 100 ms = 6 trames */
+    while (time_us_64() < fin) {
+        const uint32_t v = gpio_get_all() & masque;
+        const uint32_t chg = v ^ prec;
+        for (int i = 0; i < N; ++i) {
+            const uint32_t bit = 1u << E[i].gpio;
+            if (v & bit) haut[i]++;
+            if (chg & bit) transitions[i]++;
+        }
+        prec = v;
+        total++;
+    }
+
+    printf("\n--- etat des entrees, %lu lectures sur 100 ms ---\n",
+           (unsigned long)total);
+    for (int i = 0; i < N; ++i) {
+        const float pct = total ? 100.0f * (float)haut[i] / (float)total : 0.0f;
+        const char *verdict;
+        if (transitions[i] == 0)
+            verdict = (haut[i] == 0) ? "<-- FIGE A 0 : fil non branche ?"
+                                     : "<-- FIGE A 1";
+        else
+            verdict = "actif";
+        printf("  %-26s niveau %5.1f %%  %7lu transitions  %s\n",
+               E[i].nom, (double)pct, (unsigned long)transitions[i], verdict);
+    }
+    printf("  (l'horloge pixel est sous-echantillonnee par cette boucle :\n"
+           "   on cherche « ca bouge », pas un comptage exact)\n");
+}
+
 void aide() {
     printf("\n  a = vidage ASCII    p = vidage PNG (hex)    s = compteurs\n"
+           "  g = etat brut des 6 entrees (le fil est-il branche ?)\n"
            "  h = cette aide\n\n");
 }
 
@@ -116,6 +165,8 @@ int main() {
                 vidage_hex(derniere);
             else if (c == 's')
                 afficher_stats();
+            else if (c == 'g')
+                diagnostic_broches();
             else if (c == 'h')
                 aide();
         }
