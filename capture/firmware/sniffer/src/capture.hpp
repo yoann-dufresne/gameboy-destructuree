@@ -33,6 +33,14 @@ const uint8_t *trame_prete();
 /* Numéro de la dernière trame rendue par trame_prete(). */
 uint16_t numero_trame();
 
+/* Horodatage (µs, horloge du Pico) de la VSYNC qui a clos la trame rendue par
+ * le dernier `trame_prete()`. Saisi au même instant que le pointeur, donc
+ * cohérent avec lui même si une VSYNC survient entre les deux appels.
+ *
+ * Sert à décomposer la latence : ce qui se passe ENTRE la fin de capture et le
+ * départ des paquets appartient au Pico, pas au réseau. */
+uint32_t horodatage_trame();
+
 const Stats &stats();
 
 /* Remet les compteurs et la mesure de cadence à zéro. Sert à démontrer qu'une

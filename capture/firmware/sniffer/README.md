@@ -287,6 +287,73 @@ l'**association WiFi** : la boucle principale est bloquée dans
 tourne (PIO, DMA, interruptions). 11 s × 59,7 = 657, ce qui colle. Après remise
 à zéro : **0 perdue**.
 
+## Phase 4 — latence décomposée et distribuée, 26/09/2026
+
+### B · La décomposition, sur 3 920 trames
+
+```
+  attente  capture->envoi  min   0.00  moy   0.01  max   0.14 ms
+  envoi    5 paquets       min   1.89  moy   1.94  max   2.54 ms
+  aller-retour envoi->acc  min   4.47  moy   7.68  max 160.64 ms
+```
+
+**La boucle principale prend la trame en 0,01 ms.** Sa réactivité n'est pas un
+sujet, et on peut cesser de la soupçonner.
+
+> ⚠️ **Pousser 5 paquets coûte 1,94 ms, et j'en avais estimé 0,3.** Un facteur 6.
+> C'est ~0,39 ms par `udp_sendto` — `pbuf_alloc`, la recopie de 1 400 octets, et
+> la liaison SPI vers le CYW43. Ça ne bloque rien à 59,7 img/s (11,6 % de la
+> période), mais ça pèse dans le budget de latence, et l'estimation ne le
+> voyait pas.
+>
+> Piste si ça devient limitant : `PBUF_REF` au lieu de `PBUF_RAM` éviterait la
+> recopie. Le double tampon garantit que la trame reste valide 16,7 ms, bien
+> au-delà du besoin.
+
+### A · L'histogramme de l'aller-retour, 3 778 mesures
+
+```
+      4 ms |                                             59   1.56 %
+      5 ms |########################################   2448  64.80 %
+      6 ms |############                                778  20.59 %
+      7 ms |##                                          141   3.73 %
+      8 ms |##                                          143   3.79 %
+      9..31|  (étalé)                                   ~120   3.2 %
+   >=32 ms |#                                            81   2.14 %
+```
+
+| | |
+|---|---|
+| **91 %** des trames | sous 9 ms |
+| ~3 % | entre 9 et 32 ms |
+| **2,14 %** | **au-delà de 32 ms**, max 160,64 ms |
+
+**La queue est réelle mais mince** : environ **1,3 trame par seconde** arrive en
+retard. C'est le comportement du WiFi 2,4 GHz avec ses retransmissions, et rien
+côté Pico ne le corrigera.
+
+> ℹ️ Ces trames-là ne sont pas **perdues** : le récepteur n'a compté qu'**une**
+> trame incomplète sur 3 937. Elles arrivent, en retard. Sur un afficheur, ça se
+> voit comme une micro-saccade occasionnelle, pas comme un trou.
+
+### Le budget de latence qui en découle
+
+| Poste | Moyenne | Meilleur cas | Source |
+|---|---|---|---|
+| Attente de fin de trame | **8,97 ms** | 1,19 ms | arithmétique : `16,74 − L × 0,109` |
+| Boucle principale | 0,01 ms | 0,00 | mesuré |
+| Émission des 5 paquets | 1,94 ms | 1,89 ms | mesuré |
+| WiFi, aller simple | ~3,8 ms | ~2,2 ms | aller-retour / 2 |
+| **Total** | **~14,8 ms** | **~5,3 ms** | |
+
+> 🔑 **La moyenne passe tout juste sous une trame (16,74 ms), et le poste
+> dominant reste l'attente de fin de trame — 61 % du total.** Ce n'est ni le
+> WiFi, ni le Pico.
+>
+> **L'émission pipelinée** (un paquet dès ses 35 lignes capturées, §E.5
+> variante 2) ramènerait ce poste de 8,97 à **1,9 ms**, soit un total moyen de
+> **~7,7 ms**. Le compteur de lignes sur `P2-ST` existe déjà : c'est un `if`.
+
 ## Critère de sortie de la phase 2
 
 - [x] Le vidage ASCII montre un écran **reconnaissable**

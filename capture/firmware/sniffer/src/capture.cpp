@@ -35,6 +35,8 @@ volatile uint8_t idx_capture = 0;   /* tampon en cours de remplissage */
 volatile int8_t idx_pret = -1;      /* tampon complet, pas encore lu  */
 volatile uint16_t id_trame = 0;
 volatile uint16_t id_pret = 0;
+volatile uint32_t t_vsync_pret = 0;   /* horodatage de la trame publiée   */
+uint32_t t_vsync_rendu = 0;           /* … saisi par trame_prete()         */
 
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
 Stats compteurs{};
@@ -88,6 +90,7 @@ void sur_vsync() {
     if (idx_pret >= 0)
         compteurs.perdues++;   /* la boucle n'a pas suivi : on écrase */
     idx_pret = (int8_t)idx_capture;
+    t_vsync_pret = time_us_32();
     id_pret = id_trame;
     id_trame = id_trame + 1;
     idx_capture ^= 1u;
@@ -165,11 +168,16 @@ const uint8_t *trame_prete() {
     const int8_t idx = idx_pret;
     if (idx < 0)
         return nullptr;
+    /* Saisir l'horodatage AVANT de libérer le créneau : sinon une VSYNC
+     * survenant entre les deux le remplacerait, et la décomposition de
+     * latence porterait sur la mauvaise trame. */
+    t_vsync_rendu = t_vsync_pret;
     idx_pret = -1;
     return trame[idx];
 }
 
 uint16_t numero_trame() { return id_pret; }
+uint32_t horodatage_trame() { return t_vsync_rendu; }
 
 const Stats &stats() { return compteurs; }
 

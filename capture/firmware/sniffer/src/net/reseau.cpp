@@ -40,6 +40,15 @@ char ip_texte[16] = "0.0.0.0";
 
 Stats compteurs{};
 
+void noter(Mesure &m, uint32_t us) {
+    if (!m.n || us < m.min_us)
+        m.min_us = us;
+    if (us > m.max_us)
+        m.max_us = us;
+    m.somme_us += us;
+    m.n++;
+}
+
 /* Horodatage d'émission, indexé par les 8 bits de poids faible du numéro de
  * trame. Sert à mesurer l'aller-retour sur NOTRE horloge, sans supposer la
  * moindre synchronisation avec le récepteur. */
@@ -64,13 +73,11 @@ void sur_accuse(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
                  * silence n'est pas un instrument. */
                 if (dt < 500000u) {
                     compteurs.aller_retour_us = dt;
-                    if (!compteurs.aller_retour_n
-                        || dt < compteurs.aller_retour_min_us)
-                        compteurs.aller_retour_min_us = dt;
-                    if (dt > compteurs.aller_retour_max_us)
-                        compteurs.aller_retour_max_us = dt;
-                    compteurs.aller_retour_somme_us += dt;
-                    compteurs.aller_retour_n++;
+                    noter(compteurs.aller_retour, dt);
+                    const uint32_t seau = dt / 1000u;
+                    compteurs.histo[seau < RESEAU_HISTO_SEAUX - 1
+                                        ? seau
+                                        : RESEAU_HISTO_SEAUX - 1]++;
                 } else {
                     compteurs.aller_retour_ecartes++;
                 }
@@ -227,9 +234,15 @@ bool init() {
     return associe;
 }
 
-void emettre(const uint8_t *trame, uint16_t frame_id) {
-    if (associe)
-        envoyer_trame(trame, frame_id);
+void emettre(const uint8_t *trame, uint16_t frame_id, uint32_t t_vsync_us) {
+    if (!associe)
+        return;
+    const uint32_t t_debut = time_us_32();
+    /* Ce qui s'est écoulé depuis la fin de capture appartient au Pico, pas au
+     * réseau. Le distinguer est tout l'intérêt de la décomposition. */
+    noter(compteurs.attente, t_debut - t_vsync_us);
+    envoyer_trame(trame, frame_id);
+    noter(compteurs.emission, (uint32_t)time_us_32() - t_debut);
 }
 
 void servir() {

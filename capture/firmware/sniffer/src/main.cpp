@@ -122,6 +122,18 @@ void diagnostic_broches() {
            "   on cherche « ca bouge », pas un comptage exact)\n");
 }
 
+/* min / moyenne / max sur N échantillons. Le nombre d'échantillons est
+ * affiché : une moyenne sans son effectif ne veut rien dire. */
+void ligne_mesure(const char *nom, const reseau::Mesure &m) {
+    if (!m.n) {
+        printf("  %s      —\n", nom);
+        return;
+    }
+    printf("  %s  min %6.2f  moy %6.2f  max %7.2f ms  sur %lu\n", nom,
+           m.min_us / 1000.0, (double)m.somme_us / m.n / 1000.0,
+           m.max_us / 1000.0, (unsigned long)m.n);
+}
+
 void afficher_reseau() {
     const reseau::Stats &r = reseau::stats();
     if (!reseau::pret()) {
@@ -142,16 +154,45 @@ void afficher_reseau() {
     printf("  accuses recus    %6lu        (%.0f %% des trames)\n",
            (unsigned long)r.accuses,
            r.trames ? 100.0 * r.accuses / r.trames : 0.0);
-    if (r.aller_retour_n)
-        printf("  aller-retour     min %.2f   moy %.2f   max %.2f ms"
-               "   sur %lu mesures\n",
-               r.aller_retour_min_us / 1000.0,
-               (double)r.aller_retour_somme_us / r.aller_retour_n / 1000.0,
-               r.aller_retour_max_us / 1000.0,
-               (unsigned long)r.aller_retour_n);
+    ligne_mesure("attente  capture->envoi", r.attente);
+    ligne_mesure("envoi    5 paquets      ", r.emission);
+    ligne_mesure("aller-retour  envoi->acc", r.aller_retour);
     if (r.aller_retour_ecartes)
         printf("  mesures ecartees %6lu        (horodatage recycle)\n",
                (unsigned long)r.aller_retour_ecartes);
+}
+
+/* Un maximum ne dit pas s'il est une valeur isolée ou une queue de
+ * distribution. L'histogramme, si. */
+void afficher_histogramme() {
+    const reseau::Stats &r = reseau::stats();
+    uint32_t sommet = 0, total = 0;
+    for (int i = 0; i < RESEAU_HISTO_SEAUX; ++i) {
+        total += r.histo[i];
+        if (r.histo[i] > sommet)
+            sommet = r.histo[i];
+    }
+    if (!total) {
+        printf("\n  aucune mesure d'aller-retour\n");
+        return;
+    }
+    printf("\n  histogramme de l'aller-retour, %lu mesures\n",
+           (unsigned long)total);
+    for (int i = 0; i < RESEAU_HISTO_SEAUX; ++i) {
+        if (!r.histo[i])
+            continue;
+        char barre[41];
+        const int n = (int)((uint64_t)r.histo[i] * 40 / sommet);
+        for (int k = 0; k < n; ++k)
+            barre[k] = '#';
+        barre[n] = 0;
+        if (i == RESEAU_HISTO_SEAUX - 1)
+            printf("   >=%2d ms |%-40s %6lu  %5.2f %%\n", i, barre,
+                   (unsigned long)r.histo[i], 100.0 * r.histo[i] / total);
+        else
+            printf("     %2d ms |%-40s %6lu  %5.2f %%\n", i, barre,
+                   (unsigned long)r.histo[i], 100.0 * r.histo[i] / total);
+    }
 }
 
 void aide() {
@@ -159,6 +200,7 @@ void aide() {
            "  g = etat brut des 6 entrees (le fil est-il branche ?)\n"
            "  r = remise a zero des compteurs\n"
            "  n = etat du reseau\n"
+           "  l = histogramme de la latence\n"
            "  h = cette aide\n\n");
 }
 
@@ -214,7 +256,8 @@ int main() {
         const uint8_t *t = capture::trame_prete();
         if (t != nullptr) {
             derniere = t;
-            reseau::emettre(t, capture::numero_trame());
+            reseau::emettre(t, capture::numero_trame(),
+                            capture::horodatage_trame());
         }
         reseau::servir();
 
@@ -230,6 +273,8 @@ int main() {
                 afficher_stats();
             else if (c == 'n')
                 afficher_reseau();
+            else if (c == 'l')
+                afficher_histogramme();
             else if (c == 'g')
                 diagnostic_broches();
             else if (c == 'r') {

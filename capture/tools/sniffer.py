@@ -26,6 +26,7 @@ COMMANDES = {
     "p": "vidage hexadecimal (prefere gbdump.py)",
     "r": "remise a zero des compteurs",
     "n": "etat du reseau",
+    "l": "histogramme de la latence",
     "h": "aide du firmware",
 }
 
