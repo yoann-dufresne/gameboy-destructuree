@@ -72,6 +72,11 @@ void afficher_stats() {
            s.debordements ? "  <-- le DMA ne suit pas" : "");
     printf("  trames perdues   %6lu        (non lues par la boucle)\n",
            (unsigned long)s.perdues);
+    printf("  tranches perdues %6lu %s\n", (unsigned long)s.tranches_perdues,
+           s.tranches_perdues ? "  <-- file pleine" : "");
+    printf("  emission         %s\n",
+           capture::pipeline_actif() ? "PIPELINEE (1 tranche / 35 lignes)"
+                                     : "simple (tout a la fin de trame)");
 }
 
 /* Lit l'état brut des 6 entrées pendant 100 ms. Répond à la question « le fil
@@ -207,6 +212,7 @@ void aide() {
            "  n = etat du reseau\n"
            "  l = histogramme de la latence\n"
            "  d = rompre l'association (essai de reconnexion)\n"
+           "  P = basculer emission simple <-> pipelinee\n"
            "  h = cette aide\n\n");
 }
 
@@ -257,13 +263,24 @@ int main() {
     uint64_t t_stats = time_us_64();
 
     while (true) {
-        /* L'émission consomme la trame prête ; on garde une copie du
-         * pointeur pour les vidages de la console. */
-        const uint8_t *t = capture::trame_prete();
-        if (t != nullptr) {
-            derniere = t;
-            reseau::emettre(t, capture::numero_trame(),
-                            capture::horodatage_trame());
+        /* Mode pipeliné : on draine la file de tranches, alimentée par les
+         * interruptions dès que 35 lignes sont capturées. `trame_prete()` est
+         * quand même appelé, pour garder de quoi vider sur la console et pour
+         * que le compteur de trames non lues reste juste. */
+        if (capture::pipeline_actif()) {
+            capture::Tranche tr;
+            while (capture::tranche_prete(tr))
+                reseau::emettre_tranche(tr);
+            const uint8_t *t = capture::trame_prete();
+            if (t != nullptr)
+                derniere = t;
+        } else {
+            const uint8_t *t = capture::trame_prete();
+            if (t != nullptr) {
+                derniere = t;
+                reseau::emettre(t, capture::numero_trame(),
+                                capture::horodatage_trame());
+            }
         }
         reseau::servir();
 
@@ -283,6 +300,13 @@ int main() {
                 afficher_histogramme();
             else if (c == 'd')
                 reseau::rompre_pour_essai();
+            else if (c == 'P') {
+                capture::pipeline(!capture::pipeline_actif());
+                capture::reinitialiser();
+                reseau::reinitialiser();
+                printf("\n  emission %s — compteurs remis a zero\n",
+                       capture::pipeline_actif() ? "PIPELINEE" : "simple");
+            }
             else if (c == 'g')
                 diagnostic_broches();
             else if (c == 'r') {

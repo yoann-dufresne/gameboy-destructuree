@@ -28,6 +28,7 @@ COMMANDES = {
     "n": "etat du reseau",
     "l": "histogramme de la latence",
     "d": "rompre l'association (essai de reconnexion)",
+    "P": "basculer emission simple <-> pipelinee",
     "h": "aide du firmware",
 }
 

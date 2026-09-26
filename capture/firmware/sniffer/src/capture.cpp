@@ -39,12 +39,32 @@ volatile uint32_t t_vsync_pret = 0;   /* horodatage de la trame publiée   */
 uint32_t t_vsync_rendu = 0;           /* … saisi par trame_prete()         */
 
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
+
+/* File de tranches : un producteur (les interruptions), un consommateur (la
+ * boucle principale). Huit créneaux pour cinq tranches par trame — largement
+ * de quoi absorber une boucle momentanément occupée. */
+constexpr uint8_t FILE_N = 8;
+Tranche file[FILE_N];
+volatile uint8_t file_tete = 0;   /* écrit par l'IRQ    */
+volatile uint8_t file_queue = 0;  /* écrit par la boucle */
+volatile bool pipeline_on = PIPELINE_PAR_DEFAUT;
 Stats compteurs{};
 
 /* Cadence : moyennée depuis la remise à zéro. Une fenêtre d'une seconde ne
  * donne qu'un entier — 59 ou 60 — et ne permet pas de vérifier les 59,727
  * attendus. Sur 60 s, la résolution tombe à 0,017 img/s. */
 uint64_t t_depart = 0;
+
+void pousser(const uint8_t *d, uint16_t offset, uint16_t taille,
+             uint16_t fid, bool derniere) {
+    const uint8_t suivant = (uint8_t)((file_tete + 1) % FILE_N);
+    if (suivant == file_queue) {
+        compteurs.tranches_perdues++;
+        return;
+    }
+    file[file_tete] = Tranche{d, offset, taille, fid, derniere};
+    file_tete = suivant;
+}
 
 /* ──────────────────────────────────────────────────────────── armement DMA */
 
@@ -86,7 +106,15 @@ void sur_vsync() {
         pio->fdebug = 1u << (PIO_FDEBUG_RXSTALL_LSB + sm);
     }
 
-    /* 4. publier la trame qui vient de se terminer, et basculer */
+    /* 4. tranche finale — AVANT la bascule : elle pointe dans le tampon qui
+     *    vient d'être rempli, et porte le même frame_id que les précédentes. */
+    if (pipeline_on) {
+        const uint16_t off = (uint16_t)((TRANCHES_PAR_TRAME - 1) * OCTETS_TRANCHE);
+        pousser(trame[idx_capture] + off, off,
+                (uint16_t)(OCTETS_TRAME - off), id_trame, true);
+    }
+
+    /* 5. publier la trame qui vient de se terminer, et basculer */
     if (idx_pret >= 0)
         compteurs.perdues++;   /* la boucle n'a pas suivi : on écrase */
     idx_pret = (int8_t)idx_capture;
@@ -95,7 +123,7 @@ void sur_vsync() {
     id_trame = id_trame + 1;
     idx_capture ^= 1u;
 
-    /* 5. réarmer sur l'autre tampon et relancer */
+    /* 6. réarmer sur l'autre tampon et relancer */
     armer_dma(idx_capture);
     pio_sm_set_enabled(pio, sm, true);
 
@@ -108,6 +136,17 @@ void sur_vsync() {
 void sur_gpio(uint gpio, uint32_t evenements) {
     if (gpio == PIN_LIGNE && (evenements & GPIO_IRQ_EDGE_RISE)) {
         lignes = lignes + 1;
+        /* Une tranche est complète dès que ses 35 lignes sont capturées : on
+         * n'attend pas la fin de la trame pour l'émettre. Le découpage tombe
+         * sur une frontière de ligne, d'où ce test. */
+        if (pipeline_on && (lignes % LIGNES_PAR_TRANCHE) == 0) {
+            const uint32_t k = lignes / LIGNES_PAR_TRANCHE - 1;
+            if (k < TRANCHES_PAR_TRAME - 1) {
+                const uint16_t off = (uint16_t)(k * OCTETS_TRANCHE);
+                pousser(trame[idx_capture] + off, off, OCTETS_TRANCHE,
+                        id_trame, false);
+            }
+        }
         return;
     }
     if (gpio == PIN_VSYNC && (evenements & GPIO_IRQ_EDGE_RISE))
@@ -175,6 +214,22 @@ const uint8_t *trame_prete() {
     idx_pret = -1;
     return trame[idx];
 }
+
+bool tranche_prete(Tranche &out) {
+    if (file_queue == file_tete)
+        return false;
+    out = file[file_queue];
+    file_queue = (uint8_t)((file_queue + 1) % FILE_N);
+    return true;
+}
+
+void pipeline(bool actif) {
+    /* Vider la file : les tranches en attente appartiennent à l'ancien mode. */
+    file_queue = file_tete;
+    pipeline_on = actif;
+}
+
+bool pipeline_actif() { return pipeline_on; }
 
 uint16_t numero_trame() { return id_pret; }
 uint32_t horodatage_trame() { return t_vsync_rendu; }

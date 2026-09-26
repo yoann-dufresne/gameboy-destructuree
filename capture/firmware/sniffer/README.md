@@ -403,6 +403,45 @@ Le récepteur reprend **sans une seule erreur**. Côté sniffeur, l'émission n'
 jamais cessé : `echecs d'envoi` est resté à 35, car un envoi UDP vers un hôte
 qui n'écoute pas ne fait pas échouer `udp_sendto`.
 
+## Phase 4 D — l'émission pipelinée, 26/09/2026
+
+Une tranche part **dès que ses 35 lignes sont capturées**, au lieu d'attendre la
+fin de la trame. Le découpage de 1 400 octets tombe exactement sur 35 lignes de
+40, donc l'interruption de ligne sait quand une tranche est complète.
+
+> ⚠️ J'avais annoncé « c'est un `if` ». C'est faux : il faut émettre depuis le
+> tampon **en cours de remplissage**, donc une file de tranches alimentée par
+> les interruptions et drainée par la boucle principale. Les octets d'une
+> tranche ne sont plus touchés d'ici la fin de la trame, ce qui rend la chose
+> sûre — mais ce n'est pas un `if`.
+
+### Les deux modes, dos à dos sur la même console
+
+| | Simple | **Pipeliné** |
+|---|---|---|
+| Attente de fin de trame *(arithmétique)* | 8,97 ms | **1,96 ms** |
+| Émission sur le chemin critique | 1,89 ms *(5 paquets)* | **0,39 ms** *(le dernier)* |
+| Aller-retour, dernier paquet → accusé | 4,50 ms | **3,53 ms** |
+| Aller-retour, maximum | 84,79 ms | **46,52 ms** |
+| **Latence totale moyenne** | **~13,1 ms** | **~4,1 ms** |
+| Cadence | 59,725 img/s | 59,742 img/s |
+| Trames douteuses / perdues / tranches perdues | 0 / 0 / 0 | **0 / 0 / 0** |
+| Récepteur : incomplètes | 0 sur 2 688 | 1 sur 6 275 |
+
+**Facteur 3,2 sur la latence**, et l'image reste exacte — voir
+`../../docs/releves/phase4-pipeline.png`.
+
+> 🔑 **L'aller-retour s'améliore aussi, et je ne l'avais pas prévu** : 4,50 →
+> 3,53 ms de moyenne, 84,79 → 46,52 ms au maximum. Étaler les 5 paquets sur la
+> trame au lieu de les envoyer en rafale réduit la congestion instantanée, et le
+> WiFi encaisse mieux. Le gain ne vient donc pas seulement de l'attente
+> supprimée.
+
+Le mode est **commutable à chaud** par la commande `P`, ce qui a permis de
+mesurer les deux dans les mêmes conditions — même console, même image, même
+lien WiFi, à une minute d'intervalle. Une comparaison entre deux séances
+n'aurait rien valu : le 2,4 GHz varie au fil de la journée.
+
 ## Critère de sortie de la phase 2
 
 - [x] Le vidage ASCII montre un écran **reconnaissable**

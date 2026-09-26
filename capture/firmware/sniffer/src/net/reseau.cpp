@@ -127,20 +127,20 @@ void envoyer_trame(const uint8_t *trame, uint16_t frame_id) {
     e.frame_id = frame_id;
     e.format = PXL1_FMT_IDX2;
 
-    /* Horodater AVANT le premier paquet, et pas après le dernier : l'accusé
-     * peut revenir en 3 ms, donc avant qu'on ait fini de pousser les cinq.
-     * La mesure inclut alors le temps d'émission, ce qui est plus honnête —
-     * c'est bien le délai entre « on commence à envoyer cette trame » et
-     * « le récepteur l'a affichée ». */
-    t_emission_us[frame_id & 0xFF] = time_us_32();
-
     uint16_t offset = 0;
     while (offset < OCTETS_TRAME) {
         const uint16_t n = (OCTETS_TRAME - offset > PXL1_CHARGE_MAX)
                                ? PXL1_CHARGE_MAX
                                : (uint16_t)(OCTETS_TRAME - offset);
         e.offset = offset;
-        e.flags = (offset + n == OCTETS_TRAME) ? PXL1_FLAG_DERNIERE : 0;
+        const bool derniere = (offset + n == OCTETS_TRAME);
+        e.flags = derniere ? PXL1_FLAG_DERNIERE : 0;
+        /* Horodater juste avant le DERNIER paquet : c'est lui qui déclenche
+         * l'affichage et donc l'accusé. C'est aussi la seule référence
+         * comparable entre mode simple et mode pipeliné, où les quatre
+         * premières tranches partent étalées sur la trame. */
+        if (derniere)
+            t_emission_us[frame_id & 0xFF] = time_us_32();
         envoyer(&e, PXL1_ENTETE, trame + offset, n);
         offset = (uint16_t)(offset + n);
     }
@@ -289,6 +289,30 @@ bool init() {
     std::memset(t_emission_us, 0, sizeof(t_emission_us));
     associe = associer();
     return associe;
+}
+
+void emettre_tranche(const capture::Tranche &tr) {
+    if (!associe)
+        return;
+    pxl1_entete e{};
+    e.magic = PXL1_MAGIC;
+    e.type = PXL1_TYPE_FRAME;
+    e.node_id = PXL1_NODE_ID;
+    e.frame_id = tr.frame_id;
+    e.format = PXL1_FMT_IDX2;
+    e.offset = tr.offset;
+    e.flags = tr.derniere ? PXL1_FLAG_DERNIERE : 0;
+
+    const uint32_t t_debut = time_us_32();
+    if (tr.derniere)
+        t_emission_us[tr.frame_id & 0xFF] = t_debut;
+    envoyer(&e, PXL1_ENTETE, tr.donnees, tr.taille);
+    noter(compteurs.emission, (uint32_t)time_us_32() - t_debut);
+
+    if (tr.derniere) {
+        compteurs.trames++;
+        gpio_xor_mask(1u << PIN_MESURE_EMIS);
+    }
 }
 
 void emettre(const uint8_t *trame, uint16_t frame_id, uint32_t t_vsync_us) {

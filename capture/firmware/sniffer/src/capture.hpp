@@ -11,6 +11,16 @@
 
 namespace capture {
 
+/* Une tranche prête à partir, pointant dans le tampon EN COURS de remplissage.
+ * Ses octets ne seront plus touchés d'ici la fin de la trame. */
+struct Tranche {
+    const uint8_t *donnees;
+    uint16_t offset;      /* position dans la trame */
+    uint16_t taille;
+    uint16_t frame_id;
+    bool derniere;
+};
+
 struct Stats {
     uint32_t trames;          /* trames complètes capturées                  */
     uint32_t trames_douteuses;/* lignes != 144 sur la trame — intégrité      */
@@ -19,6 +29,7 @@ struct Stats {
                                * ≠ 0 ⇒ des fronts d'horloge pixel manquent   */
     uint32_t debordements;    /* RX FIFO du PIO saturé — ne devrait jamais   */
     uint32_t perdues;         /* trames prêtes jamais lues par la boucle     */
+    uint32_t tranches_perdues;/* file pleine : la boucle n'a pas suivi        */
 };
 
 /* Démarre PIO, DMA et les deux interruptions. Ne rend pas la main tant que
@@ -40,6 +51,16 @@ uint16_t numero_trame();
  * Sert à décomposer la latence : ce qui se passe ENTRE la fin de capture et le
  * départ des paquets appartient au Pico, pas au réseau. */
 uint32_t horodatage_trame();
+
+/* Rend la prochaine tranche à émettre, s'il y en a une. Alimentée par les
+ * interruptions de ligne et de trame ; drainée par la boucle principale. */
+bool tranche_prete(Tranche &out);
+
+/* Émission pipelinée : une tranche part dès que ses 35 lignes sont capturées,
+ * au lieu d'attendre la fin de la trame. Commutable à chaud pour pouvoir
+ * comparer les deux modes dans les mêmes conditions. */
+void pipeline(bool actif);
+bool pipeline_actif();
 
 const Stats &stats();
 

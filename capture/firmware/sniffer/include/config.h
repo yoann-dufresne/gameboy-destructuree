@@ -83,6 +83,25 @@
  * qui a coûté une journée au module écran. */
 #define CLK_SYS_KHZ   150000
 
+/* ─────────────────────────────────────────────────────── découpage en tranches
+ *
+ * Une tranche = un paquet UDP. 1400 octets sous la MTU, soit exactement
+ * 35 lignes de 40 octets — le découpage tombe donc sur une frontière de ligne,
+ * ce qui permet à l'interruption de ligne de savoir quand une tranche est
+ * complète. */
+#define OCTETS_TRANCHE      1400
+#define LIGNES_PAR_TRANCHE  (OCTETS_TRANCHE / OCTETS_LIGNE)    /* 35 */
+#define TRANCHES_PAR_TRAME  ((OCTETS_TRAME + OCTETS_TRANCHE - 1) / OCTETS_TRANCHE)
+
+/* Émission pipelinée par défaut : une tranche part dès que ses 35 lignes sont
+ * capturées, au lieu d'attendre la fin de la trame.
+ *
+ * 🔬 Mesuré le 26/09/2026, les deux modes dos à dos sur la même console :
+ * latence moyenne 13,1 ms → 4,1 ms, aller-retour 4,50 → 3,53 ms, et son
+ * maximum 84,79 → 46,52 ms. Zéro trame douteuse, zéro tranche perdue dans les
+ * deux cas. Commutable à chaud par la commande « P ». */
+#define PIPELINE_PAR_DEFAUT  1
+
 /* ────────────────────────────────────────────────────────────────── réseau
  *
  * Un émetteur, un récepteur. Le sniffeur ne sait rien de l'afficheur : il

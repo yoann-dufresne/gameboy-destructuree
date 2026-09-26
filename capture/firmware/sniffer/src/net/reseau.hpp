@@ -16,6 +16,8 @@
 
 #include <cstdint>
 
+#include "capture.hpp"
+
 namespace reseau {
 
 /* Une grandeur observée : min, vraie moyenne, max, sur un nombre
@@ -67,6 +69,10 @@ bool init();
  * aussi le vider sur la console. */
 void emettre(const uint8_t *trame, uint16_t frame_id,
              uint32_t t_vsync_us);
+
+/* Émet une tranche. En mode pipeliné, la boucle principale draine la file de
+ * `capture` et appelle ceci pour chacune. */
+void emettre_tranche(const capture::Tranche &tr);
 
 /* À appeler en boucle : envoie les commandes à leur cadence. Ne bloque pas. */
 void servir();
