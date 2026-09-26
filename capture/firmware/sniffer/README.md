@@ -1,4 +1,6 @@
-# Phase 2 — capture du bus LCD
+# Phase 2 — capture du bus LCD ✅
+
+*Terminée le 26/09/2026. Tous les critères de sortie sont atteints.*
 
 Firmware du module CAPTURE. Échantillonne le bus LCD de la Game Boy et
 reconstitue la trame 160×144 en 2 bits par pixel. **Pas de réseau** : cette
@@ -186,6 +188,33 @@ s'allumeront jamais exactement en même temps.
 > Chenipan sur la première trame et Pikachu après le cycle. Il fait défiler ses
 > sprites — ce n'est pas une trame figée en cache.
 
+## Endurance — 30 minutes, 26/09/2026
+
+Compteurs remis à zéro, relevé toutes les 5 secondes, journal complet conservé.
+
+```
+  cadence          59.727 img/s   (attendu 59,727)  sur 1812 s
+  trames           108233
+  lignes/trame        144
+  trames douteuses      0
+  mots restants         0
+  debordements FIFO     0
+  trames perdues        0
+```
+
+> 🔑 **363 relevés, et les quatre compteurs d'erreur n'ont jamais pris d'autre
+> valeur que 0.** Pas « terminé à zéro » : *jamais* rien d'autre, à aucun des
+> 363 instants observés. C'est l'intérêt d'avoir gardé le journal plutôt que le
+> seul total — « 3 erreurs » et « 3 erreurs d'un coup à la 22ᵉ minute » ne se
+> diagnostiquent pas pareil.
+
+| Grandeur | Valeur |
+|---|---|
+| Trames | **108 233** en 1812 s, croissance monotone |
+| Cadence finale | **59,727 img/s** — la valeur théorique à trois décimales |
+| Cadence, après convergence de la moyenne | min **59,725**, max **59,738**, amplitude **0,013** |
+| Image après 30 min | **correcte** — `phase2-apres-30min.png` |
+
 ## Critère de sortie de la phase 2
 
 - [x] Le vidage ASCII montre un écran **reconnaissable**
@@ -194,7 +223,7 @@ s'allumeront jamais exactement en même temps.
 - [x] **144 lignes/trame sur 10 000 trames** → **10 828**, `trames douteuses` = 0
 - [x] `mots restants` = 0 et `débordements` = 0 sur la même durée
 - [x] L'image reste correcte après un **cycle d'extinction** de la console
-- [ ] L'image reste correcte après **30 min** de capture continue
+- [x] L'image reste correcte après **30 min** de capture continue
 
 La table de diagnostic symptôme → cause est dans
 [`../../docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
