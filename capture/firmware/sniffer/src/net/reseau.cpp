@@ -22,6 +22,7 @@
 
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+#include "cyw43.h"
 #include "lwip/udp.h"
 #include "lwip/ip_addr.h"
 
@@ -36,7 +37,9 @@ namespace {
 udp_pcb *pcb = nullptr;
 ip_addr_t cible;
 bool associe = false;
+bool association_en_cours = false;
 char ip_texte[16] = "0.0.0.0";
+uint32_t t_surveillance_ms = 0;
 
 Stats compteurs{};
 
@@ -181,6 +184,61 @@ void envoyer_commandes() {
         compteurs.ctrl++;
 }
 
+void noter_ip() {
+    std::snprintf(ip_texte, sizeof(ip_texte), "%s",
+                  ip4addr_ntoa(netif_ip4_addr(netif_default)));
+}
+
+/* Surveille le lien et relance une association quand il tombe.
+ *
+ * ⚠️ Cette logique n'existait pas jusqu'au 26/09/2026 : si l'AP disparaissait,
+ * `udp_sendto` échouait indéfiniment et rien ne reprenait jamais. Dans une
+ * installation qui tourne des heures, ça arrive.
+ *
+ * L'association se fait en ASYNCHRONE : `cyw43_arch_wifi_connect_timeout_ms`
+ * bloque jusqu'à 30 s, et pendant ce temps la boucle principale ne consomme
+ * plus les trames — c'est exactement ce qui a fait perdre 641 trames au
+ * démarrage. La capture, elle, continue quoi qu'il arrive : PIO, DMA et
+ * interruptions ne dépendent pas de cette boucle. */
+void surveiller_lien() {
+    const uint32_t maintenant = to_ms_since_boot(get_absolute_time());
+    if (maintenant - t_surveillance_ms < 1000u)
+        return;
+    t_surveillance_ms = maintenant;
+
+    cyw43_arch_lwip_begin();
+    const int etat = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+    cyw43_arch_lwip_end();
+
+    if (etat == CYW43_LINK_UP) {
+        if (!associe) {
+            noter_ip();
+            associe = true;
+            association_en_cours = false;
+            compteurs.reconnexions++;
+            printf("\n  reseau RETABLI : %s\n", ip_texte);
+        }
+        return;
+    }
+
+    if (associe) {
+        associe = false;
+        compteurs.deconnexions++;
+        printf("\n  reseau PERDU (etat %d) — la capture continue,\n"
+               "  tentative de reassociation toutes les secondes\n", etat);
+    }
+
+    /* CYW43_LINK_JOIN / NOIP : une association est déjà en cours, on attend.
+     * Les états négatifs sont des échecs : on relance. */
+    if (etat == CYW43_LINK_JOIN || etat == CYW43_LINK_NOIP) {
+        association_en_cours = true;
+        return;
+    }
+    association_en_cours = false;
+    cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD,
+                                  CYW43_AUTH_WPA2_AES_PSK);
+}
+
 bool associer() {
     printf("  cyw43 : initialisation...\n");
     if (cyw43_arch_init_with_country(WIFI_PAYS)) {
@@ -199,8 +257,7 @@ bool associer() {
         printf("  association : ECHEC (SSID, mot de passe, ou hors de portee ?)\n");
         return false;
     }
-    std::snprintf(ip_texte, sizeof(ip_texte), "%s",
-                  ip4addr_ntoa(netif_ip4_addr(netif_default)));
+    noter_ip();
 
     if (!ip4addr_aton(PXL1_CIBLE_IP, &cible)) {
         printf("  PXL1_CIBLE_IP illisible : « %s »\n", PXL1_CIBLE_IP);
@@ -246,6 +303,7 @@ void emettre(const uint8_t *trame, uint16_t frame_id, uint32_t t_vsync_us) {
 }
 
 void servir() {
+    surveiller_lien();
     if (!associe)
         return;
 
@@ -258,6 +316,29 @@ void servir() {
 }
 
 bool pret() { return associe; }
+
+void rompre_pour_essai() {
+    printf("\n  rupture VOLONTAIRE de l'association (essai de reconnexion)\n");
+    cyw43_arch_lwip_begin();
+    cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+    cyw43_arch_lwip_end();
+}
+
+const char *etat_lien() {
+    cyw43_arch_lwip_begin();
+    const int e = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+    cyw43_arch_lwip_end();
+    switch (e) {
+    case CYW43_LINK_DOWN:    return "DOWN (hors ligne)";
+    case CYW43_LINK_JOIN:    return "JOIN (association en cours)";
+    case CYW43_LINK_NOIP:    return "NOIP (associe, sans adresse)";
+    case CYW43_LINK_UP:      return "UP (operationnel)";
+    case CYW43_LINK_FAIL:    return "FAIL (echec)";
+    case CYW43_LINK_NONET:   return "NONET (reseau introuvable)";
+    case CYW43_LINK_BADAUTH: return "BADAUTH (mot de passe ?)";
+    default:                 return "?";
+    }
+}
 const char *adresse_ip() { return ip_texte; }
 const Stats &stats() { return compteurs; }
 

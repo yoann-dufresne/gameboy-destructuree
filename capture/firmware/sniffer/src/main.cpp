@@ -137,8 +137,9 @@ void ligne_mesure(const char *nom, const reseau::Mesure &m) {
 void afficher_reseau() {
     const reseau::Stats &r = reseau::stats();
     if (!reseau::pret()) {
-        printf("\n  reseau           NON ASSOCIE — la capture continue,\n"
-               "                   les vidages par la console restent utilisables\n");
+        printf("\n  reseau           NON ASSOCIE (%s) — la capture continue,\n"
+               "                   les vidages par la console restent utilisables\n",
+               reseau::etat_lien());
         return;
     }
     printf("\n  reseau           %s  ->  %s:%d\n",
@@ -151,6 +152,10 @@ void afficher_reseau() {
            r.echecs ? "  <-- file lwIP pleine ?" : "");
     printf("  commandes        %6lu        (palette + geometrie)\n",
            (unsigned long)r.ctrl);
+    printf("  lien             %s\n", reseau::etat_lien());
+    if (r.deconnexions || r.reconnexions)
+        printf("  deconnexions     %6lu   reconnexions %lu\n",
+               (unsigned long)r.deconnexions, (unsigned long)r.reconnexions);
     printf("  accuses recus    %6lu        (%.0f %% des trames)\n",
            (unsigned long)r.accuses,
            r.trames ? 100.0 * r.accuses / r.trames : 0.0);
@@ -201,6 +206,7 @@ void aide() {
            "  r = remise a zero des compteurs\n"
            "  n = etat du reseau\n"
            "  l = histogramme de la latence\n"
+           "  d = rompre l'association (essai de reconnexion)\n"
            "  h = cette aide\n\n");
 }
 
@@ -275,6 +281,8 @@ int main() {
                 afficher_reseau();
             else if (c == 'l')
                 afficher_histogramme();
+            else if (c == 'd')
+                reseau::rompre_pour_essai();
             else if (c == 'g')
                 diagnostic_broches();
             else if (c == 'r') {

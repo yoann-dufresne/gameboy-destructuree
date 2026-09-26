@@ -27,6 +27,7 @@ COMMANDES = {
     "r": "remise a zero des compteurs",
     "n": "etat du reseau",
     "l": "histogramme de la latence",
+    "d": "rompre l'association (essai de reconnexion)",
     "h": "aide du firmware",
 }
 

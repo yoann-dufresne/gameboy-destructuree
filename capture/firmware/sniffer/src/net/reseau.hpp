@@ -36,6 +36,8 @@ struct Stats {
     uint32_t octets;      /* octets de charge utile émis                    */
     uint32_t echecs;      /* udp_sendto en échec — file lwIP pleine ?        */
     uint32_t ctrl;        /* paquets de commande émis                       */
+    uint32_t deconnexions;/* liens perdus constatés                         */
+    uint32_t reconnexions;/* associations réussies après une perte          */
     uint32_t accuses;     /* accusés reçus du récepteur                     */
     /* ── Décomposition de la latence, sur NOTRE horloge ────────────────
      * Aucune synchronisation supposée avec le récepteur. */
@@ -71,6 +73,14 @@ void servir();
 
 /* Associé au WiFi et prêt à émettre ? */
 bool pret();
+
+/* Rompt volontairement l'association. Sert à ÉPROUVER la reconnexion : une
+ * panne qu'on ne sait pas provoquer est une panne qu'on ne sait pas
+ * corriger. */
+void rompre_pour_essai();
+
+/* Libellé de l'état du lien, pour la console. */
+const char *etat_lien();
 
 /* Adresse IP obtenue, ou "0.0.0.0". */
 const char *adresse_ip();

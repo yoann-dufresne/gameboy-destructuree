@@ -354,6 +354,55 @@ côté Pico ne le corrigera.
 > variante 2) ramènerait ce poste de 8,97 à **1,9 ms**, soit un total moyen de
 > **~7,7 ms**. Le compteur de lignes sur `P2-ST` existe déjà : c'est un `if`.
 
+## Phase 4 C — robustesse, 26/09/2026
+
+### ⚠️ Le trou noir : il n'y avait aucune reconnexion
+
+Constat de **lecture de code**, pas d'essai : si l'AP disparaissait, `udp_sendto`
+échouait indéfiniment et rien ne reprenait jamais. Dans une installation qui
+tourne des heures, ça arrive.
+
+Ajouté : surveillance du lien toutes les secondes, et réassociation
+**asynchrone** — `cyw43_arch_wifi_connect_timeout_ms` bloque jusqu'à 30 s, et
+c'est exactement ce qui a fait perdre 641 trames au démarrage.
+
+Et surtout, **une commande `d` qui rompt volontairement l'association** : une
+panne qu'on ne sait pas provoquer est une panne qu'on ne sait pas corriger.
+
+### C1 · Coupure WiFi provoquée
+
+```
+  rupture VOLONTAIRE de l'association
+  reseau PERDU (etat 0) — la capture continue
+     cadence 59.754 img/s      <-- inchangée pendant toute la coupure
+  reseau RETABLI : 192.168.1.84
+  deconnexions 1   reconnexions 1
+```
+
+| | |
+|---|---|
+| Détection | **< 1 s** |
+| Rétablissement | **~5 s**, même adresse IP |
+| **Cadence de capture pendant la coupure** | **59,73 à 59,75 img/s — inchangée** |
+| Échecs d'envoi | 35, tous pendant la coupure, figés ensuite |
+
+> 🔑 **La capture n'a pas bronché.** PIO, DMA et interruptions ne dépendent pas
+> du réseau — c'était l'hypothèse de conception, elle est maintenant vérifiée au
+> lieu d'être supposée.
+
+### C2 · Le récepteur disparaît et revient
+
+Écran virtuel tué 8 secondes, puis relancé :
+
+| | Avant | Après |
+|---|---|---|
+| Cadence | 59,80 img/s | **59,82 img/s** |
+| Incomplètes, retards, resyncs, rejets | 0 | **0, 0, 0, 0** |
+
+Le récepteur reprend **sans une seule erreur**. Côté sniffeur, l'émission n'a
+jamais cessé : `echecs d'envoi` est resté à 35, car un envoi UDP vers un hôte
+qui n'écoute pas ne fait pas échouer `udp_sendto`.
+
 ## Critère de sortie de la phase 2
 
 - [x] Le vidage ASCII montre un écran **reconnaissable**
