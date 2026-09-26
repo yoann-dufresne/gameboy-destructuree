@@ -738,6 +738,37 @@ close que sur le matériel réel.
 
 **Durée : 1 à 2 jours. Cette phase touche les deux dépôts.**
 
+### E.0 Le récepteur de référence est un écran virtuel, pas la matrice
+
+**Décision du 26/09/2026.** La phase 3 ne touche plus `../ecran/`. Le récepteur est
+`tools/ecran_virtuel.py`, qui reçoit le flux `PXL1` et l'affiche sur le PC.
+
+| | |
+|---|---|
+| **Pourquoi** | tant qu'on met au point le sniffeur, on veut savoir si **le sniffeur** émet correctement. Avec la matrice dans la boucle, un symptôme a cinq suspects : le sniffeur, son WiFi, le réseau, le firmware de l'écran, la dalle |
+| **Ce que ça retire** | une dépendance inter-dépôts du chemin critique. Le compositeur côté écran reste à écrire, mais il ne bloque plus rien |
+| **Fidélité** | l'écran virtuel applique les **mêmes règles de réassemblage** que `../ecran/.../reseau.cpp` — fenêtre de resynchronisation de 8, tranches en retard écartées — et renvoie l'accusé `PXL1_TYPE_PING`. L'émetteur mesurera donc l'aller-retour sans modification, et le passage à la vraie matrice ne changera rien pour lui |
+
+**Éprouvé le 26/09/2026** contre `tools/pxl1_envoi.py`, un émetteur de test côté PC :
+
+| | Lien parfait | 3 % de perte injectée |
+|---|---|---|
+| Trames reçues | 59,39 img/s | 57,83 img/s |
+| Incomplètes | **0** | 48 sur 289 — dégradation progressive, aucun blocage |
+| Rejets, resyncs | 0, 0 | 0, 0 |
+| Aller-retour | 0,29 / **0,89** / 1,73 ms | 0,26 / **0,83** / 1,36 ms |
+
+> 🔑 **Deux défauts d'instrument corrigés au passage**, et tous deux auraient menti
+> en phase 4 :
+>
+> 1. l'écran virtuel démarrait sa fenêtre de mesure à sa **construction**, donc
+>    l'attente avant le premier paquet comptait comme du temps sans trames — 38 img/s
+>    affichés pour 59 réels. Même piège que la cadence moyennée sur une coupure ;
+> 2. l'émetteur relevait les accusés **une fois par trame, après l'envoi** : l'accusé
+>    arrivait pendant la sieste et n'était lu qu'à l'itération suivante. L'aller-retour
+>    ressortait à **17 ms sur boucle locale**, soit exactement une période de trame,
+>    là où le vrai est de 0,9 ms. Corrigé par un fil dédié qui horodate à l'arrivée.
+
 ### E.1 Pourquoi cet ordre, et pas l'inverse
 
 Deux choses sont neuves : un **format** que personne n'a jamais décodé, et un **émetteur**

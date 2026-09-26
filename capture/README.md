@@ -59,6 +59,9 @@ Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixe
 |---|---|
 | [`tools/analyse_sr.py`](tools/analyse_sr.py) | dépouille une capture PulseView `.sr` et propose l'attribution des 6 signaux, **avec ses preuves**. `--comparer blanc.sr noir.sr` pour le test blanc/noir |
 | [`tools/simuler_bus_gb.py`](tools/simuler_bus_gb.py) | capture `.sr` synthétique, pour éprouver le dépouilleur avant d'ouvrir la console. Ne valide rien du projet |
+| [`tools/ecran_virtuel.py`](tools/ecran_virtuel.py) | **écran virtuel** : reçoit un flux `PXL1` et l'affiche sur le PC. Le récepteur de référence du sous-projet |
+| [`tools/pxl1_envoi.py`](tools/pxl1_envoi.py) | émetteur `PXL1` de test côté PC, avec injection de perte — pour éprouver l'écran virtuel sans le Pico |
+| [`tools/sniffer.py`](tools/sniffer.py) | dialogue avec le firmware du sniffeur sur sa console USB |
 | [`tools/gbdump.py`](tools/gbdump.py) | récupère une trame du sniffer et en fait un PNG. L'instrument de la phase 2 |
 | [`tools/console.py`](tools/console.py) | console série du Pico (`cat /dev/ttyACM0` ne suffit pas : il faut asserter DTR) |
 | [`tools/flash.sh`](tools/flash.sh) | flashe un `.uf2`, bascule en BOOTSEL par la touche 1200 bauds |
@@ -82,6 +85,6 @@ la console, et aucune broche n'a été identifiée.
 | 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
 | 1 · Prise de signaux | ✅ 26/09/2026 — [`docs/recette-cablage.md`](docs/recette-cablage.md) |
 | 2 · Capture PIO + DMA | ✅ 26/09/2026 — 108 233 trames sans une erreur, 59,727 img/s : [`firmware/sniffer/`](firmware/sniffer/) |
-| 3 · `IDX2` de bout en bout | 🔨 suivante — commence par la **phase 3a**, côté `../ecran`, sans console ni matériel |
+| 3 · Émission réseau | 🔨 **écran virtuel fait et validé**. Reste la partie réseau du firmware |
 | 4 · Mesure de latence et robustesse | ⬜ |
 | 5 · Intégration | ⬜ |

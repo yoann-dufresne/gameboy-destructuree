@@ -19,6 +19,7 @@ Version 1 — 22/09/2026
 | **Format** | **`IDX2`**, le format natif de la Game Boy, déjà réservé dans le protocole | non |
 | **Mise à l'échelle** | **aucune** — la trame native sort telle quelle | non |
 | **Périmètre de l'émetteur** | **la trame Game Boy brute, rien d'autre** : 160×144 en `IDX2`. Aucune connaissance de l'afficheur | non |
+| **Récepteur de référence** | un **écran virtuel sur PC**. Le sous-projet se valide de bout en bout **sans la matrice LED** | — |
 | **Langage** | **C++20**, pico-sdk 2.x bare-metal, PIO + DMA, 2 cœurs | non |
 | **`clk_sys`** | **150 MHz**, la valeur par défaut — pas les 266 MHz du module écran | oui |
 | **Alimentation** | **séparée de la console**, masses communes | non |
@@ -417,7 +418,7 @@ bonne chose.
 > sont distincts : l'image est un bon instrument de diagnostic, contrairement au compteur de
 > trames du module écran, qui ne prouvait rien.
 
-### Phase 3 — `IDX2` de bout en bout · 1 à 2 jours · **touche aussi `../ecran/`**
+### Phase 3 — émission réseau · 1 à 2 jours · **autonome depuis le 26/09/2026**
 
 Deux moitiés, dans cet ordre :
 
@@ -584,4 +585,6 @@ capture/
 | 25/09/2026 | **Tampon 74LVC244A abandonné**, liaison directe + 100 Ω | Les trois arguments sont tombés à la vérification : niveaux identiques ; GPIO0–5 sont `Digital IO (FT)`, donc protégés même Pico hors tension ; tolérance 5 V inutile sans portage DMG. Reste la charge capacitive, et la phase 0 a mesuré le PPU insensible à 40–60 pF |
 | 25/09/2026 | **L'émetteur devient agnostique de l'afficheur** : il émet la trame GB native 160×144 en `IDX2`, et rien d'autre | Un émetteur, un récepteur. Recadrage, placement et répartition remontent au module ÉCRAN. Gain mesurable : 5 760 o au lieu de 9 216 (−37,5 %), 5 paquets au lieu de 9, 11,5 ko au lieu de 18,4 — et **la chaîne DMA passe de deux canaux avec table de 144 adresses à un seul canal**, les lignes étant contiguës |
 | 25/09/2026 | Sous-commande `PXL1_CTRL_GEOMETRIE` ajoutée au protocole | Le récepteur déduisait la taille d'une trame de sa propre géométrie. Avec un émetteur agnostique il doit apprendre celle de la source. Par `CTRL` et pas par l'en-tête : celui-ci est figé et déployé |
+| 26/09/2026 | **Un écran virtuel sur PC devient le récepteur de référence** | Sépare les problèmes : tant qu'on mettra au point le sniffeur, on veut savoir si **le sniffeur** émet correctement, sans que la matrice, son firmware et son WiFi s'ajoutent à la liste des suspects. Retire aussi une dépendance inter-dépôts du chemin critique |
+| 26/09/2026 | L'écran virtuel imite le récepteur réel, accusés compris | Mêmes règles de réassemblage, et il renvoie `PXL1_TYPE_PING` : l'émetteur mesure donc l'aller-retour sans modification, et le passage à la vraie matrice ne changera rien pour lui |
 | 25/09/2026 | **La longueur du câble devient un paramètre de conception** | Sans tampon, le câble pend directement sur le PPU. ≈ 1 pF/cm : rester **sous 20 cm** |
