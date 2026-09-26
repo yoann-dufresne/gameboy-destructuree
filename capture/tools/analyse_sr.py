@@ -194,10 +194,15 @@ def mesurer(cap, i):
     mediane_s = float(np.median(ecarts)) / cap.taux
     m.f_periodique = 1.0 / mediane_s if mediane_s > 0 else 0.0
 
-    # Structure en salves : un « trou » est un écart bien plus grand que la
-    # cadence habituelle. Sur l'horloge pixel, les trous sont les HBlank.
+    # Structure en salves : un « trou » sépare deux lignes. Le seuil ne peut
+    # PAS être un simple multiple de la cadence : le PPU se bloque en plein
+    # mode 3 pour charger un sprite, ce qui crée des trous de ~3,8 µs au
+    # milieu d'une ligne. Mesuré le 26/09/2026 : 16 lignes par trame coupées
+    # en 77 + 83 impulsions, alors que les vraies fins de ligne font ≥ 56,9 µs.
+    # On se cale donc sur la période LIGNE, pas sur la période pixel.
     mediane = float(np.median(ecarts))
-    trous = np.flatnonzero(ecarts > max(10.0 * mediane, 3.0))
+    seuil_ligne = T_LIGNE / 5.0 * cap.taux        # 21,7 µs
+    trous = np.flatnonzero(ecarts > max(10.0 * mediane, seuil_ligne, 3.0))
     if trous.size >= 3:
         # Les salves de bord sont tronquées par la fenêtre de capture : on ne
         # garde que celles qui sont entièrement dans la capture.
@@ -277,7 +282,7 @@ def classer(m, cap, cpg=None):
             a.append("période minimale très inférieure au cycle maître : "
                      "fronts comptés deux fois (rebond), ou le modèle §A.1 "
                      "est faux — À COMPRENDRE avant d'écrire du firmware")
-        return Verdict("CPG (horloge pixel)", conf, p, a)
+        return Verdict("HORLOGE PIXEL  [carte MGB : « CP »]", conf, p, a)
 
     # ── verrou de ligne / horloge de ligne. Les deux battent à la ligne
     #    (9 203 Hz) ; ce qui les sépare, c'est le silence de la VBlank.
@@ -294,7 +299,7 @@ def classer(m, cap, cpg=None):
             if m.silence_max >= 25 * T_LIGNE:
                 a.append(f"silence bien plus long que la VBlank attendue "
                          f"({T_VBLANK * 1e3:.2f} ms) : impulsions manquantes ?")
-            return Verdict("CPL (verrou de ligne, HSYNC)", conf, p, a)
+            return Verdict("VERROU DE LIGNE, 144/trame  [carte MGB : « P2-ST »]", conf, p, a)
         p.append(f"→ ne se tait jamais 5 lignes d'affilée : "
                  "il compte aussi la VBlank")
         conf = "faible" if peu else "haute"
@@ -302,7 +307,7 @@ def classer(m, cap, cpg=None):
             conf = "moyenne"
             a.append(f"un silence de {m.silence_max / T_LIGNE:.1f} lignes alors "
                      "qu'on en attend 1 : des impulsions manquent")
-        return Verdict("CP / CPV (horloge de ligne)", conf, p, a)
+        return Verdict("HORLOGE DE LIGNE, 154/trame  [carte MGB : « P2-CPL »]", conf, p, a)
 
     # ── échelle de la trame : ST (impulsion) ou FR (carré à moitié fréquence)
     if 45 < f < 75:
@@ -310,10 +315,10 @@ def classer(m, cap, cpg=None):
         p.append(f"rapport cyclique {m.rapport_cyclique * 100:.2f} %")
         if m.rapport_cyclique < 0.25:
             p.append("→ impulsion brève à la cadence trame")
-            return Verdict("ST / S (VSYNC)", "moyenne" if peu else "haute", p, a)
+            return Verdict("DÉPART DE TRAME / VSYNC  [carte MGB : « P2-S »]", "moyenne" if peu else "haute", p, a)
         a.append("cadence de trame mais rapport cyclique élevé : "
                  "ce n'est pas l'impulsion attendue, à regarder à l'œil")
-        return Verdict("ST / S (VSYNC) ?", "faible", p, a)
+        return Verdict("cadence trame, rapport cyclique inattendu ?", "faible", p, a)
 
     if 22 < f < 40:
         p.append(f"{f:.2f} Hz (moitié de la cadence trame, {F_TRAME / 2:.2f})")
@@ -322,7 +327,7 @@ def classer(m, cap, cpg=None):
             p.append("→ carré qui alterne à chaque trame")
             a.append("utilisable comme VSYNC de secours, mais il faut alors "
                      "déclencher sur LES DEUX fronts (§D.5)")
-            return Verdict("FR (inversion de polarité)",
+            return Verdict("INVERSION  [carte MGB : « P2-FR », par LIGNE]",
                            "moyenne" if peu else "haute", p, a)
         return Verdict("FR ?", "faible", p, a)
 
@@ -339,7 +344,7 @@ def classer(m, cap, cpg=None):
             if m.n_fronts <= 200:
                 a.append("peu de fronts : l'image capturée est trop uniforme. "
                          "Recapture sur une image contrastée (damier, texte)")
-            return Verdict("LD0 ou LD1 (données)", conf, p, a)
+            return Verdict("DONNÉES  [carte MGB : « P2-LD0 » ou « P2-LD1 »]", conf, p, a)
         a.append("les fronts débordent des salves de l'horloge pixel : "
                  "ce n'est probablement pas une ligne de données")
     else:
@@ -454,16 +459,18 @@ def _bilan(mesures, verdicts, cap):
     for m in mesures:
         v = verdicts[m.idx]
         cle = v.signal.split(" ")[0]
+        if cle == "HORLOGE":
+            cle = "HORLOGE" if "PIXEL" in v.signal else "LIGNE154"
         trouves.setdefault(cle, []).append(m.nom)
 
-    attendus = [("CPG", "horloge pixel"), ("CPL", "verrou de ligne"),
-                ("ST", "VSYNC"), ("LD0", "données")]
+    attendus = [("HORLOGE", "horloge pixel"), ("VERROU", "verrou de ligne 144/trame"),
+                ("DÉPART", "VSYNC"), ("DONNÉES", "lignes de données")]
     manquants = []
     for cle, role in attendus:
-        if cle == "LD0":
-            n = len(trouves.get("LD0", []))
+        if cle == "DONNÉES":
+            n = len(trouves.get("DONNÉES", []))
             if n < 2:
-                manquants.append(f"LD0/LD1 ({role}) : {n} voie(s) sur 2")
+                manquants.append(f"{role} : {n} voie(s) sur 2")
         elif cle not in trouves:
             manquants.append(f"{cle} ({role})")
 
@@ -480,8 +487,8 @@ def _bilan(mesures, verdicts, cap):
         print("     seule n'est pas une preuve :")
         print("         ./tools/analyse_sr.py --comparer blanc.sr noir.sr")
 
-    if "LD0" in trouves and len(trouves["LD0"]) == 2:
-        print(f"\n  ℹ️  {trouves['LD0'][0]} et {trouves['LD0'][1]} sont les deux "
+    if "DONNÉES" in trouves and len(trouves["DONNÉES"]) == 2:
+        print(f"\n  ℹ️  {trouves['DONNÉES'][0]} et {trouves['DONNÉES'][1]} sont les deux "
               "lignes de données, mais\n     l'outil ne sait pas laquelle est "
               "LD0 et laquelle est LD1. C'est sans\n     conséquence : l'ordre "
               "se corrige en permutant 4 entrées de palette.")

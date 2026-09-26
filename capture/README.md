@@ -44,6 +44,8 @@ Capture sur le cœur 0, pile réseau sur le cœur 1. Le CPU ne touche aucun pixe
   budget chiffré, nomenclature, journal des décisions.
 - [`docs/signaux-mgb.md`](docs/signaux-mgb.md) — **les relevés de la phase 0** : la table
   corrigée des signaux LCD, le brochage qui fait foi, les mesures et leur verdict.
+- [`docs/recette-cablage.md`](docs/recette-cablage.md) — **la recette de la phase 1** :
+  les 6 signaux relevés après soudure, comparés à la référence de la phase 0.
 - [`docs/liste-achats.md`](docs/liste-achats.md) — **la liste d'achats de la phase 1**, avec
   la justification de chaque pièce par une mesure et les datasheets vérifiées.
 - [`docs/etapes-detaillees.md`](docs/etapes-detaillees.md) — **la marche à suivre** : le même
@@ -77,7 +79,7 @@ la console, et aucune broche n'a été identifiée.
 | Plan de réalisation | ✅ 22/09/2026 |
 | Outillage de la phase 0 | ✅ 22/09/2026 |
 | 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
-| 1 · Prise de signaux et interface électrique | 🔨 suivante — tampon 74LVC244A **obligatoire** |
+| 1 · Prise de signaux | 🔨 26/09/2026 — soudure faite, signatures conformes : [`docs/recette-cablage.md`](docs/recette-cablage.md). Reste les contrôles visuels |
 | 2 · Capture PIO + DMA | ⬜ |
 | 3 · `IDX2` de bout en bout | ⬜ |
 | 4 · Mesure de latence et robustesse | ⬜ |
