@@ -1,4 +1,4 @@
-# Phase 2 — capture du bus LCD ✅
+# Phases 2 et 3 — capture et émission ✅
 
 *Terminée le 26/09/2026. Tous les critères de sortie sont atteints.*
 
@@ -214,6 +214,78 @@ Compteurs remis à zéro, relevé toutes les 5 secondes, journal complet conserv
 | Cadence finale | **59,727 img/s** — la valeur théorique à trois décimales |
 | Cadence, après convergence de la moyenne | min **59,725**, max **59,738**, amplitude **0,013** |
 | Image après 30 min | **correcte** — `phase2-apres-30min.png` |
+
+## Émission réseau — phase 3, 26/09/2026
+
+Le sniffeur émet la trame native en `PXL1`/`IDX2` vers **un** récepteur. Le
+récepteur de référence est `tools/ecran_virtuel.py` sur le PC.
+
+```
+  reseau           192.168.1.84  ->  192.168.1.73:4242
+  trames emises      2218
+  paquets           11128        (5 par trame)
+  echecs d'envoi        0
+  commandes            38        (palette + geometrie)
+  accuses recus      2000        (90 % des trames)
+  aller-retour     min 4.56   moy 6.23   max 54.26 ms   sur 1991 mesures
+```
+
+Côté écran virtuel, sur la même fenêtre : **59,71 img/s, 0 incomplète, 0 rejet,
+0 resync, 2,79 Mbit/s**. Et côté capture : **2 218 capturées = 2 218 émises =
+0 perdue.**
+
+Preuve de bout en bout : `../../docs/releves/phase3-bout-en-bout.png` — l'image
+est en vert DMG, teintes transmises par `PXL1_CTRL_PALETTE`, donc le chemin des
+commandes fonctionne aussi.
+
+### ⚠️ Tout tourne sur le cœur 0 — le plan avait tort
+
+Le plan §5.1 prévoyait « capture sur le cœur 0, réseau sur le cœur 1 ». C'est
+inutile : **la capture n'a pas besoin d'un cœur.** PIO et DMA travaillent seuls,
+et les deux interruptions s'exécutent de toute façon sur le cœur qui les a
+armées.
+
+Pire, c'était nuisible : `cyw43_arch_init` appelé depuis le cœur 1 n'a pas
+démarré, et `multicore_launch_core1` ne rend la main que si le cœur 1 signale
+son départ. Résultat : cœur 0 bloqué, **console morte, bascule 1200 bauds
+impossible**, et un BOOTSEL physique pour reprendre la main.
+
+Le module écran sert lwIP sur le cœur 0 depuis le début. Il aurait fallu
+reprendre ce qui était validé plutôt que suivre une ligne du plan écrite avant
+qu'on sache tout ça.
+
+### 🔑 La porte de sortie au démarrage
+
+```
+[ une touche dans les 3 s = demarrer SANS reseau ]
+```
+
+Écrite juste après s'être fait avoir. Une touche pendant ces trois secondes
+démarre sans réseau : la capture continue, la console reste vivante, et on garde
+de quoi reflasher. **Un blocage réseau ne peut plus rendre le Pico
+inaccessible.**
+
+### Deux corrections d'instrument, du même genre que les précédentes
+
+**La latence était mesurée par un filtre IIR** (`moy = (moy×7 + dt)/8`), et
+`reinitialiser()` le préservait d'un régime à l'autre. Ça a donné « instantané
+3,11 ms, moyenne 29,49 ms » — deux chiffres qui ne peuvent pas être vrais
+ensemble. Remplacé par min / vraie moyenne / max sur un nombre d'échantillons
+affiché, plus un compteur de mesures écartées : **un instrument qui jette des
+mesures en silence n'est pas un instrument.**
+
+**L'horodatage se fait maintenant AVANT le premier paquet**, pas après le
+dernier : l'accusé peut revenir en 4,5 ms, donc avant qu'on ait fini de pousser
+les cinq. La mesure inclut le temps d'émission, ce qui est le délai qu'on veut
+réellement connaître.
+
+### Le seul transitoire restant
+
+À la première mesure, 641 trames perdues sur 941. Elles datent toutes de
+l'**association WiFi** : la boucle principale est bloquée dans
+`cyw43_arch_wifi_connect_timeout_ms` pendant ~11 s, alors que la capture, elle,
+tourne (PIO, DMA, interruptions). 11 s × 59,7 = 657, ce qui colle. Après remise
+à zéro : **0 perdue**.
 
 ## Critère de sortie de la phase 2
 

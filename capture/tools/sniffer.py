@@ -25,6 +25,7 @@ COMMANDES = {
     "a": "vidage ASCII",
     "p": "vidage hexadecimal (prefere gbdump.py)",
     "r": "remise a zero des compteurs",
+    "n": "etat du reseau",
     "h": "aide du firmware",
 }
 

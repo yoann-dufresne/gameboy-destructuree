@@ -317,6 +317,9 @@ def main():
                     help="plafond d'affichage ; n'affecte PAS la réception")
     ap.add_argument("--sans-affichage", action="store_true",
                     help="mesure seule, sans fenêtre")
+    ap.add_argument("--enregistrer", metavar="FICHIER.png",
+                    help="en mode sans-affichage : enregistre une trame reçue "
+                         "puis continue. Preuve visuelle de la chaîne complète")
     args = ap.parse_args()
 
     rec = Recepteur(args.port, args.noeud, args.largeur, args.hauteur,
@@ -331,9 +334,21 @@ def main():
 
     try:
         if args.sans_affichage:
+            enregistre = args.enregistrer is None
             while True:
                 time.sleep(1.0)
                 print("  " + rec.resume(), file=sys.stderr)
+                if not enregistre:
+                    with rec.verrou:
+                        img, fid = rec.trame_prete, rec.id_prete
+                    if img is not None:
+                        from PIL import Image
+                        Image.fromarray(img).resize(
+                            (img.shape[1] * 4, img.shape[0] * 4),
+                            Image.NEAREST).save(args.enregistrer)
+                        print(f"  écrit : {args.enregistrer} (trame {fid})",
+                              file=sys.stderr)
+                        enregistre = True
         else:
             affichage(rec, args.echelle, args.fps_affichage)
     except KeyboardInterrupt:

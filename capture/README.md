@@ -85,6 +85,6 @@ la console, et aucune broche n'a été identifiée.
 | 0 · Identification des signaux à l'analyseur | ✅ 25/09/2026 — [`docs/signaux-mgb.md`](docs/signaux-mgb.md) |
 | 1 · Prise de signaux | ✅ 26/09/2026 — [`docs/recette-cablage.md`](docs/recette-cablage.md) |
 | 2 · Capture PIO + DMA | ✅ 26/09/2026 — 108 233 trames sans une erreur, 59,727 img/s : [`firmware/sniffer/`](firmware/sniffer/) |
-| 3 · Émission réseau | 🔨 **écran virtuel fait et validé**. Reste la partie réseau du firmware |
-| 4 · Mesure de latence et robustesse | ⬜ |
+| 3 · Émission réseau | ✅ 26/09/2026 — le jeu s'affiche sur le PC à 59,71 img/s, aller-retour 6,23 ms |
+| 4 · Mesure de latence et robustesse | 🔨 suivante |
 | 5 · Intégration | ⬜ |

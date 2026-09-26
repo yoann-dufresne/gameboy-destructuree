@@ -83,6 +83,28 @@
  * qui a coûté une journée au module écran. */
 #define CLK_SYS_KHZ   150000
 
+/* ────────────────────────────────────────────────────────────────── réseau
+ *
+ * Un émetteur, un récepteur. Le sniffeur ne sait rien de l'afficheur : il
+ * émet la trame native vers une adresse, point.
+ *
+ * Le récepteur de référence est `tools/ecran_virtuel.py` sur le PC. Le jour
+ * où la matrice LED prend le relais, seule cette adresse change. */
+#define PXL1_CIBLE_IP    "192.168.1.73"   /* ← l'IP du PC qui fait tourner
+                                           *   ecran_virtuel.py */
+#define PXL1_NODE_ID     0                /* un seul récepteur */
+
+/* Palette envoyée en CTRL, en B,G,R — les 4 teintes de la Game Boy.
+ * 🔬 Polarité mesurée en phase 0 : l'indice 0 est le plus CLAIR.
+ * Teintes DMG d'origine. */
+#define PALETTE_BGR { {0x0F,0xBC,0x9B}, {0x0F,0xAC,0x8B}, \
+                      {0x30,0x62,0x30}, {0x0F,0x38,0x0F} }
+
+/* Palette et géométrie sont renvoyées à cette cadence, pour qu'un récepteur
+ * redémarré retrouve seul de quoi interpréter le flux. Comportement déjà en
+ * place sur le module écran. */
+#define PERIODE_CTRL_MS  2000
+
 /* ────────────────────────────────────────────────────────────── diagnostic */
 /* Vidage ASCII : un pixel sur DECIMATION dans chaque direction.
  * 160/2 = 80 colonnes, ce qui entre dans un terminal. */

@@ -16,6 +16,8 @@
 
 #include "capture.hpp"
 #include "config.h"
+#include "net/reseau.hpp"
+#include "pxl1.h"
 
 namespace {
 
@@ -120,10 +122,43 @@ void diagnostic_broches() {
            "   on cherche « ca bouge », pas un comptage exact)\n");
 }
 
+void afficher_reseau() {
+    const reseau::Stats &r = reseau::stats();
+    if (!reseau::pret()) {
+        printf("\n  reseau           NON ASSOCIE — la capture continue,\n"
+               "                   les vidages par la console restent utilisables\n");
+        return;
+    }
+    printf("\n  reseau           %s  ->  %s:%d\n",
+           reseau::adresse_ip(), PXL1_CIBLE_IP, PXL1_PORT);
+    printf("  trames emises    %6lu\n", (unsigned long)r.trames);
+    printf("  paquets          %6lu        (%d par trame)\n",
+           (unsigned long)r.paquets,
+           (OCTETS_TRAME + PXL1_CHARGE_MAX - 1) / PXL1_CHARGE_MAX);
+    printf("  echecs d'envoi   %6lu %s\n", (unsigned long)r.echecs,
+           r.echecs ? "  <-- file lwIP pleine ?" : "");
+    printf("  commandes        %6lu        (palette + geometrie)\n",
+           (unsigned long)r.ctrl);
+    printf("  accuses recus    %6lu        (%.0f %% des trames)\n",
+           (unsigned long)r.accuses,
+           r.trames ? 100.0 * r.accuses / r.trames : 0.0);
+    if (r.aller_retour_n)
+        printf("  aller-retour     min %.2f   moy %.2f   max %.2f ms"
+               "   sur %lu mesures\n",
+               r.aller_retour_min_us / 1000.0,
+               (double)r.aller_retour_somme_us / r.aller_retour_n / 1000.0,
+               r.aller_retour_max_us / 1000.0,
+               (unsigned long)r.aller_retour_n);
+    if (r.aller_retour_ecartes)
+        printf("  mesures ecartees %6lu        (horodatage recycle)\n",
+               (unsigned long)r.aller_retour_ecartes);
+}
+
 void aide() {
     printf("\n  a = vidage ASCII    p = vidage PNG (hex)    s = compteurs\n"
            "  g = etat brut des 6 entrees (le fil est-il branche ?)\n"
            "  r = remise a zero des compteurs\n"
+           "  n = etat du reseau\n"
            "  h = cette aide\n\n");
 }
 
@@ -146,15 +181,42 @@ int main() {
            DELAI_ECHANTILLON);
 
     capture::init();
+
+    /* ⚠️ Porte de sortie. Le 26/09/2026, une initialisation réseau bloquante a
+     * emporté l'USB CDC avec elle : plus de console, plus de bascule 1200
+     * bauds, et il a fallu un BOOTSEL physique pour reprendre la main.
+     *
+     * Une touche pendant ces 3 secondes démarre SANS réseau. La capture, elle,
+     * fonctionne toujours — donc on garde les vidages et les compteurs, et on
+     * garde surtout de quoi reflasher. */
+    printf("\n  [ une touche dans les 3 s = demarrer SANS reseau ]\n");
+    bool sans_reseau = false;
+    for (int i = 0; i < 30 && !sans_reseau; ++i) {
+        if (getchar_timeout_us(0) != PICO_ERROR_TIMEOUT)
+            sans_reseau = true;
+        else
+            sleep_ms(100);
+    }
+
+    if (sans_reseau)
+        printf("  reseau VOLONTAIREMENT desactive — capture seule\n");
+    else
+        reseau::init();
+
     aide();
 
     const uint8_t *derniere = nullptr;
     uint64_t t_stats = time_us_64();
 
     while (true) {
+        /* L'émission consomme la trame prête ; on garde une copie du
+         * pointeur pour les vidages de la console. */
         const uint8_t *t = capture::trame_prete();
-        if (t != nullptr)
+        if (t != nullptr) {
             derniere = t;
+            reseau::emettre(t, capture::numero_trame());
+        }
+        reseau::servir();
 
         const int c = getchar_timeout_us(0);
         if (c != PICO_ERROR_TIMEOUT) {
@@ -166,10 +228,13 @@ int main() {
                 vidage_hex(derniere);
             else if (c == 's')
                 afficher_stats();
+            else if (c == 'n')
+                afficher_reseau();
             else if (c == 'g')
                 diagnostic_broches();
             else if (c == 'r') {
                 capture::reinitialiser();
+                reseau::reinitialiser();
                 printf("\n  compteurs remis a zero — si une erreur reapparait\n"
                        "  maintenant, ce n'est PAS un transitoire de demarrage\n");
             }
@@ -181,6 +246,7 @@ int main() {
         if (time_us_64() - t_stats >= 5000000ull) {
             t_stats = time_us_64();
             afficher_stats();
+            afficher_reseau();
         }
     }
 }
