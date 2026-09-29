@@ -76,6 +76,9 @@ void rapport(const reseau::Stats &st, const reseau::Stats &avant, uint32_t duree
            (unsigned long)(st.retardataires - avant.retardataires),
            (unsigned long)(st.resynchros - avant.resynchros),
            (unsigned long)(st.ctrl - avant.ctrl), (unsigned long)(st.pings - avant.pings));
+    if (st.envois_echoues != avant.envois_echoues)
+        printf("    ⚠ %lu accuses non emis par la tete\n",
+               (unsigned long)(st.envois_echoues - avant.envois_echoues));
     if (st.non_suivies != avant.non_suivies)
         printf("    ⚠ %lu tranches hors du suivi des doublons : tranches trop petites\n",
                (unsigned long)(st.non_suivies - avant.non_suivies));

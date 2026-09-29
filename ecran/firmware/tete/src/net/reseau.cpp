@@ -119,12 +119,18 @@ void palette_par_defaut() {
     }
 }
 
+/* Un échec est compté : un accusé qui manque à l'émetteur peut venir d'ici
+ * (mémoire lwIP, puce WiFi occupée) ou de la radio, et seul ce compteur
+ * permet de trancher. */
 void envoyer(const void *donnees, uint16_t n, const ip_addr_t *ip, u16_t port) {
     pbuf *p = pbuf_alloc(PBUF_TRANSPORT, n, PBUF_RAM);
-    if (p == nullptr)
+    if (p == nullptr) {
+        compteurs.envois_echoues++;
         return;
+    }
     std::memcpy(p->payload, donnees, n);
-    udp_sendto(pcb, p, ip, port);
+    if (udp_sendto(pcb, p, ip, port) != ERR_OK)
+        compteurs.envois_echoues++;
     pbuf_free(p);
 }
 

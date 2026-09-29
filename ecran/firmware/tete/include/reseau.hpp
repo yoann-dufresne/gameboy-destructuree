@@ -31,6 +31,7 @@ struct Stats {
     uint32_t geometries;       /* changements de géométrie de la source */
     uint32_t ctrl;             /* palette, luminosité, géométrie */
     uint32_t pings;
+    uint32_t envois_echoues;   /* accusés et PONG que la tête n'a pas pu émettre */
     uint64_t octets;           /* charge utile des tranches acceptées */
     uint32_t segments;         /* messages vers les nœuds, images complètes seules */
     uint64_t pixels_rangee[NB_RANGEES]; /* pixels par rangée, images complètes seules */
