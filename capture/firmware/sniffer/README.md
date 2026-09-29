@@ -14,8 +14,12 @@ Mesures, recettes et incidents : [JOURNAL.md](JOURNAL.md).
 | `include/secrets.h` | nom et mot de passe du réseau WiFi, code pays. À créer depuis `secrets.h.example` ; ignoré par git |
 | `include/config.h` | **`PXL1_CIBLE_IP`**, l'adresse du récepteur. Aussi : brochage, palette, mode d'émission par défaut. Chaque valeur mesurée y est justifiée par sa mesure |
 
-Le récepteur écoute sur le port UDP 4242. Ce peut être un PC qui fait tourner
-[`tools/ecran_virtuel.py`](../../tools/ecran_virtuel.py), ou tout afficheur qui parle `PXL1`.
+Le récepteur écoute sur le port UDP 4242. Par défaut, c'est le
+[module écran](../../../ecran/README.md) : il émet son propre réseau WiFi, que le sniffer
+rejoint en direct, sans box — `secrets.h` reprend son nom et son mot de passe, et la cible
+est sa tête, en 192.168.4.1. Pour travailler sans l'écran, le récepteur peut être un PC qui
+fait tourner [`tools/ecran_virtuel.py`](../../tools/ecran_virtuel.py) : `secrets.h` vise
+alors le réseau du PC, et `PXL1_CIBLE_IP` son adresse.
 
 ## Brochage
 

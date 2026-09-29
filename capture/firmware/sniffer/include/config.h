@@ -107,10 +107,14 @@
  * Un émetteur, un récepteur. Le sniffeur ne sait rien de l'afficheur : il
  * émet la trame native vers une adresse, point.
  *
- * Le récepteur de référence est `tools/ecran_virtuel.py` sur le PC. Le jour
- * où la matrice LED prend le relais, seule cette adresse change. */
-#define PXL1_CIBLE_IP    "192.168.1.73"   /* ← l'IP du PC qui fait tourner
-                                           *   ecran_virtuel.py */
+ * Depuis le 29/09/2026, le module écran émet son propre réseau WiFi, et le
+ * sniffeur s'y connecte en direct, sans box entre eux : la box faisait geler
+ * l'image jusqu'à 120 ms. Son nom et son mot de passe vont dans secrets.h ;
+ * la tête de l'écran est toujours en 192.168.4.1.
+ *
+ * Pour travailler avec l'écran virtuel (`tools/ecran_virtuel.py`) : secrets.h
+ * vers le réseau du PC, et ici l'adresse du PC. */
+#define PXL1_CIBLE_IP    "192.168.4.1"    /* ← la tête du module écran */
 #define PXL1_NODE_ID     0                /* un seul récepteur */
 
 /* Palette envoyée en CTRL, en B,G,R — les 4 teintes de la Game Boy.
