@@ -1,0 +1,8 @@
+# Verrous LibreOffice (tableur ouvert)
+.~lock.*#
+
+# Éditeurs / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
