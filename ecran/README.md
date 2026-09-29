@@ -10,23 +10,25 @@ par le module [capture](../capture/README.md).
 ## Ce qu'il fait
 
 L'écran final assemble **3 × 3 dalles de 64 × 64 pixels, soit 192 × 192 pixels**. Vu de
-l'extérieur, il se résume à une adresse IP et à un canevas : la source envoie son image
-entière, à sa taille native, et l'écran la place (centrée si elle est plus petite) puis la
-répartit sur les dalles. L'image 160 × 144 de la Game Boy s'y affiche à l'échelle 1:1, avec
+l'extérieur, il se résume à **un réseau WiFi qu'il émet lui-même, une adresse
+(192.168.4.1) et un canevas** : la source rejoint ce réseau, envoie son image entière, à sa
+taille native, et l'écran la place (centrée si elle est plus petite) puis la répartit sur les
+dalles. Aucune box entre la source et l'écran. L'image 160 × 144 de la Game Boy s'y affiche à l'échelle 1:1, avec
 une marge libre de 16 pixels sur les côtés et de 24 en haut et en bas.
 
 ## Architecture
 
 ```
-                 WiFi (1 IP)          nappes 10 pts                  HUB75
+            WiFi émis par l'écran     nappes 10 pts                  HUB75
                                 ┌── L0 ──► [Pico 2 · nœud 0] ──► ▣▣▣  rangée 0
  Source ──PXL2──► [Pico 2 W] ───┼── L1 ──► [Pico 2 · nœud 1] ──► ▣▣▣  rangée 1
-                   « tête »     └── L2 ──► [Pico 2 · nœud 2] ──► ▣▣▣  rangée 2
-                                   données + VSYNC ►  ◄ RDY, sur chaque nappe
+   en direct,      « tête »     └── L2 ──► [Pico 2 · nœud 2] ──► ▣▣▣  rangée 2
+   sans box      192.168.4.1       données + VSYNC ►  ◄ RDY, sur chaque nappe
 ```
 
-- La **tête**, un Pico 2 W sans dalle, reçoit les images par WiFi, les place dans le canevas
-  et envoie à chaque nœud la rangée qui lui revient, par une liaison filaire.
+- La **tête**, un Pico 2 W sans dalle, émet le réseau WiFi de l'écran et reçoit les images
+  des sources qui s'y connectent. Elle les place dans le canevas et envoie à chaque nœud la
+  rangée qui lui revient, par une liaison filaire.
 - Chaque **nœud**, un Pico 2, pilote une chaîne de trois dalles. Il signale par `RDY` qu'il
   est prêt, et les trois nœuds basculent ensemble sur le signal `VSYNC` de la tête : les
   rangées changent d'image au même instant, sans déchirure.
@@ -125,5 +127,6 @@ cmake --build build
 | 4 · Mesure | ✅ 18/09/2026 — latence d'environ 8 ms, 24,6 Mbit/s reçus par un Pico |
 | Révision v2 : une tête et trois nœuds | ✅ 29/09/2026 — [§2.2 bis du plan](docs/plan-firmware.md) |
 | 5a · La tête seule | ✅ 29/09/2026 — IDX8 192 × 192 à 60 images/s sur une antenne, 0,003 % de perte |
-| 5b · Une liaison, un nœud | 🔨 firmware écrit le 29/09/2026 ; tête éprouvée seule, nœud à éprouver sur la dalle |
+| 5b · Une liaison, un nœud | ✅ banc le 29/09/2026 — 0 erreur de CRC en 10 minutes, animation fluide ; latence à l'analyseur à relever |
+| Réseau émis par l'écran | 🔨 29/09/2026 — la box faisait geler l'image ; débit à remesurer dans ce mode |
 | 5c · Passage à 3 × 3 | à venir |

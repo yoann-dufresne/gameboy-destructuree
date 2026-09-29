@@ -1,27 +1,37 @@
 # Tête (v2) — réception, découpe, relais, synchronisation
 
-Firmware de la **tête** du module écran : un Pico 2 W sans dalle, qui reçoit les images par
-WiFi, les place dans le canevas de 192 × 192 pixels, les découpe par rangée et relaie chaque
-morceau à son [nœud d'affichage](../noeud/README.md) par une liaison filaire. Elle tient la
+Firmware de la **tête** du module écran : un Pico 2 W sans dalle, qui **émet son propre
+réseau WiFi**, reçoit les images des sources qui s'y connectent, les place dans le canevas de
+192 × 192 pixels, les découpe par rangée et relaie chaque morceau à son
+[nœud d'affichage](../noeud/README.md) par une liaison filaire. Elle tient la
 synchronisation : les nœuds publient ensemble, sur son signal VSYNC. Son rôle dans
 l'architecture est décrit dans le [README du module](../../README.md#architecture).
 
 **État :**
 - **phase 5a atteinte le 29/09/2026** : une seule antenne reçoit une image 192 × 192 en IDX8 à
   60 images/s, 0,003 % de perte sur 10 minutes ([§4.4 du plan](../../docs/plan-firmware.md)) ;
-- **phase 5b en cours** : liaisons et synchronisation écrites, éprouvées sans nœud (60 images
-  reçues, 60 publiées par seconde) ; reste l'essai avec un nœud et sa dalle.
+- **phase 5b éprouvée au banc le 29/09/2026** : une liaison, un nœud, une dalle ; 60 images
+  publiées par seconde, 0 erreur de CRC en 10 minutes. Reste la latence à l'analyseur ;
+- **réseau émis par l'écran depuis le 29/09/2026** : débit de la phase 5a à remesurer dans ce
+  mode.
 
 ## Construire et utiliser
 
-Procédure générique : [README du module](../../README.md#construire-flasher-observer). Ici,
-`secrets.h` est nécessaire et la cible produit `build/tete.uf2`. Au démarrage, la tête
-annonce son adresse sur la console, et au serveur DHCP sous le nom **`ecran`**.
+Procédure générique : [README du module](../../README.md#construire-flasher-observer). La
+cible produit `build/tete.uf2`, et `secrets.h` est nécessaire : il donne le nom et le mot de
+passe du réseau que l'écran émet (`ECRAN_SSID`, `ECRAN_MOT_DE_PASSE`, WPA2).
 
-Deux options CMake, pour le banc :
+**Le réseau de l'écran.** La tête est un point d'accès sur le canal 11 (`ECRAN_CANAL_WIFI`
+dans `config.h`), en **192.168.4.1** ; les sources qui le rejoignent reçoivent une adresse de
+192.168.4.16 à .23 par le [serveur DHCP](../vendor/dhcpserver/PROVENANCE.txt) intégré. Pas de
+box entre les sources et l'écran : elle faisait geler l'image, voir [`JOURNAL.md`](JOURNAL.md).
+La console signale l'arrivée et le départ de chaque source.
+
+Trois options CMake :
 
 | Option | Effet |
 |---|---|
+| `-DWIFI_STATION=ON` | l'ancien mode : la tête rejoint la box (`WIFI_SSID`, `WIFI_PASSWORD`) au lieu d'émettre son réseau. Gardé pour comparer |
 | `-DBANC_UNE_DALLE=ON` | canevas réduit à une dalle (64 × 64) et une seule liaison : l'image entière est visible sur le banc de la phase 5b |
 | `-DLIEN_HORLOGE_KHZ=1000` | horloge de la liaison, 16 000 kHz par défaut. La baisser pour une première mise en route. Une liaison transporte 2 bits par coup d'horloge et doit suivre le débit de sa rangée : 6 Mbit/s en IDX8 192 × 192 à 60 images/s, 2 Mbit/s pour une image 64 × 64 en IDX8 au banc |
 
@@ -101,18 +111,19 @@ des quatre erreurs introduites volontairement dans `decoupe.hpp` pour l'éprouve
 
 ## Recettes
 
-Les images viennent de [`pixelpush`](../../tools/pixelpush/README.md), avec `--cible` :
+Les images viennent de [`pixelpush`](../../tools/pixelpush/README.md), depuis un PC connecté
+au réseau de l'écran :
 
 ```bash
 cd ../../tools/pixelpush
-./pixelpush.py --cible <ip> --sonder                          # l'écran se décrit
-./pixelpush.py --cible <ip> --format idx8 --duree 600         # le critère principal
-./pixelpush.py --cible <ip> --taille 160x144 --format idx2    # la Game Boy, simulée
-./pixelpush.py --cible <ip> --format bgr888 --fps 25          # le plafond en BGR888
+./pixelpush.py --cible 192.168.4.1 --sonder                        # l'écran se décrit
+./pixelpush.py --cible 192.168.4.1 --format idx8 --duree 600       # le critère principal
+./pixelpush.py --cible 192.168.4.1 --taille 160x144 --format idx2  # la Game Boy, simulée
+./pixelpush.py --cible 192.168.4.1 --format bgr888 --fps 25        # le plafond en BGR888
 ```
 
-Puis le sniffer lui-même, sans modification : il suffit de pointer sa cible (`PXL1_CIBLE_IP`)
-sur l'adresse de la tête.
+Puis le sniffer lui-même : son `secrets.h` doit viser le réseau de l'écran, et sa cible
+(`PXL1_CIBLE_IP`) est 192.168.4.1 par défaut.
 
 La console rend compte toutes les 10 s : images reçues et publiées, débit, perte, doublons,
 synchronisation (abandons, images supplantées, attente des RDY), débit de chaque liaison et

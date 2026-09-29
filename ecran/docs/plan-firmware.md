@@ -15,6 +15,7 @@ Version 1 — 16/09/2026
 | **Découpage** | **3 chaînes de 3 dalles**, une par rangée horizontale | oui, en phase 5 |
 | **Contrôleurs** | **1 tête** Pico 2 W (WiFi) + **3 nœuds d'affichage** Pico 2, un par rangée, reliés en filaire | — (révisé le 29/09/2026) |
 | **Interface publique** | **une adresse, un canevas 192×192** : la source envoie son image entière, à sa taille ; l'écran la place et la répartit | non |
+| **Réseau** | **l'écran émet son propre WiFi** (point d'accès, canal 11, tête en 192.168.4.1) ; les sources s'y connectent en direct, sans box | — (29/09/2026, §2.7) |
 | **Protocole** | **PXL2** ; PXL1 + `CTRL_GEOMETRIE` accepté en compatibilité | non |
 | **Langage** | **C99**, et **C++20** à partir de la phase 1 | non |
 | **Couche basse** | **pico-sdk 2.x, bare-metal**, PIO + DMA, 2 cœurs | non |
@@ -44,9 +45,10 @@ mire, flux temps réel.
 **Ce qu'on construit plus tard :** le sniffer LCD de la Game Boy émet dans *le même protocole*,
 en format indexé 2 bits. Côté écran, rien à écrire.
 
-**Ce que l'émetteur sait de l'écran :** une adresse IP. Rien d'autre. Il envoie son image à
-sa taille native ; il peut demander celle du canevas (`PING` → `PONG`, §4.2) s'il veut le
-remplir. Le nombre de dalles, de rangées ou de contrôleurs ne le regarde pas.
+**Ce que l'émetteur sait de l'écran :** le nom et le mot de passe de son réseau WiFi, et son
+adresse, 192.168.4.1. Rien d'autre. Il envoie son image à sa taille native ; il peut demander
+celle du canevas (`PING` → `PONG`, §4.2) s'il veut le remplir. Le nombre de dalles, de
+rangées ou de contrôleurs ne le regarde pas.
 
 **Hors périmètre :** le module SOURCE (sniffer), le son, les boutons de la console. Voir
 `../Spec_Video_Sniffer_et_Matrice_LED.md`.
@@ -175,7 +177,7 @@ AVANT (v1)                WiFi ×3                         HUB75
   + 3 rectangles)                       └─── fil synchro GP16 (maître n0) ───┘
 
 
-APRÈS (v2)     WiFi (1 IP)        liaison filaire (nappe 10 pts)     HUB75
+APRÈS (v2)     WiFi de l'écran    liaison filaire (nappe 10 pts)     HUB75
                                 ┌── L0 ──► [Pico 2 · n0] ──► ▣▣▣  rangée 0
  Source ──PXL2──► [Pico 2 W] ───┼── L1 ──► [Pico 2 · n1] ──► ▣▣▣  rangée 1
  (taille libre,    « TÊTE »     └── L2 ──► [Pico 2 · n2] ──► ▣▣▣  rangée 2
@@ -405,6 +407,40 @@ attendre l'image complète. Retard ajouté : le temps de passer un paquet sur la
 - **Nœud redémarré** : il attend son `HELLO`. La tête le renvoie périodiquement, avec la
   palette et la luminosité.
 - **Tête silencieuse** plus d'une seconde : les nœuds affichent une mire « pas de liaison ».
+
+### 2.7 Le réseau de l'écran — décision du 29/09/2026
+
+**L'écran émet son propre réseau WiFi, et les sources s'y connectent en direct.** Plus de box
+entre la Game Boy et l'écran.
+
+```
+AVANT   Source ──WiFi──► box ──WiFi──► tête        deux sauts radio, la box décide
+APRÈS   Source ──WiFi──────────────► tête (point d'accès, 192.168.4.1)
+```
+
+**Pourquoi.** Au banc de la phase 5b, dix minutes d'animation à 60 images/s via la box :
+aucune erreur sur la liaison filaire ni sur la synchronisation, mais **des gels visibles**.
+Dans 33 tranches de 10 s sur 57, une image a mis jusqu'à 122 ms à traverser la radio, au lieu
+de ~1,3 ms. L'émetteur n'avait pas décroché, la tête et le nœud non plus : le temps se perdait
+entre les deux, sur un chemin qui passait par le 5 GHz du PC, la box, et le 2,4 GHz de la
+tête. Ce chemin n'est pas celui de l'usage final, et on ne le maîtrise pas : la box, ses autres
+clients, ses balayages de canal.
+
+**Comment.** La tête est un point d'accès WPA2 (`cyw43_arch_enable_ap_mode`) sur le canal 11,
+choisi pour éviter la box du banc (canal 4, qui déborde de 2 à 6). Un serveur DHCP minimal,
+repris des exemples officiels (`firmware/vendor/dhcpserver/`), distribue aux sources des
+adresses de 192.168.4.16 à .23. Nom et mot de passe dans le `secrets.h` de la tête ; le
+sniffer les reprend dans le sien, et vise 192.168.4.1.
+
+**Ce que ça change :**
+- une image ne traverse plus l'air qu'une fois ;
+- l'adresse de l'écran ne dépend plus d'aucune box : 192.168.4.1, partout ;
+- pour un essai depuis le PC, celui-ci rejoint le réseau de l'écran, **qui n'a pas d'accès à
+  Internet** — garder un câble Ethernet vers la box pour le reste ;
+- le mode station reste disponible (option CMake `WIFI_STATION`), pour comparer.
+
+**À refaire dans ce mode :** le débit de la phase 5a. Il a été mesuré en station, via la box ;
+le point d'accès du CYW43439 n'a pas de raison d'être plus lent, mais c'est à vérifier.
 
 ---
 
@@ -832,7 +868,7 @@ Deux enseignements pour la suite :
 
 Reste à faire, sans urgence : le sniffer réel en `PXL1`, et `clk_sys` à 150 MHz.
 
-#### Phase 5b — une liaison, un nœud, une dalle · 2 à 3 jours · 🔨 firmware écrit le 29/09/2026
+#### Phase 5b — une liaison, un nœud, une dalle · 2 à 3 jours · ✅ **banc éprouvé le 29/09/2026**
 
 **Firmware :** `firmware/noeud/`, dérivé de `firmware/ecran/` : la réception WiFi est
 remplacée par la réception PIO de la liaison ; la façade d'affichage et le pilote sont repris
@@ -846,7 +882,13 @@ réduit son canevas à 64 × 64 et n'ouvre qu'une liaison ; l'image entière tie
 - **sur PC**, la chaîne tête → nœud de bout en bout (`firmware/noeud/test/`) : découpe,
   messages, anneau qui boucle, reconstruction, validation, message corrompu refusé ;
 - **sur la tête seule**, sans nœud (RDY tirés haut) : IDX8 192 × 192, 600 images reçues et
-  600 publiées par tranche de 10 s, trois liaisons à 5,96 Mbit/s, aucun débordement.
+  600 publiées par tranche de 10 s, trois liaisons à 5,96 Mbit/s, aucun débordement ;
+- **au banc complet** — tête, fils volants, nœud, dalle : animation fluide à l'œil, et sur
+  10 minutes à 16 MHz **0 erreur de CRC**, 0 refus, 0 abandon (`firmware/noeud/JOURNAL.md`).
+  Aller-retour médian vu du PC : 5,4 ms. Des gels visibles, venus de la radio via la box :
+  d'où le réseau émis par l'écran (§2.7).
+
+Reste : la latence à l'analyseur logique, GP18 de la tête → GP17 du nœud.
 
 **La synchronisation a son propre cœur.** Premier essai : ~15 images sur 600 supplantées
 avant validation par tranche de 10 s, et jusqu'à 195. Mesuré : la boucle de synchronisation
@@ -901,9 +943,10 @@ Le sniffer émet déjà vers **un seul récepteur**, sa trame native 160×144 en
 géométrie en `PXL1_CTRL_GEOMETRIE` (module capture, 25/09/2026). La tête la centre dans
 192×192. Palette DMG appliquée côté afficheur, changeable à chaud par paquet CTRL.
 
-**Côté module écran : rien à écrire** au-delà de la phase 5a. Côté sniffer : pointer
-`PXL1_CIBLE_IP` sur la tête. C'est le bénéfice d'avoir traité la Game Boy comme un client du
-protocole plutôt que comme sa raison d'être.
+**Côté module écran : rien à écrire** au-delà de la phase 5a. Côté sniffer : rejoindre le
+réseau de l'écran (son `secrets.h`) et viser 192.168.4.1 (`PXL1_CIBLE_IP`, par défaut depuis
+le 29/09/2026). C'est le bénéfice d'avoir traité la Game Boy comme un client du protocole
+plutôt que comme sa raison d'être.
 
 ---
 
@@ -990,6 +1033,8 @@ ecran/
 | 29/09/2026 | Synchronisation de la tête sur le cœur 1, sans jamais le verrou de lwIP | Sur le cœur 0, un `printf` la bloquait jusqu'à 160 ms ; sur le cœur 1, le verrou de lwIP jusqu'à 140 ms. Deux verrous matériels de quelques µs à la place : plus aucune image supplantée |
 | 29/09/2026 | CRC de la liaison par table, pas par le *sniffer* du DMA | Le DMA du nœud écrit sans fin dans un anneau : il ne découpe pas les messages |
 | 29/09/2026 | Façade d'affichage partagée dans `firmware/commun/affichage/` | Le nœud v2 la reprend sans changement ; les straps d'identité n'y sont lus que si `config.h` les déclare |
+| 29/09/2026 | Banc 5b : liaison à 16 MHz sur fils volants, **0 erreur de CRC en 10 minutes** ; animation fluide à l'œil | Critère de la liaison atteint. Seule la latence à l'analyseur logique reste à relever |
+| 29/09/2026 | **L'écran émet son propre WiFi** ; les sources s'y connectent en direct (§2.7) | Via la box, des gels jusqu'à 122 ms dans 33 tranches de 10 s sur 57, alors que liaison et synchronisation étaient sans faute. Le chemin par la box n'est pas celui de l'usage, et on ne le maîtrise pas |
 | 18/09/2026 | IDX8 implémenté | Sur lien dégradé, il reçoit 60 img/s là où BGR888 tombe à 10 — la robustesse, pas seulement le débit |
 | 18/09/2026 | Phase 4 terminée : latence ~8 ms, débit UDP 24,6 Mbit/s | Deux mesures de latence indépendantes concordent à 0,3 ms |
 | 18/09/2026 | Le facteur limitant du 3×3 est **l'air**, pas le Pico | Le Pico encaisse 24,6 Mbit/s ; c'est le total des trois nœuds sur 2,4 GHz qui ne passe pas en BGR888 |

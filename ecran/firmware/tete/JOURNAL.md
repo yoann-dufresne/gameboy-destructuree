@@ -124,6 +124,35 @@ d'anneau, trois liaisons à 5,96 Mbit/s.
 **Le coût du relais :** réassemblage d'une image de 9,9 ms en 5a à 12,8 ms — la copie, le CRC
 et l'anneau de chaque paquet. Aller-retour vu du PC : médiane de 13 à 17 ms.
 
+## Les gels venaient de la box — l'écran émet son WiFi — 29/09/2026
+
+Banc de la phase 5b au complet (tête en mode une dalle, nœud, dalle), 10 minutes d'animation
+IDX8 à 60 images/s depuis le PC, **via la box**. Le nœud et la liaison sont sans faute
+(voir le [journal du nœud](../noeud/JOURNAL.md)) ; à l'œil pourtant, **quelques gels**.
+
+| | |
+|---|---|
+| Tranches de 10 s avec une image de plus de 50 ms | **33 sur 57** |
+| Pire image | **122 ms**, pour ~1,3 ms d'habitude |
+| Images supplantées (arrivées en retard, puis doublées par la suivante) | 98 |
+| Décrochages de l'émetteur | 0 — écart maximal de 19 ms entre deux envois |
+
+Les gels durent presque toujours ~120 ms. Ni l'émetteur, ni la tête, ni la liaison : le temps
+se perd **dans la radio**, sur un chemin qui passait par le 5 GHz du PC (canal 40, et un
+second point d'accès du même nom sur le canal 124), la box, puis le 2,4 GHz de la tête (canal
+4). L'essai de 3 minutes fait juste avant, sur le même banc, n'en avait aucun (pire image à
+9 ms) : c'est l'environnement radio qui varie, pas le montage.
+
+**Décision : l'écran émet son propre réseau**, et les sources s'y connectent en direct. La
+tête devient point d'accès WPA2 sur le canal 11, en 192.168.4.1, avec un petit serveur DHCP
+(plan §2.7). Le chemin par la box n'était de toute façon pas celui de l'usage final : la Game
+Boy portera le sniffer, pas un PC.
+
+Un piège rencontré en route : `cyw43_wifi_ap_get_stas(…, macs = NULL)` rend le nombre
+**maximal** de stations, pas celui des stations connectées. Il faut lui donner un tableau.
+
+**À refaire dans ce mode :** le débit de la phase 5a, et les 10 minutes du banc.
+
 ## `pixelpush` s'arrêtait au bout de 40 s
 
 `BlockingIOError` sur `sendto` : en IDX8 192 × 192, une image part en rafale de 27 paquets,

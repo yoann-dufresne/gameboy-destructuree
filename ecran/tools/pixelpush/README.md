@@ -13,11 +13,16 @@ Avec `--cible`, `pixelpush` parle PXL2 à la [tête](../../firmware/tete/README.
 demande la taille de son canevas (`PING`, réponse `PONG`) puis lui envoie l'image entière.
 C'est la tête qui la place et la répartit.
 
+La tête émet son propre réseau WiFi (« ecran-led » par défaut) : le PC doit le rejoindre, et
+la tête est alors en 192.168.4.1. Ce réseau n'a pas d'accès à Internet ; pour garder le sien,
+relier le PC à la box par un câble Ethernet.
+
 ```bash
-./pixelpush.py --cible 192.168.1.50 --sonder                        # l'écran se décrit
-./pixelpush.py --cible 192.168.1.50 --source anim --format idx8
-./pixelpush.py --cible 192.168.1.50 --taille 160x144 --format idx2  # simule la Game Boy
-./pixelpush.py --cible 192.168.1.50 --format bgr888 --fps 25
+nmcli dev wifi connect ecran-led password '<mot de passe>'      # ECRAN_MOT_DE_PASSE de la tête
+./pixelpush.py --cible 192.168.4.1 --sonder                        # l'écran se décrit
+./pixelpush.py --cible 192.168.4.1 --source anim --format idx8
+./pixelpush.py --cible 192.168.4.1 --taille 160x144 --format idx2  # simule la Game Boy
+./pixelpush.py --cible 192.168.4.1 --format bgr888 --fps 25
 ```
 
 - `--taille` fixe la taille de l'image émise ; par défaut, celle du canevas. Plus petite,

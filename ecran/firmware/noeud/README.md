@@ -6,7 +6,8 @@ signal VSYNC, en même temps que les autres nœuds. Pas de WiFi, pas d'identité
 numéro de rangée lui vient du port de la tête où sa nappe est branchée. Son rôle dans
 l'architecture est décrit dans le [README du module](../../README.md#architecture).
 
-**État : phase 5b, firmware écrit, pas encore éprouvé sur matériel.**
+**État : phase 5b, éprouvé au banc le 29/09/2026** — une dalle, liaison à 16 MHz sur fils
+volants, 0 erreur de CRC en 10 minutes, animation fluide. Détail : [`JOURNAL.md`](JOURNAL.md).
 
 ## Construire et utiliser
 
@@ -89,10 +90,10 @@ déjà câblée :
 
 ```bash
 cd ../../tools/pixelpush
-./pixelpush.py --cible <ip-de-la-tete> --sonder               # canevas 64 × 64
-./pixelpush.py --cible <ip-de-la-tete> --format idx8 --duree 600
+./pixelpush.py --cible 192.168.4.1 --sonder               # canevas 64 × 64
+./pixelpush.py --cible 192.168.4.1 --format idx8 --duree 600
 ```
 
 Critère de sortie ([§5 du plan](../../docs/plan-firmware.md)) : latence au plus 9 ms entre
 GP18 de la tête (premier octet WiFi) et GP17 du nœud (publication), et aucune erreur de CRC
-sur 10 minutes à 16 MHz, nappe de 50 cm. Les résultats iront dans un `JOURNAL.md` voisin.
+sur 10 minutes à 16 MHz, nappe de 50 cm. Résultats et enquêtes : [`JOURNAL.md`](JOURNAL.md).
