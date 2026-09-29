@@ -1,36 +1,22 @@
 # Phase 0 — validation du câblage
 
-Fait défiler 9 mires de diagnostic sur une dalle HUB75 64×64. Chaque mire isole un
-groupe de signaux : celle qui échoue désigne le fil fautif. Le nom de la mire, ce
-qu'elle valide et le symptôme attendu en cas de défaut sont écrits sur la console USB.
+Trois petits programmes pour vérifier qu'un Pico 2 W est correctement câblé à une dalle HUB75
+64 × 64, avant d'écrire le moindre pilote. Aucun réseau, aucun `secrets.h`.
 
-## Pourquoi pas l'exemple `pico-examples` tel quel
+## Construire
 
-Il affiche une image *mountains* de **128×64**. Passer `WIDTH` à 64 ne la recadre pas :
-le pas de ligne reste celui de l'image, l'affichage est illisible. Et une photo de
-montagne ne dit pas *quel* fil est mal branché. Le programme PIO, lui, est repris
-sans modification (voir `PROVENANCE.txt`).
+Procédure générique : [README du module](../../README.md#construire-flasher-observer). La
+construction produit trois cibles : `phase0_bringup.uf2`, `phase0_diag_adresse.uf2` et
+`phase0_walk_gpio.uf2`. Le programme PIO `hub75.pio` est celui de `pico-examples`, repris sans
+modification ([`PROVENANCE.txt`](PROVENANCE.txt)). L'exemple d'origine n'a pas été utilisé tel
+quel : il affiche une image de 128 × 64 qu'on ne peut pas simplement recadrer, et une photo ne
+dit pas quel fil est mal branché.
 
-## Construire et flasher
+## `phase0_bringup` — les mires
 
-```bash
-export PICO_SDK_PATH=~/pico/pico-sdk
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-# BOOTSEL enfoncé à la mise sous tension → volume RP2350 monté
-cp build/phase0_bringup.uf2 /media/$USER/RP2350/
-```
-
-## Console
-
-```bash
-../../tools/console.py          # /dev/ttyACM0 par défaut
-```
-
-⚠️ `cat /dev/ttyACM0` ne donne rien : le firmware n'émet que lorsque **DTR** est
-asserté, et `cat` ne l'assère pas.
-
-## Les mires
+Le programme fait défiler 9 mires. Chacune isole un groupe de signaux : celle qui échoue
+désigne le fil fautif. La console décrit chaque mire, ce qu'elle valide et le symptôme
+attendu en cas de défaut.
 
 | # | Mire | Valide | Symptôme d'un défaut |
 |---|---|---|---|
@@ -44,14 +30,16 @@ asserté, et `cat` ne l'assère pas.
 | 8 | Damier 1 px | ghosting, intégrité de CLK | traînées horizontales = ghosting |
 | 9 | Balayage ligne | chaque adresse, une par une | ligne qui saute = fil d'adresse en l'air |
 
-## Les deux programmes de diagnostic
+**Critère de sortie :** les 9 mires correctes et stables, sans colonne parasite ni
+scintillement quand on bouge la nappe. Atteint le 16/09/2026 ; les deux pièges rencontrés en
+chemin (le brochage du wiki Seengreat, inutilisable en câblage direct, et la nappe numérotée
+à l'envers) sont décrits au [§2.3 du plan](../../docs/plan-firmware.md).
 
-Si une mire échoue, deux cibles supplémentaires cernent le fautif.
+## `phase0_diag_adresse` — quels bits d'adresse arrivent
 
-### `phase0_diag_adresse`
-
-Fige l'adresse de ligne sur une valeur connue, écran entièrement blanc. La ligne qui
-s'allume révèle quels bits d'adresse arrivent réellement à la dalle.
+Si une mire d'adresse échoue, ce programme fige l'adresse de ligne sur une valeur connue,
+écran entièrement blanc. La ligne qui s'allume révèle les bits d'adresse qui arrivent
+réellement à la dalle.
 
 | Adresse | Bit testé | Lignes attendues |
 |---|---|---|
@@ -63,46 +51,16 @@ s'allume révèle quels bits d'adresse arrivent réellement à la dalle.
 | 16 | E (GP10) | 16 et 48 |
 | 31 | tous | 31 et 63 |
 
-Un bit mort laisse l'affichage sur les lignes 0 et 32.
+Un bit mort laisse l'affichage sur les lignes 0 et 32. L'adresse étant figée, la ligne reste
+allumée en permanence au lieu de 1/32 du temps : la durée d'allumage est divisée par 32 environ
+pour que le courant moyen dans ces LED reste celui du régime normal.
 
-> ⚠️ L'adresse étant figée, la ligne reste allumée en permanence au lieu de 1/32 du
-> temps. La largeur d'impulsion /OE est divisée par ~32 pour que le courant moyen dans
-> ces LED reste celui du régime normal.
+## `phase0_walk_gpio` — continuité fil par fil
 
-### `phase0_walk_gpio`
+Le programme met une seule broche du Pico à 3,3 V à la fois et annonce la broche du connecteur
+HUB75 qui doit suivre. On la vérifie au multimètre **côté dalle**, ce qui teste toute la
+liaison : soudure, embase, nappe. Le panneau est vidé au démarrage pour qu'aucune LED ne
+s'allume pendant le test.
 
-Met une seule broche du Pico à 3,3 V à la fois et annonce la broche du connecteur HUB75
-qui doit suivre. À vérifier au multimètre **côté dalle** : c'est toute la liaison
-(soudure, embase, nappe) qui est testée. Le panneau est vidé au démarrage pour qu'aucune
-LED ne s'allume pendant le test.
-
-Fil coupé → 0 V. Fils inversés → 3,3 V sur la mauvaise broche. Court-circuit → 3,3 V
-sur deux broches.
-
-## Basculer en BOOTSEL sans débrancher
-
-```bash
-python3 -c "import serial,time; s=serial.Serial('/dev/ttyACM0',1200); s.dtr=False; time.sleep(.1); s.close()"
-```
-
-## Critère de sortie
-
-Les 9 mires correctes, stables, sans colonne parasite ni scintillement quand on
-bouge la nappe. Alors seulement on passe à la phase 1.
-
-### ✅ Atteint le 16/09/2026
-
-Les 9 mires passent sur une dalle Seengreat RGB Matrix P3.0-64×64 pilotée par un
-Pico 2 W en 3,3 V direct, sans adaptateur de niveau.
-
-Deux enseignements consignés dans le plan :
-
-1. Le brochage du **tableau 2-2 du wiki Seengreat** (carte adaptatrice V3.8) place
-   A–E sur GP10/16/18/20/22, cinq broches non contiguës — incompatible avec le
-   `out pins, 5` du PIO. Câblée ainsi, la dalle n'adressait que les lignes 0, 1,
-   32 et 33, seul le bit A variant.
-2. La **nappe fournie se numérote à l'envers du connecteur** : fil n° N ⟷ broche
-   n° (17 − N). Le fil gris est `E`, seul signal hors séquence et seule couleur
-   grise du ruban.
-
-Fiche de câblage : [`../../docs/cablage-pico-hub75.html`](../../docs/cablage-pico-hub75.html)
+Fil coupé : 0 V. Fils inversés : 3,3 V sur la mauvaise broche. Court-circuit : 3,3 V sur deux
+broches.
