@@ -9,10 +9,20 @@
 
 /* ------------------------------------------------------------- canevas */
 /* Ce que l'écran annonce au monde dans son PONG. Une source plus petite est
- * centrée ; plus grande, elle est refusée. */
+ * centrée ; plus grande, elle est refusée.
+ *
+ * BANC_UNE_DALLE (option CMake) : le banc de la phase 5b, une liaison vers un
+ * nœud qui pilote une seule dalle. Le canevas se réduit à cette dalle, si bien
+ * que l'image entière y est visible. */
+#if BANC_UNE_DALLE
+#define CANEVAS_W    64
+#define CANEVAS_H    64
+#define NB_RANGEES    1
+#else
 #define CANEVAS_W   192
 #define CANEVAS_H   192
 #define NB_RANGEES    3   /* une rangée = un nœud = une liaison */
+#endif
 #define RANGEE_H   (CANEVAS_H / NB_RANGEES)
 
 /* Formats relayés vers les nœuds : ceux qu'un nœud sait développer. RGB565 et
@@ -22,13 +32,25 @@
                           (1u << 4) /* IDX8   */)
 
 /* ----------------------------------------------- liaisons (plan §2.6) */
-/* Phase 5b. Par liaison : D0, D1, CLK, CS sur quatre GPIO contigus —
- * `out pins, 2` pour les données, CLK et CS en side-set. */
+/* Par liaison : D0, D1, CLK, CS sur quatre GPIO contigus — `out pins, 2` pour
+ * les données, CLK et CS en side-set. */
 #define PIN_LIEN0_BASE   0  /* GP0..GP3  */
 #define PIN_LIEN1_BASE   4  /* GP4..GP7  */
 #define PIN_LIEN2_BASE   8  /* GP8..GP11 */
 #define PIN_VSYNC       12  /* une sortie vers les trois nappes */
 #define PIN_RDY_BASE    13  /* GP13..GP15, entrées ; PULL-UP ⚠️ errata E9 */
+
+/* Horloge de la liaison. 2 bits par coup : 16 MHz donnent 32 Mbit/s, au-dessus
+ * de ce que la tête reçoit par WiFi. Pour une première mise en route, la
+ * baisser par l'option CMake du même nom (-DLIEN_HORLOGE_KHZ=1000). */
+#ifndef LIEN_HORLOGE_KHZ
+#define LIEN_HORLOGE_KHZ 16000
+#endif
+
+/* Au-delà, un nœud qui n'a pas levé RDY fait abandonner l'image aux trois :
+ * mieux vaut sauter une image que déchirer l'écran. Une construction de plans
+ * de bits prend jusqu'à ~17 ms pour une rangée de 192×64 (plan §2.2 bis). */
+#define GARDE_RDY_US 40000
 
 /* ------------------------------------------------ mesure (phase 4, 5) */
 #define PIN_MESURE_IMAGE 17 /* bascule à chaque image complète */

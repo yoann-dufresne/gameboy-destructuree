@@ -1,0 +1,37 @@
+; Tête — émission d'une liaison vers un nœud (plan §2.6, §4.6)
+;
+; Broches : out_base = D0, D1 (deux bits de données) ; side-set = CLK, CS.
+; Chaque message est précédé, dans la FIFO, d'un mot « nombre de mots − 1 »
+; que ce programme consomme sans l'émettre. CS reste bas le temps du message.
+;
+; Deux cycles par couple de bits : données posées CLK bas, CLK haut ensuite.
+; Le nœud échantillonne sur le front montant ; les données ne changent qu'au
+; front descendant suivant. Horloge de la liaison = horloge du PIO / 2.
+; Décalage à droite : le premier couple émis est celui des bits 1:0 du mot.
+
+.program lien_tx
+.side_set 2                     ; bit 0 = CLK, bit 1 = CS (actif bas)
+
+public attente:
+    pull block          side 0b10   ; repos : CS haut, CLK bas
+    mov x, osr          side 0b10   ; x = nombre de mots − 1
+mot:
+    pull block          side 0b00   ; CS bas
+    set y, 15           side 0b00   ; 16 couples par mot
+couple:
+    out pins, 2         side 0b00   ; données posées, CLK bas
+    jmp y-- couple      side 0b01   ; CLK haut : le nœud échantillonne
+    jmp x-- mot         side 0b00
+                                    ; fin du message : retour en attente, CS remonte
+
+% c-sdk {
+static inline pio_sm_config lien_tx_config(uint offset, uint base, float clkdiv) {
+    pio_sm_config c = lien_tx_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, base, 2);
+    sm_config_set_sideset_pins(&c, base + 2);
+    sm_config_set_out_shift(&c, true /* à droite */, false /* pull manuel */, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    sm_config_set_clkdiv(&c, clkdiv);
+    return c;
+}
+%}

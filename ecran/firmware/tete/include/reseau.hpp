@@ -2,8 +2,9 @@
  * Tête — façade réseau
  *
  * Associe la carte au WiFi, écoute le port 4242 en PXL2 et en PXL1, réassemble
- * les images, les place dans le canevas et les découpe par rangée. Le reste du
- * firmware n'a qu'à demander « une image est-elle complète ? ».
+ * les images, les place dans le canevas, les découpe par rangée et relaie les
+ * segments vers les nœuds au fil de l'eau. La boucle principale n'a plus qu'à
+ * valider les images complètes et à tenir la synchronisation.
  */
 #pragma once
 
@@ -35,6 +36,11 @@ struct Stats {
     uint64_t octets;           /* charge utile des tranches acceptées */
     uint32_t segments;         /* messages vers les nœuds, images complètes seules */
     uint64_t pixels_rangee[NB_RANGEES]; /* pixels par rangée, images complètes seules */
+    /* Images complètes remplacées par une plus récente avant d'être validées :
+     * au début d'une image (plus de tampon libre), ou à la validation (deux
+     * images complètes attendaient). */
+    uint32_t supplantees_reception, supplantees_validation;
+    uint32_t relais_perdus;    /* images perdues : un anneau de liaison plein */
     uint32_t deconnexions, reconnexions;
 };
 
@@ -45,7 +51,7 @@ bool connecter();
  * l'association s'il tombe. Ne bloque jamais. */
 void entretenir();
 
-/* Une image complète. */
+/* Une image complète, telle que la source l'a envoyée. */
 struct Image {
     uint16_t id;
     uint16_t largeur, hauteur;
@@ -55,15 +61,30 @@ struct Image {
     uint64_t t_dernier_us; /* arrivée de la dernière */
 };
 
-/* Rend la dernière image complète, si elle est nouvelle. */
-bool image_complete(Image &out);
+/* HELLO et palette à tous les nœuds : au démarrage, avant toute image. */
+void annoncer();
 
-/* Accusé à l'émetteur, dans son protocole : c'est lui qui mesure l'aller-retour,
- * sur sa propre horloge. */
-void acquitter(const Image &img);
+/* HELLO toutes les secondes, palette toutes les 2 s : un nœud qui redémarre
+ * retrouve seul sa rangée et ses couleurs. Ne bloque jamais. */
+void entretenir_liaisons();
 
-/* Vrai une fois après chaque changement de géométrie de la source. En phase 5b,
- * c'est là que les nœuds recevront EFFACER : les marges ne sont plus écrites. */
+/* Une image validée auprès des nœuds : VALIDER est parti sur chaque liaison. */
+struct Validation {
+    Image img;
+    uint8_t tampon;
+    uint32_t marques[NB_RANGEES]; /* position de fin du VALIDER dans chaque anneau */
+};
+
+/* S'il y a une image complète, envoie VALIDER à chaque nœud et rend vrai.
+ * Appelée par le cœur 1 : ne prend jamais le verrou de lwIP. */
+bool valider_prochaine(Validation &v);
+
+/* Après le VSYNC (presentee) ou l'abandon : le tampon redevient libre. Si
+ * l'image a été montrée, son accusé est confié au cœur 0, qui l'émet dans le
+ * protocole de la source au paquet reçu suivant. Appelée par le cœur 1. */
+void conclure(const Validation &v, bool presentee);
+
+/* Vrai une fois après chaque changement de géométrie de la source. */
 bool geometrie_changee(uint16_t &largeur, uint16_t &hauteur, uint8_t &format);
 
 /* Luminosité demandée par un paquet de commande, 0 si aucune. */

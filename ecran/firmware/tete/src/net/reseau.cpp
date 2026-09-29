@@ -1,5 +1,5 @@
 /**
- * Tête — WiFi, réception PXL2 / PXL1, placement et découpe
+ * Tête — WiFi, réception PXL2 / PXL1, placement, découpe et relais
  *
  * Reprise de la réception des phases 2–4 (firmware/ecran/src/net/reseau.cpp),
  * dont elle garde les trois choix de latence : économie d'énergie WiFi COUPÉE,
@@ -9,9 +9,11 @@
  *     la géométrie de la source dans chaque en-tête ; PXL1 l'apprend par
  *     CTRL_GEOMETRIE, comme le sniffer l'émet déjà (plan §4.3).
  *   - Plus de tampon d'image. La tête ne garde pas les pixels : elle place
- *     l'image dans le canevas et découpe chaque tranche en segments, un par
- *     rangée touchée. En phase 5a les segments sont comptés ; en phase 5b ils
- *     partiront sur les liaisons, au fil de l'eau.
+ *     l'image dans le canevas, découpe chaque tranche en segments, un par
+ *     rangée touchée, et les relaie aussitôt sur les liaisons (lien.cpp).
+ *   - Chaque image est écrite dans l'un des deux tampons de réception des
+ *     nœuds. La tête choisit lequel, et ne touche jamais à celui qu'elle a
+ *     validé tant que son VSYNC n'est pas passé (plan §2.6).
  *   - Une image est complète quand TOUTES ses tranches sont arrivées, dans
  *     n'importe quel ordre. La v1 publiait à la tranche marquée « dernière »,
  *     si bien qu'une tranche retardée derrière elle faisait perdre l'image ;
@@ -25,6 +27,8 @@
 #include "reseau.hpp"
 #include "config.h"
 #include "decoupe.hpp"
+#include "liaison.h"
+#include "lien.hpp"
 #include "pxl1.h"
 #include "pxl2.h"
 #include "secrets.h"
@@ -34,6 +38,7 @@
 
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #include "lwip/udp.h"
 #include "lwip/ip_addr.h"
 
@@ -51,7 +56,8 @@ uint32_t t_surveillance_ms = 0;
 /* ------------------------------------------------ état hors pixels */
 
 /* Palette B,G,R. Par défaut une rampe de gris : une image indexée s'affiche de
- * façon sensée même avant la première palette. Relayée aux nœuds en 5b. */
+ * façon sensée même avant la première palette. Relayée aux nœuds à chaque
+ * changement, et renvoyée toutes les 2 s pour un nœud qui redémarre. */
 uint8_t palette[PXL2_PALETTE_OCTETS];
 volatile uint8_t demande_luminosite = 0;
 
@@ -89,15 +95,90 @@ uint32_t segments_image = 0;
 decoupe::Geometrie geo_connue;
 bool geo_a_signaler = false;
 
-/* Dernière image complète, en attente de la boucle principale. */
-bool image_prete = false;
-reseau::Image pret{};
+/* ------------------------------------------ tampons de réception des nœuds */
 
-/* Adresse de l'émetteur de la dernière image complète : l'accusé lui revient
- * sans qu'aucune adresse soit à configurer. */
-ip_addr_t ack_ip;
-u16_t ack_port = 0;
-bool ack_possible = false;
+/* LIBRE → RECEPTION → COMPLETE → VALIDEE (VALIDER envoyé) → LIBRE au VSYNC.
+ * Une image COMPLETE pas encore validée peut être supplantée par une plus
+ * récente : les nœuds ne l'ont pas encore publiée, on peut écrire dessus. */
+enum class Etat : uint8_t { LIBRE, RECEPTION, COMPLETE, VALIDEE };
+
+struct TamponNoeud {
+    Etat etat = Etat::LIBRE;
+    uint8_t image = 0;            /* numéro attribué par la tête */
+    bool intact = true;           /* aucun message refusé par un anneau plein */
+    uint32_t pixels[NB_RANGEES];  /* envoyés à chaque nœud : il vérifie */
+    reseau::Image img{};
+    /* L'accusé revient à l'émetteur sans qu'aucune adresse soit configurée. */
+    ip_addr_t ack_ip;
+    u16_t ack_port = 0;
+    bool ack = false;
+};
+
+TamponNoeud tampons[2];
+int8_t tampon_recu = -1; /* celui de l'image en réception */
+uint8_t prochaine_image = 0;
+
+/* L'état des tampons est partagé entre la réception (cœur 0) et la
+ * synchronisation (cœur 1). Il a son propre verrou matériel, tenu quelques
+ * microsecondes : la synchronisation ne doit jamais attendre le verrou de
+ * lwIP, que la réception garde jusqu'à 140 ms sous charge (mesuré le
+ * 29/09/2026). Seul l'état change de mains sous ce verrou : les autres champs
+ * d'un tampon n'ont qu'un propriétaire à la fois, celui que son état désigne. */
+spin_lock_t *verrou_tampons = nullptr;
+
+/* Levé quand une image devient complète, baissé par la validation : le cœur 1
+ * ne prend le verrou que s'il a de quoi valider. */
+volatile bool complete_en_attente = false;
+
+/* L'accusé est la seule chose de la synchronisation qui passe par lwIP. Le
+ * cœur 1 le dépose ici ; le cœur 0 l'émet, au paquet reçu suivant ou au
+ * prochain tour de sa boucle. */
+struct Accuse {
+    reseau::Image img;
+    ip_addr_t ip;
+    u16_t port;
+};
+Accuse accuse;
+volatile bool accuse_pret = false;
+
+/* Charge d'un segment, recopiée du pbuf avant encodage. */
+uint8_t charge_segment[liaison::CHARGE_MAX];
+
+void a_tous(uint8_t type, const void *charge, uint16_t lg) {
+    liaison::Entete e{};
+    e.type = type;
+    e.lg = lg;
+    for (uint8_t k = 0; k < NB_RANGEES; ++k)
+        lien::envoyer(k, e, charge);
+}
+
+/* Chaque nœud apprend son numéro de ce message : c'est le port de la tête où
+ * sa nappe est branchée, pas une configuration. */
+void hello() {
+    for (uint8_t k = 0; k < NB_RANGEES; ++k) {
+        const liaison::Hello h{CANEVAS_W, RANGEE_H, k, liaison::VERSION, 0};
+        liaison::Entete e{};
+        e.type = liaison::HELLO;
+        e.lg = sizeof(h);
+        lien::envoyer(k, e, &h);
+    }
+}
+
+/* Sous verrou_tampons. */
+int choisir_tampon() {
+    for (int i = 0; i < 2; ++i)
+        if (tampons[i].etat == Etat::LIBRE)
+            return i;
+    /* Sinon, la plus ancienne image complète non validée. Il y en a une : au
+     * plus un tampon est VALIDEE, et celui en réception vient d'être libéré. */
+    int b = -1;
+    for (int i = 0; i < 2; ++i)
+        if (tampons[i].etat == Etat::COMPLETE &&
+            (b < 0 || (int8_t)(tampons[i].image - tampons[b].image) < 0))
+            b = i;
+    compteurs.supplantees_reception++;
+    return b;
+}
 
 /* Une tranche d'image, quel que soit son protocole. */
 struct Tranche {
@@ -167,11 +248,14 @@ void traiter_ctrl(pbuf *p, uint16_t entete, uint16_t charge, uint8_t proto) {
         const uint16_t n = reste < PXL2_PALETTE_OCTETS ? (uint16_t)(reste - reste % 3)
                                                        : (uint16_t)PXL2_PALETTE_OCTETS;
         pbuf_copy_partial(p, palette, n, entete + 1);
+        a_tous(liaison::PALETTE, palette, PXL2_PALETTE_OCTETS);
         compteurs.ctrl++;
     } else if (cmd == PXL2_CTRL_LUMINOSITE && reste >= 1) {
         uint8_t basis;
         pbuf_copy_partial(p, &basis, 1, entete + 1);
         demande_luminosite = basis ? basis : 1;
+        const uint8_t b = demande_luminosite;
+        a_tous(liaison::LUMINOSITE, &b, 1);
         compteurs.ctrl++;
     } else if (proto == 1 && cmd == PXL1_CTRL_GEOMETRIE && reste >= PXL1_GEOMETRIE_OCTETS) {
         uint8_t geo[PXL1_GEOMETRIE_OCTETS];
@@ -246,6 +330,28 @@ bool lire_pxl1(pbuf *p, Tranche &t) {
 }
 
 void commencer_image(const Tranche &t, const decoupe::Geometrie &g) {
+    const bool nouvelle_geometrie = !(g == geo_connue);
+
+    /* L'image en réception, s'il y en a une, est abandonnée : son tampon est
+     * rendu avant d'en choisir un pour la nouvelle. Une image complète de
+     * l'ancienne géométrie qui attendait sa validation n'a plus lieu d'être. */
+    const uint32_t s = spin_lock_blocking(verrou_tampons);
+    if (tampon_recu >= 0 && tampons[tampon_recu].etat == Etat::RECEPTION)
+        tampons[tampon_recu].etat = Etat::LIBRE;
+    if (nouvelle_geometrie)
+        for (int i = 0; i < 2; ++i)
+            if (tampons[i].etat == Etat::COMPLETE)
+                tampons[i].etat = Etat::LIBRE;
+    tampon_recu = (int8_t)choisir_tampon();
+    tampons[tampon_recu].etat = Etat::RECEPTION;
+    spin_unlock(verrou_tampons, s);
+
+    TamponNoeud &tn = tampons[tampon_recu];
+    tn.image = prochaine_image++;
+    tn.intact = true;
+    for (uint32_t &n : tn.pixels)
+        n = 0;
+
     image_courante = t.frame_id;
     image_en_cours = true;
     geo_courante = g;
@@ -258,18 +364,17 @@ void commencer_image(const Tranche &t, const decoupe::Geometrie &g) {
     t_premier_courant = time_us_64();
     gpio_xor_mask(1u << PIN_MESURE_RX);
 
-    if (!(g == geo_connue)) {
-        /* Phase 5b : c'est ici que partira EFFACER, avant le premier segment
-         * de la nouvelle géométrie — ses marges ne seront écrites par rien. */
+    if (nouvelle_geometrie) {
+        /* Avant le premier segment de la nouvelle géométrie : ses marges ne
+         * seront écrites par aucune image. */
+        a_tous(liaison::EFFACER, nullptr, 0);
         geo_connue = g;
         geo_a_signaler = true;
         compteurs.geometries++;
     }
 }
 
-/* `p` ne sert qu'à partir de la phase 5b, pour lire les octets à relayer. */
-void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_t *source,
-                      u16_t port) {
+void recevoir_tranche(pbuf *p, const Tranche &t, const ip_addr_t *source, u16_t port) {
     if (t.format >= 16 || !((FORMATS_ACCEPTES >> t.format) & 1u)) {
         compteurs.format_refuse++;
         return;
@@ -327,12 +432,26 @@ void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_
     else
         compteurs.non_suivies++;
 
+    /* Relais au fil de l'eau : chaque segment part vers son nœud dès que sa
+     * tranche arrive, sans attendre l'image complète. */
+    TamponNoeud &tn = tampons[tampon_recu];
     segments_image += decoupe::decouper(
         CANEVAS, geo_courante, t.offset, t.charge, [&](const decoupe::Segment &s) {
             pixels_image[s.rangee] += s.n;
-            /* Phase 5b : recopier ici l'en-tête de message (§4.6) puis les
-             * s.octets octets de la charge, lus dans le pbuf à partir de
-             * t.entete + s.debut, dans l'anneau de la liaison s.rangee. */
+            tn.pixels[s.rangee] += s.n;
+            if (!tn.intact)
+                return; /* image déjà perdue pour les nœuds : inutile d'encombrer */
+            liaison::Entete e{};
+            e.type = liaison::PIXELS;
+            e.image = tn.image;
+            e.lg = (uint16_t)s.octets;
+            e.pos = s.pos;
+            e.n = s.n;
+            e.format = geo_courante.format;
+            e.tampon = (uint8_t)tampon_recu;
+            pbuf_copy_partial(p, charge_segment, (u16_t)s.octets, (u16_t)(t.entete + s.debut));
+            if (!lien::envoyer(s.rangee, e, charge_segment))
+                tn.intact = false;
         });
     octets_image += t.charge;
     compteurs.octets += t.charge;
@@ -348,19 +467,56 @@ void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_
         compteurs.pixels_rangee[r] += pixels_image[r];
     gpio_xor_mask(1u << PIN_MESURE_IMAGE);
 
-    pret.id = image_courante;
-    pret.largeur = geo_courante.w;
-    pret.hauteur = geo_courante.h;
-    pret.format = geo_courante.format;
-    pret.protocole = proto_courant;
-    pret.t_premier_us = t_premier_courant;
-    pret.t_dernier_us = time_us_64();
-    image_prete = true;
+    tn.img.id = image_courante;
+    tn.img.largeur = geo_courante.w;
+    tn.img.hauteur = geo_courante.h;
+    tn.img.format = geo_courante.format;
+    tn.img.protocole = proto_courant;
+    tn.img.t_premier_us = t_premier_courant;
+    tn.img.t_dernier_us = time_us_64();
+    tn.ack = source != nullptr;
+    if (tn.ack) {
+        tn.ack_ip = *source;
+        tn.ack_port = port;
+    }
+    const uint32_t s = spin_lock_blocking(verrou_tampons);
+    if (tn.intact) {
+        tn.etat = Etat::COMPLETE;
+        complete_en_attente = true;
+    } else {
+        tn.etat = Etat::LIBRE; /* un anneau plein a refusé un message */
+        compteurs.relais_perdus++;
+    }
+    tampon_recu = -1;
+    spin_unlock(verrou_tampons, s);
+}
 
-    if (source != nullptr) {
-        ack_ip = *source;
-        ack_port = port;
-        ack_possible = true;
+/* Émet l'accusé déposé par le cœur 1, s'il y en a un. Sous le verrou de lwIP. */
+void emettre_accuse() {
+    if (!accuse_pret || pcb == nullptr)
+        return;
+    const uint32_t s = spin_lock_blocking(verrou_tampons);
+    const Accuse a = accuse;
+    accuse_pret = false;
+    spin_unlock(verrou_tampons, s);
+
+    if (a.img.protocole == 1) {
+        /* Le récepteur v1 accusait en PXL1 type PING : le sniffer mesure son
+         * aller-retour ainsi, on ne change rien pour lui. */
+        pxl1_entete e{};
+        e.magic = PXL1_MAGIC;
+        e.type = PXL1_TYPE_PING;
+        e.frame_id = a.img.id;
+        envoyer(&e, PXL1_ENTETE, &a.ip, a.port);
+    } else {
+        pxl2_entete e{};
+        e.magic = PXL2_MAGIC;
+        e.type = PXL2_TYPE_ACK;
+        e.format = a.img.format;
+        e.frame_id = a.img.id;
+        e.largeur = a.img.largeur;
+        e.hauteur = a.img.hauteur;
+        envoyer(&e, PXL2_ENTETE, &a.ip, a.port);
     }
 }
 
@@ -370,6 +526,7 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
     if (p == nullptr)
         return;
     compteurs.paquets++;
+    emettre_accuse();
 
     uint32_t magic = 0;
     Tranche t;
@@ -400,6 +557,7 @@ namespace reseau {
 
 bool connecter() {
     palette_par_defaut();
+    verrou_tampons = spin_lock_init(spin_lock_claim_unused(true));
 
     gpio_init(PIN_MESURE_IMAGE);
     gpio_set_dir(PIN_MESURE_IMAGE, GPIO_OUT);
@@ -443,6 +601,13 @@ bool connecter() {
  * module capture (26/09/2026). L'association est ASYNCHRONE : la version
  * bloquante gèle la boucle principale jusqu'à 30 s. */
 void entretenir() {
+    /* Sans paquet entrant pour l'emporter, l'accusé part d'ici. */
+    if (accuse_pret) {
+        cyw43_arch_lwip_begin();
+        emettre_accuse();
+        cyw43_arch_lwip_end();
+    }
+
     const uint32_t maintenant = to_ms_since_boot(get_absolute_time());
     if (maintenant - t_surveillance_ms < 1000u)
         return;
@@ -471,40 +636,85 @@ void entretenir() {
     cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
 }
 
-bool image_complete(Image &out) {
+void annoncer() {
     cyw43_arch_lwip_begin();
-    const bool nouvelle = image_prete;
-    if (nouvelle) {
-        out = pret;
-        image_prete = false;
-    }
+    hello();
+    a_tous(liaison::PALETTE, palette, PXL2_PALETTE_OCTETS);
     cyw43_arch_lwip_end();
-    return nouvelle;
 }
 
-void acquitter(const Image &img) {
-    cyw43_arch_lwip_begin();
-    if (ack_possible && pcb != nullptr) {
-        if (img.protocole == 1) {
-            /* Le récepteur v1 accusait en PXL1 type PING : le sniffer mesure
-             * son aller-retour ainsi, on ne change rien pour lui. */
-            pxl1_entete e{};
-            e.magic = PXL1_MAGIC;
-            e.type = PXL1_TYPE_PING;
-            e.frame_id = img.id;
-            envoyer(&e, PXL1_ENTETE, &ack_ip, ack_port);
-        } else {
-            pxl2_entete e{};
-            e.magic = PXL2_MAGIC;
-            e.type = PXL2_TYPE_ACK;
-            e.format = img.format;
-            e.frame_id = img.id;
-            e.largeur = img.largeur;
-            e.hauteur = img.hauteur;
-            envoyer(&e, PXL2_ENTETE, &ack_ip, ack_port);
-        }
+void entretenir_liaisons() {
+    static uint32_t t_hello = 0, t_palette = 0;
+    const uint32_t maintenant = to_ms_since_boot(get_absolute_time());
+    if (maintenant - t_hello >= 1000u) {
+        t_hello = maintenant;
+        cyw43_arch_lwip_begin();
+        hello();
+        cyw43_arch_lwip_end();
     }
-    cyw43_arch_lwip_end();
+    if (maintenant - t_palette >= 2000u) {
+        t_palette = maintenant;
+        cyw43_arch_lwip_begin();
+        a_tous(liaison::PALETTE, palette, PXL2_PALETTE_OCTETS);
+        cyw43_arch_lwip_end();
+    }
+}
+
+bool valider_prochaine(Validation &v) {
+    if (!complete_en_attente)
+        return false;
+
+    const uint32_t s = spin_lock_blocking(verrou_tampons);
+    /* Sous le verrou, la réception ne peut pas compléter une image entre ce
+     * baisser et le parcours : après lui, il ne restera rien de complet. */
+    complete_en_attente = false;
+    int b = -1;
+    for (int i = 0; i < 2; ++i)
+        if (tampons[i].etat == Etat::COMPLETE &&
+            (b < 0 || (int8_t)(tampons[i].image - tampons[b].image) > 0))
+            b = i;
+    if (b >= 0) {
+        /* Une image complète plus ancienne ne sera jamais montrée. */
+        for (int i = 0; i < 2; ++i)
+            if (i != b && tampons[i].etat == Etat::COMPLETE) {
+                tampons[i].etat = Etat::LIBRE;
+                compteurs.supplantees_validation++;
+            }
+        /* VALIDEE : la réception n'y touchera plus jusqu'à conclure(). */
+        tampons[b].etat = Etat::VALIDEE;
+    }
+    spin_unlock(verrou_tampons, s);
+    if (b < 0)
+        return false;
+
+    const TamponNoeud &tn = tampons[b];
+    for (uint8_t k = 0; k < NB_RANGEES; ++k) {
+        const liaison::Valider val{tn.pixels[k]};
+        liaison::Entete e{};
+        e.type = liaison::VALIDER;
+        e.image = tn.image;
+        e.lg = sizeof(val);
+        e.tampon = (uint8_t)b;
+        /* Anneau plein : le VALIDER est perdu, le nœud ne lèvera pas RDY et
+         * l'image sera abandonnée au bout de la garde. */
+        lien::envoyer(k, e, &val, &v.marques[k]);
+    }
+    v.img = tn.img;
+    v.tampon = (uint8_t)b;
+    return true;
+}
+
+void conclure(const Validation &v, bool presentee) {
+    const uint32_t s = spin_lock_blocking(verrou_tampons);
+    TamponNoeud &tn = tampons[v.tampon];
+    if (presentee && tn.ack) {
+        accuse.img = tn.img;
+        accuse.ip = tn.ack_ip;
+        accuse.port = tn.ack_port;
+        accuse_pret = true;
+    }
+    tn.etat = Etat::LIBRE;
+    spin_unlock(verrou_tampons, s);
 }
 
 bool geometrie_changee(uint16_t &largeur, uint16_t &hauteur, uint8_t &format) {
