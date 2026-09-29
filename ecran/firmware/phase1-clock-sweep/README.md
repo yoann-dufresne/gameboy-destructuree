@@ -1,49 +1,43 @@
-# Mesure de l'horloge pixel maximale stable
+# Phase 1 — mesure de l'horloge pixel maximale
 
-**Une fréquence par binaire.** Le diviseur d'horloge est un `constexpr`, donc le pilote
-est initialisé proprement à cette cadence et rien n'est touché ensuite.
+Banc de mesure : à quelle fréquence peut-on envoyer les pixels à une dalle sans que l'image
+se dégrade ? Le dossier contient aussi le test minimal du pilote et les sondes qui ont
+expliqué pourquoi l'affichage restait noir. Aucun réseau, aucun `secrets.h`.
 
-```bash
-export PICO_SDK_PATH=~/pico/pico-sdk
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build          # produit 10 .uf2 : de 28 à 10 MHz
-../../tools/flash.sh build/phase1_clk_28mhz.uf2
-../../tools/console.py
-```
+## Construire
 
-Commencer par **le plus haut**. Si l'image est nette, la mesure est finie.
+Procédure générique : [README du module](../../README.md#construire-flasher-observer). La
+construction produit :
 
-## D'où vient la fréquence
+| Cibles | Rôle |
+|---|---|
+| `phase1_clk_28mhz` … `phase1_clk_10mhz` | le banc : une fréquence par binaire, de 28 à 10 MHz par pas de 2 |
+| `phase1_smoke` | l'usage minimal du pilote, strictement conforme à la référence amont |
+| `probe_*` | sept sondes qui isolent chacune un écart par rapport à `phase1_smoke` ; méthode et résultats dans [`DIAGNOSTIC.md`](DIAGNOSTIC.md) |
 
-Le programme PIO `hub75_bitplane_stream` consomme **9 cycles par pixel** :
+Commencer par `phase1_clk_28mhz`. Si l'image est nette, la mesure est finie.
 
-```
-out pins, 6  [3]   side 0    -> 4 cycles
-out null, 2  [3]   side 1    -> 4 cycles
-jmp x--, loop      side 0    -> 1 cycle
-```
+## Principe
 
-D'où `horloge pixel = clk_sys / (9 × sm_clockdiv_factor)`, avec `clk_sys` fixé à
-**252 MHz** au démarrage et jamais retouché.
+**Une fréquence par binaire.** Le diviseur d'horloge est une constante de compilation : le
+pilote est initialisé proprement à cette cadence et rien n'est touché ensuite. Balayer les
+fréquences à chaud a été essayé et abandonné :
 
-Les gardes de verrou et d'adressage sont converties en cycles PIO à la création, à
-partir du `clk_sys` et du diviseur réels : elles valent donc leurs 80 ns / 160 ns
-nominaux **quelle que soit la fréquence testée**. La comparaison entre binaires est
-donc honnête.
+1. changer `clk_sys` en cours de route arrête et reconfigure la PLL système ; les échanges
+   d'interruptions entre `hub75_row` et `hub75_bitplane_stream` n'y survivent pas et
+   l'affichage meurt définitivement ;
+2. changer le diviseur des machines PIO à chaud perturbe celle qui construit les plans de
+   bits : le rafraîchissement chute d'un facteur 3 et les mesures ne se reproduisent pas.
 
-## Ce qui a été essayé et abandonné
+Le programme PIO `hub75_bitplane_stream` consomme **9 cycles par pixel**, d'où
+`horloge pixel = clk_sys / (9 × diviseur)`, avec `clk_sys` fixé à **266 MHz** : le plafond
+est donc de 29,6 MHz. Les temps de garde du verrou et de l'adressage sont recalculés à partir
+de l'horloge réelle et valent leurs 80 et 160 ns nominales à toutes les fréquences : la
+comparaison entre binaires est honnête.
 
-Une première version balayait les fréquences à chaud. Deux impasses successives :
-
-1. **Changer `clk_sys` en cours de route** — `set_sys_clock_khz()` arrête et
-   reconfigure la PLL système ; les échanges d'IRQ entre `hub75_row` et
-   `hub75_bitplane_stream` n'y survivent pas et l'affichage meurt définitivement.
-2. **Changer le diviseur des machines PIO à chaud** — le pilote en utilise **trois**,
-   dont une qui construit les plans de bits. La perturber en plein travail fait
-   chuter le rafraîchissement d'un facteur 3, et les mesures ne se reproduisent pas
-   d'un tour à l'autre.
-
-D'où le choix d'un binaire par fréquence.
+`clock_test.cpp` est `smoke.cpp` avec un seul écart, le diviseur d'horloge. `smoke.cpp` est
+le premier programme de ce dossier qui ait affiché quelque chose : ne pas s'en écarter sans
+raison.
 
 ## La mire
 
@@ -54,45 +48,28 @@ D'où le choix d'un binaire par fréquence.
 | 40–51 | blanc plein | référence d'uniformité et de luminosité |
 | 52–63 | pixels isolés tous les 8 | une bavure apparaît comme un pixel fantôme juste à droite |
 
-**Sain** : rayures franches, contraste constant de gauche à droite.
-**Défaut** : rayures qui se brouillent, grisonnent ou bavent — d'abord sur le bord
-**droit**, les derniers pixels décalés dans le registre.
+Image **saine** : rayures franches, contraste constant de gauche à droite. **Défaut** :
+rayures qui se brouillent, grisonnent ou bavent, d'abord sur le bord droit, là où arrivent
+les derniers pixels décalés dans le registre.
 
-## Le socle
+## Résultats
 
-`clock_test.cpp` est **`smoke.cpp` avec un seul écart : le diviseur d'horloge**.
-`smoke.cpp` est l'usage minimal strictement conforme à la référence amont, et c'est
-le premier programme de ce dossier qui ait affiché quelque chose. Ne pas s'en écarter
-sans raison — le chemin jusqu'ici a coûté plusieurs essais infructueux :
-
-| | `smoke.cpp` (affiche) | ma 1ʳᵉ version (noire) |
-|---|---|---|
-| Cœur | **0** | 1 (multicœur) |
-| Plans BCM | **10** | 8 |
-| Canaux CIE | **séparés** | communs |
-| `clk_sys` | **266 MHz** | 252 MHz |
-
-✅ **Élucidé le 18/09/2026 : c'est le cœur 1**, et lui seul — voir
-[`DIAGNOSTIC.md`](DIAGNOSTIC.md). Les trois autres écarts sont innocents pris
-isolément. Correctif : appeler `setBasisBrightness()` juste après `start()`.
-
-## Résultats mesurés
-
-Dalle unique 64×64, scan 1/32, 8 plans BCM, `clk_sys` 252 MHz.
-Le rafraîchissement est annoncé par le pilote lui-même (`frame_rate_debug`).
+Dalle unique 64 × 64, nappe courte. Le rafraîchissement est celui qu'annonce le pilote.
 
 | Plans BCM | 10 MHz | 12 MHz | 24 MHz | 26 MHz | **28 MHz** | 29,6 MHz |
 |---|---|---|---|---|---|---|
 | 8 | 424 Hz | 488 Hz | 974 Hz | 1055 Hz | **1138 Hz** | — |
 | 10 | — | — | — | — | **750 Hz** | 788 Hz |
 
-Loi linéaire, à diviser par la longueur de chaîne :
+La ligne à 8 plans a été mesurée avec la première version du banc (`clk_sys` à 252 MHz) ;
+celle à 10 plans avec la version actuelle. Le rafraîchissement suit une loi linéaire, à
+diviser par le nombre N de dalles chaînées :
 
     8 plans  :  ≈ 40,6 × horloge_pixel_MHz / N
     10 plans :  ≈ 26,8 × horloge_pixel_MHz / N
 
-**Horloge pixel maximale : ≥ 28 MHz, image nette.** La limite de la dalle n'a pas été
-atteinte — notre firmware plafonne à `clk_sys / 9` = 29,6 MHz. Mesuré sur **une** dalle
-avec une nappe courte ; à remesurer sur une chaîne de 3.
+**Horloge pixel maximale : au moins 28 MHz, image nette.** La limite de la dalle n'a pas été
+atteinte : c'est le firmware qui plafonne à `clk_sys / 9`. À remesurer sur une chaîne de
+trois dalles (phase 5c).
 
 Empreinte : 85 ko de RAM sur 520, 44 ko de flash.
