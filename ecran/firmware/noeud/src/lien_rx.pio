@@ -1,0 +1,32 @@
+; Nœud — réception de la liaison venant de la tête (plan §2.6, §4.6)
+;
+; Broches, relatives à in_base : 0 = D0, 1 = D1, 2 = CLK, 3 = CS (actif bas).
+; Échantillonne D0/D1 à chaque front montant de CLK. Décalage à droite,
+; autopush à 32 bits : le premier couple reçu finit dans les bits 1:0 du mot,
+; comme l'a émis la tête (src/lien.pio de la tête).
+;
+; Les messages se suivent sans séparateur : l'alignement sur un début de mot
+; ne se prend qu'une fois, au démarrage ou après une erreur, en attendant un
+; CS haut (entre deux messages) puis bas (début du suivant).
+
+.program lien_rx
+
+public debut:
+    wait 1 pin 3            ; CS haut : on est entre deux messages
+    wait 0 pin 3            ; début d'un message : début d'un mot
+.wrap_target
+    wait 0 pin 2
+    wait 1 pin 2            ; front montant de CLK
+    in pins, 2
+.wrap
+
+% c-sdk {
+static inline pio_sm_config lien_rx_config(uint offset, uint base) {
+    pio_sm_config c = lien_rx_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, base);
+    sm_config_set_in_shift(&c, true /* à droite */, true /* autopush */, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+    sm_config_set_clkdiv(&c, 1.0f); /* 266 MHz : ~ 8 échantillons par demi-période à 16 MHz */
+    return c;
+}
+%}
