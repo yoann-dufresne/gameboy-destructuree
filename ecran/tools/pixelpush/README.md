@@ -1,6 +1,30 @@
-# pixelpush — émetteur PXL1
+# pixelpush — émetteur PXL2 / PXL1
 
 Pousse des images vers le module ÉCRAN en UDP.
+
+## PXL2 : l'écran n'est qu'une adresse
+
+Depuis la révision du 29/09/2026, l'écran se présente comme **une tête** : une IP, un
+canevas. `pixelpush` lui demande sa taille (`PING` → `PONG`) et lui envoie l'image
+entière ; c'est la tête qui la place et la répartit sur les rangées.
+
+```bash
+./pixelpush.py --cible 192.168.1.50 --sonder                   # l'écran se décrit
+./pixelpush.py --cible 192.168.1.50 --source anim --format idx8
+./pixelpush.py --cible 192.168.1.50 --taille 160x144 --format idx2   # simule la Game Boy
+./pixelpush.py --cible 192.168.1.50 --format bgr888 --fps 25
+```
+
+- `--taille` choisit la taille de l'image émise ; par défaut, celle du canevas annoncé.
+  Plus petite, l'écran la **centre**.
+- `--format idx2` : quatre gris, quatre pixels par octet, pixel de gauche en poids fort
+  — exactement ce qu'émet le sniffer. PXL2 seulement.
+- Si l'écran ne répond pas au `PING`, `pixelpush` émet quand même, en 192×192.
+
+## PXL1 : les nœuds WiFi autonomes de la v1
+
+Sans `--cible`, c'est le protocole v1 du firmware `firmware/ecran/`, avec un fichier de
+disposition (`layout-1x1.toml` par défaut). Rien n'a changé pour lui :
 
 ```bash
 ./pixelpush.py --source anim                          # plasma animé, 60 img/s
@@ -10,6 +34,9 @@ Pousse des images vers le module ÉCRAN en UDP.
 ./pixelpush.py --source ecran --region 100,100,512,512
 ./pixelpush.py --source video --fichier film.mp4      # nécessite ffmpeg
 ```
+
+Toutes les sources, l'injection de défauts et la mesure d'aller-retour valent pour les
+deux protocoles.
 
 ## Les sources
 
@@ -37,11 +64,15 @@ C'est le cas limite du réassemblage.
 Les compteurs du firmware (`incompletes`, `ecartees`) doivent alors refléter ce qu'on a
 injecté. Si l'image reste correcte à 2 % de perte, le réassemblage tient.
 
-## La disposition
+> La tête v2 complète une image dès que tous ses octets sont là, dans n'importe quel
+> ordre : face à elle, `--desordre` ne coûte plus d'image — seul `--perte` en coûte.
 
-Le fichier TOML décrit l'image complète et le rectangle de chaque nœud. **Le protocole
-étant tuile-conscient, passer de 1 à 3 nœuds ne change que ce fichier** — ni le
-firmware, ni ce script. `layout-3x3.toml` est déjà écrit pour la phase 5.
+## La disposition (PXL1 seulement)
+
+Le fichier TOML décrit l'image complète et le rectangle de chaque nœud. En PXL1,
+l'émetteur découpe lui-même : c'est ce que la v2 a supprimé. `layout-3x3.toml` reste
+comme trace de l'architecture v1 ; en PXL2 la disposition vit dans le firmware de la
+tête (`firmware/tete/include/config.h`).
 
 L'adresse IP est celle que le firmware annonce sur sa console au démarrage.
 
@@ -90,11 +121,12 @@ trame 64×64 fait 12 288 octets, soit 9 paquets de 1398 octets utiles au plus.
 | Résolution | Format | à 60 img/s |
 |---|---|---|
 | 64×64 | BGR888 | **5,95 Mbit/s** (mesuré) |
-| 192×192 sur 3 nœuds | BGR888 | 53 Mbit/s — trop |
-| 192×192 sur 3 nœuds | IDX8 | 17,7 Mbit/s ✅ **implémenté** |
-| 192×192 sur 3 nœuds | IDX2 | 4,4 Mbit/s |
+| 192×192 | BGR888 | 53 Mbit/s — trop ; ✅ jusqu'à 27 img/s |
+| 192×192 | IDX8 | 17,7 Mbit/s ✅ **implémenté** |
+| 160×144 (Game Boy) | IDX2 | 2,8 Mbit/s ✅ **implémenté** (PXL2) |
 
-Le 3×3 imposera un format indexé : prévu par le protocole, pas encore implémenté.
+En v2, la tête reçoit tout : ces débits se comparent aux **24,6 Mbit/s** qu'un Pico 2 W
+encaisse (phase 4).
 
 ## L'émetteur surveille ses propres décrochages
 

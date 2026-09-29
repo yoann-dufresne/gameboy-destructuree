@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Émetteur PXL1 — pousse des images vers le module ÉCRAN en UDP.
+"""Émetteur PXL2 / PXL1 — pousse des images vers le module ÉCRAN en UDP.
 
-Le fichier de disposition décrit les nœuds et leur rectangle dans l'image
-complète. Le protocole étant tuile-conscient, passer de 1 à 3 ou 9 nœuds ne
-change que ce fichier — ni le firmware, ni ce script.
+PXL2 (--cible) : l'écran n'est qu'une adresse. On lui demande sa taille, on lui
+envoie l'image entière ; il la place et la répartit lui-même (plan §4).
+
+    ./pixelpush.py --cible 192.168.1.50 --source anim --format idx8
+    ./pixelpush.py --cible 192.168.1.50 --taille 160x144 --format idx2
+    ./pixelpush.py --cible 192.168.1.50 --sonder
+
+PXL1 (--layout, par défaut) : le protocole v1, pour les nœuds WiFi autonomes du
+firmware `ecran/`. Le fichier de disposition décrit les nœuds et leur rectangle.
 
     ./pixelpush.py --source anim
     ./pixelpush.py --source horloge --fps 10
@@ -33,18 +39,25 @@ import numpy as np
 
 import sources
 
-# --- protocole (miroir de firmware/ecran/include/pxl1.h) ---------------------
+# --- protocoles (miroir de firmware/commun/pxl1.h et pxl2.h) -----------------
 
 MAGIC = b"PXL1"
 ENTETE = 12
+MAGIC2 = b"PXL2"
+ENTETE2 = 18
 CHARGE_MAX = 1400
 
 TYPE_FRAME = 0
 TYPE_CTRL = 1
-TYPE_PING = 2
+TYPE_PING = 2   # PXL1 : l'accusé de l'écran. PXL2 : la question de la source
+TYPE_PONG = 3   # PXL2 seulement
+TYPE_ACK = 4    # PXL2 seulement
 
 FMT_BGR888 = 0
+FMT_IDX2 = 2
 FMT_IDX8 = 4
+FORMATS = {"bgr888": FMT_BGR888, "idx2": FMT_IDX2, "idx8": FMT_IDX8}
+NOMS_FORMAT = {0: "BGR888", 1: "RGB565", 2: "IDX2", 3: "IDX4", 4: "IDX8", 5: "RLE8"}
 
 FLAG_DERNIERE = 0x01
 
@@ -60,6 +73,53 @@ def entete(node_id: int, frame_id: int, offset: int, derniere: bool,
     return MAGIC + struct.pack(
         "<BBHBBH", type_, node_id, frame_id & 0xFFFF,
         format_, FLAG_DERNIERE if derniere else 0, offset)
+
+
+def entete2(type_: int, format_: int, frame_id: int, largeur: int, hauteur: int,
+            offset: int = 0, derniere: bool = False) -> bytes:
+    """En-tête PXL2 : la géométrie de la source voyage dans chaque paquet."""
+    return MAGIC2 + struct.pack(
+        "<BBHHHIBB", type_, format_, frame_id & 0xFFFF, largeur, hauteur,
+        offset, FLAG_DERNIERE if derniere else 0, 0)
+
+
+def sonder(ip: str, port: int, delai: float = 0.5) -> dict | None:
+    """PING → PONG : demande à l'écran ce qu'il est. None s'il ne répond pas."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(delai)
+        s.sendto(entete2(TYPE_PING, 0, 0, 0, 0), (ip, port))
+        fin = time.monotonic() + delai
+        while time.monotonic() < fin:
+            try:
+                data, _ = s.recvfrom(256)
+            except (socket.timeout, OSError):
+                return None
+            if len(data) >= ENTETE2 + 8 and data[:4] == MAGIC2 and data[4] == TYPE_PONG:
+                w, h, formats, charge = struct.unpack_from("<HHHH", data, ENTETE2)
+                return {"largeur": w, "hauteur": h, "charge_max": charge,
+                        "formats": [f for f in range(16) if formats >> f & 1]}
+    return None
+
+
+def palette_gris4() -> np.ndarray:
+    """IDX2 : quatre gris, du noir au blanc ; le reste de la palette est noir."""
+    pal = np.zeros((256, 3), np.uint8)
+    for i in range(4):
+        pal[i] = (i * 85,) * 3
+    return pal
+
+
+def emballer_idx2(rgb: np.ndarray) -> np.ndarray:
+    """RGB → 4 niveaux de luminance, quatre pixels par octet, pixel de gauche
+    en poids fort — l'ordre du sniffer. Chaque ligne commence sur un octet."""
+    lum = (rgb[:, :, 0].astype(np.uint16) * 77 + rgb[:, :, 1].astype(np.uint16) * 150
+           + rgb[:, :, 2].astype(np.uint16) * 29) >> 8
+    idx = (lum >> 6).astype(np.uint8)
+    h, w = idx.shape
+    if w % 4:
+        idx = np.pad(idx, ((0, 0), (0, 4 - w % 4)))
+    q = idx.reshape(h, -1, 4)
+    return (q[..., 0] << 6) | (q[..., 1] << 4) | (q[..., 2] << 2) | q[..., 3]
 
 
 def palette_cube() -> np.ndarray:
@@ -104,13 +164,13 @@ class Noeud:
 
 
 class Emetteur:
-    def __init__(self, chemin: Path, perte: float = 0.0, desordre: float = 0.0,
+    def __init__(self, noeuds: list[Noeud], largeur: int, hauteur: int,
+                 protocole: int, perte: float = 0.0, desordre: float = 0.0,
                  format_: int = FMT_BGR888):
-        with open(chemin, "rb") as f:
-            conf = tomllib.load(f)
-        self.largeur = int(conf["image"]["largeur"])
-        self.hauteur = int(conf["image"]["hauteur"])
-        self.noeuds = [Noeud(n) for n in conf["noeud"]]
+        self.largeur = largeur
+        self.hauteur = hauteur
+        self.noeuds = noeuds
+        self.protocole = protocole
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setblocking(False)
         self.frame_id = 0
@@ -129,8 +189,31 @@ class Emetteur:
         self.perdus = 0
         self.retardes = 0
         self.format = format_
-        self.palette = palette_cube()
+        self.palette = palette_gris4() if format_ == FMT_IDX2 else palette_cube()
         self.palette_envoyee = 0.0
+
+    @classmethod
+    def depuis_layout(cls, chemin: Path, **kw) -> "Emetteur":
+        """PXL1 : l'émetteur connaît la grille et découpe lui-même."""
+        with open(chemin, "rb") as f:
+            conf = tomllib.load(f)
+        return cls([Noeud(n) for n in conf["noeud"]], int(conf["image"]["largeur"]),
+                   int(conf["image"]["hauteur"]), 1, **kw)
+
+    @classmethod
+    def vers_tete(cls, ip: str, port: int, largeur: int, hauteur: int,
+                  **kw) -> "Emetteur":
+        """PXL2 : un seul destinataire, qui reçoit l'image entière."""
+        tete = Noeud({"id": 0, "ip": ip, "port": port, "x0": 0, "y0": 0,
+                      "w": largeur, "h": hauteur})
+        return cls([tete], largeur, hauteur, 2, **kw)
+
+    def entete(self, n: Noeud, offset: int, derniere: bool,
+               type_: int = TYPE_FRAME) -> bytes:
+        if self.protocole == 2:
+            return entete2(type_, self.format, self.frame_id, self.largeur,
+                           self.hauteur, offset, derniere)
+        return entete(n.id, self.frame_id, offset, derniere, self.format, type_)
 
     def envoyer(self, image_rgb: np.ndarray) -> None:
         """image_rgb : (hauteur, largeur, 3) uint8, ordre R G B."""
@@ -143,6 +226,11 @@ class Emetteur:
             # elle, voyage dans un paquet de commande, hors du flux de pixels.
             self.maj_palette()
             plan = quantifier_cube(image_rgb)
+        elif self.format == FMT_IDX2:
+            # Quatre pixels par octet : on emballe l'image entière, ce que
+            # seul PXL2 sait transporter (un seul rectangle, toute l'image).
+            self.maj_palette()
+            plan = emballer_idx2(image_rgb)
         else:
             # Le protocole transporte du BGR : c'est l'ordre qu'attend la dalle,
             # ce qui permet au firmware d'écrire la charge utile en place.
@@ -151,7 +239,10 @@ class Emetteur:
         differes: list[tuple[bytes, tuple[str, int]]] = []
 
         for n in self.noeuds:
-            tuile = plan[n.y0:n.y0 + n.h, n.x0:n.x0 + n.w]
+            if self.format == FMT_IDX2:
+                tuile = plan  # déjà emballée ; PXL2 n'a qu'un destinataire
+            else:
+                tuile = plan[n.y0:n.y0 + n.h, n.x0:n.x0 + n.w]
             charge = np.ascontiguousarray(tuile).tobytes()
             dest = (n.ip, n.port)
 
@@ -159,8 +250,7 @@ class Emetteur:
             while offset < total:
                 bout = min(self.charge_utile(), total - offset)
                 derniere = (offset + bout) >= total
-                paquet = (entete(n.id, self.frame_id, offset, derniere,
-                                 self.format) +
+                paquet = (self.entete(n, offset, derniere) +
                           charge[offset:offset + bout])
                 offset += bout
 
@@ -193,7 +283,7 @@ class Emetteur:
     def charge_utile(self) -> int:
         """Taille utile d'une tranche. Multiple de 3 en BGR888 pour ne jamais
         couper un pixel en deux ; sans contrainte en indexé, un pixel = un octet."""
-        return CHARGE_MAX if self.format == FMT_IDX8 else CHARGE_UTILE
+        return CHARGE_UTILE if self.format == FMT_BGR888 else CHARGE_MAX
 
     def maj_palette(self, force: bool = False) -> None:
         """Renvoie la palette périodiquement : un firmware qui redémarre la
@@ -205,14 +295,13 @@ class Emetteur:
         # La dalle attend du B,G,R.
         charge = bytes([CTRL_PALETTE]) + self.palette[:, ::-1].tobytes()
         for n in self.noeuds:
-            paquet = entete(n.id, self.frame_id, 0, True,
-                            self.format, TYPE_CTRL) + charge
+            paquet = self.entete(n, 0, True, TYPE_CTRL) + charge
             self.sock.sendto(paquet, (n.ip, n.port))
 
     def regler_luminosite(self, basis: int) -> None:
         charge = bytes([CTRL_LUMINOSITE, max(1, min(255, basis))])
         for n in self.noeuds:
-            paquet = entete(n.id, 0, 0, True, self.format, TYPE_CTRL) + charge
+            paquet = self.entete(n, 0, True, TYPE_CTRL) + charge
             self.sock.sendto(paquet, (n.ip, n.port))
 
     def relever_accuses(self) -> None:
@@ -224,10 +313,13 @@ class Emetteur:
                 return
             except OSError:
                 return
-            if len(data) < ENTETE or data[:4] != MAGIC:
+            # PXL1 : accusé de type PING. PXL2 : type ACK. Dans les deux,
+            # le type est à l'octet 4 et le frame_id aux octets 6-7.
+            if len(data) < ENTETE or data[:4] not in (MAGIC, MAGIC2):
                 continue
-            type_, _node, fid = struct.unpack_from("<BBH", data, 4)
-            if type_ != TYPE_PING:
+            type_ = data[4]
+            (fid,) = struct.unpack_from("<H", data, 6)
+            if type_ != (TYPE_ACK if data[:4] == MAGIC2 else TYPE_PING):
                 continue
             self.accuses_recus += 1
             t0 = self.envois.pop(fid, None)
@@ -263,9 +355,14 @@ def choisir_source(nom: str, w: int, h: int, args):
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Émetteur PXL1 pour le module ÉCRAN",
+        description="Émetteur PXL2 / PXL1 pour le module ÉCRAN",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    ap.add_argument("--layout", default="layout-1x1.toml", type=Path)
+    ap.add_argument("--cible", help="PXL2 : adresse de la tête, ip[:port]")
+    ap.add_argument("--taille", help="PXL2 : image LxH (défaut : le canevas)")
+    ap.add_argument("--sonder", action="store_true",
+                    help="PXL2 : afficher ce que l'écran dit de lui et quitter")
+    ap.add_argument("--layout", type=Path,
+                    help="PXL1 : disposition des nœuds (défaut layout-1x1.toml)")
     ap.add_argument("--source", default="anim",
                     choices=["anim", "mire", "horloge", "image", "gif",
                              "ecran", "video"])
@@ -277,29 +374,60 @@ def main() -> int:
                     help="%% de paquets volontairement non émis")
     ap.add_argument("--desordre", type=float, default=0.0,
                     help="%% de paquets volontairement retardés")
-    ap.add_argument("--format", default="bgr888", choices=["bgr888", "idx8"],
-                    help="bgr888 = 3 octets/pixel ; idx8 = 1 octet + palette")
+    ap.add_argument("--format", default="bgr888", choices=sorted(FORMATS),
+                    help="bgr888 = 3 octets/pixel ; idx8 = 1 octet + palette ; "
+                         "idx2 = 4 gris, 4 pixels par octet (PXL2 seulement)")
     ap.add_argument("--luminosite", type=int,
                     help="luminosité de base de la dalle, 1 à 255")
     args = ap.parse_args()
 
-    if not args.layout.exists():
-        sys.exit(f"disposition introuvable : {args.layout}")
+    fmt = FORMATS[args.format]
+    kw = {"perte": args.perte, "desordre": args.desordre, "format_": fmt}
 
-    em = Emetteur(args.layout, args.perte, args.desordre,
-                  FMT_IDX8 if args.format == "idx8" else FMT_BGR888)
-    print(f"image {em.largeur}×{em.hauteur}, {len(em.noeuds)} nœud(s)")
-    for n in em.noeuds:
-        print(f"  {n}")
-    octets_trame = em.largeur * em.hauteur * (1 if em.format == FMT_IDX8 else 3)
+    if args.cible:
+        if args.layout:
+            sys.exit("--cible (PXL2) et --layout (PXL1) s'excluent")
+        ip, _, port = args.cible.partition(":")
+        port = int(port) if port else 4242
+        ecran = sonder(ip, port)
+        if ecran:
+            print(f"écran {ip}:{port} — canevas {ecran['largeur']}×{ecran['hauteur']}, "
+                  f"formats {' '.join(NOMS_FORMAT.get(f, str(f)) for f in ecran['formats'])}")
+            if fmt not in ecran["formats"]:
+                print(f"  ⚠ l'écran n'annonce pas {args.format} : il refusera les images")
+        else:
+            print(f"écran {ip}:{port} — pas de réponse au PING (on émet quand même)")
+        if args.sonder:
+            return 0 if ecran else 1
+        if args.taille:
+            w, h = (int(v) for v in args.taille.lower().split("x"))
+        elif ecran:
+            w, h = ecran["largeur"], ecran["hauteur"]
+        else:
+            w, h = 192, 192
+        em = Emetteur.vers_tete(ip, port, w, h, **kw)
+        print(f"image {w}×{h} en PXL2 — l'écran la place lui-même")
+    else:
+        if fmt == FMT_IDX2:
+            sys.exit("idx2 exige PXL2 (--cible) : le firmware v1 ne le lit pas")
+        layout = args.layout or Path("layout-1x1.toml")
+        if not layout.exists():
+            sys.exit(f"disposition introuvable : {layout}")
+        em = Emetteur.depuis_layout(layout, **kw)
+        print(f"image {em.largeur}×{em.hauteur}, {len(em.noeuds)} nœud(s), PXL1")
+        for n in em.noeuds:
+            print(f"  {n}")
+    octets_trame = {FMT_BGR888: em.largeur * 3, FMT_IDX8: em.largeur,
+                    FMT_IDX2: (em.largeur + 3) // 4}[em.format] * em.hauteur
     print(f"  format {args.format} — {octets_trame} octets par trame, "
           f"{octets_trame * 8 * args.fps / 1e6:.2f} Mbit/s à {args.fps:g} img/s")
     if args.luminosite:
         em.regler_luminosite(args.luminosite)
         print(f"  luminosité de base réglée à {args.luminosite}")
-    if em.format == FMT_IDX8:
+    if em.format in (FMT_IDX8, FMT_IDX2):
         em.maj_palette(force=True)
-        print("  palette envoyée (cube 6×6×6 + 40 gris)")
+        print("  palette envoyée ("
+              + ("cube 6×6×6 + 40 gris" if em.format == FMT_IDX8 else "4 gris") + ")")
     if args.perte or args.desordre:
         print(f"  ⚠ injection : {args.perte:g} % de perte, "
               f"{args.desordre:g} % de désordre")
