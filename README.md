@@ -25,8 +25,6 @@ n'est commencé.
 |---|---|
 | [`Spec_Gameboy_Pocket_Destructuree.md`](Spec_Gameboy_Pocket_Destructuree.md) | La spécification initiale : quatre modules WiFi autour d'un émulateur. |
 | [`Spec_Video_Sniffer_et_Matrice_LED.md`](Spec_Video_Sniffer_et_Matrice_LED.md) | La chaîne vidéo : l'image prise sur une vraie console plutôt que sur un émulateur. |
-| [`Guide_Mods_Gameboy_Pocket.md`](Guide_Mods_Gameboy_Pocket.md) | Les mods matériels courants de la Game Boy Pocket, indépendamment de ce projet. |
-| [`BOM_Gameboy_Pocket_Combo_Ultime.xlsx`](BOM_Gameboy_Pocket_Combo_Ultime.xlsx) | Liste d'achats d'un combo de mods : écran IPS Q5, USB-C, audio, coque. |
 
 Les deux spécifications sont les documents de départ. Là où elles divergent de la
 documentation d'un module, c'est le module qui fait foi : ses mesures les ont corrigées.

@@ -211,7 +211,7 @@ Par ordre de préférence :
 
 1. **Les pastilles du ruban LCD sur la carte mère** — pas le plus fin, accessible, et le LCD
    d'origine reste connecté (la console continue de fonctionner normalement).
-2. **Les points du mod « bivert »** — le mod bivert (cf. `Guide_Mods_Gameboy_Pocket.md` §1)
+2. **Les points du mod « bivert »** — le mod bivert
    consiste précisément à intercaler un inverseur sur `LD0` et `LD1`. Les tutos bivert pour
    MGB documentent donc déjà l'emplacement exact de deux de tes cinq signaux. Excellent point
    de départ.
@@ -497,7 +497,7 @@ qui dégradera… les signaux LCD que tu essaies de capturer. Effet de bord vici
 niveaux logiques n'ont pas de référence. Une seule liaison de masse, dans le faisceau des
 signaux.
 
-Si tu as installé le mod batterie USB-C (cf. `Guide_Mods_Gameboy_Pocket.md` §2), tu as un
+Si tu as installé le mod batterie USB-C, tu as un
 rail 3,3 V bien plus stable : les niveaux logiques deviennent propres et constants. **C'est
 un vrai argument pour faire ce mod en premier.**
 

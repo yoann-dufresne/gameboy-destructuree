@@ -157,7 +157,7 @@ Par ordre de préférence :
 1. **Les broches du connecteur `P2`** — c'est le point retenu. Leurs soudures sont exposées
    sur le bord du connecteur côté CPU, et l'écran d'origine reste branché : la console
    continue de fonctionner, ce qui est la condition pour déboguer.
-2. **Les points du mod « bivert »** — le bivert (cf. `../Guide_Mods_Gameboy_Pocket.md` §1)
+2. **Les points du mod « bivert »** — le bivert
    consiste précisément à intercaler un inverseur sur `LD0` et `LD1`. Les tutos bivert pour
    MGB documentent donc déjà l'emplacement exact de **deux de nos cinq signaux**. Excellent
    point de départ, et une vérification croisée gratuite de l'identification du §3.2.
