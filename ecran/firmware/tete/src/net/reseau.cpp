@@ -42,12 +42,20 @@
 #include "lwip/udp.h"
 #include "lwip/ip_addr.h"
 
+/* Serveur DHCP vendorisé, écrit en C sans garde extern "C". */
+extern "C" {
+#include "dhcpserver.h"
+}
+
 namespace {
 
 constexpr decoupe::Canevas CANEVAS{CANEVAS_W, CANEVAS_H, RANGEE_H};
 
 udp_pcb *pcb = nullptr;
 reseau::Stats compteurs{};
+#if !WIFI_STATION
+dhcp_server_t serveur_dhcp;
+#endif
 char ip_texte[16] = "0.0.0.0";
 
 bool associe = false;
@@ -546,10 +554,12 @@ void sur_paquet(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t port)
     pbuf_free(p);
 }
 
+#if WIFI_STATION
 void noter_ip() {
     std::snprintf(ip_texte, sizeof(ip_texte), "%s",
                   ip4addr_ntoa(netif_ip4_addr(netif_default)));
 }
+#endif
 
 } // namespace
 
@@ -568,10 +578,6 @@ bool connecter() {
         printf("  cyw43_arch_init : ECHEC\n");
         return false;
     }
-    cyw43_arch_enable_sta_mode();
-
-    /* LE levier de latence. Sans cela, 10 à 100 ms s'ajoutent à chaque image. */
-    cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
 
     cyw43_arch_lwip_begin();
     pcb = udp_new();
@@ -584,6 +590,29 @@ bool connecter() {
         return false;
     }
 
+#if !WIFI_STATION
+    /* Point d'accès : l'écran émet son réseau, les sources le rejoignent. Plus
+     * de box entre elles et lui, ni de ses gels : jusqu'à 120 ms, dans plus
+     * d'une tranche de 10 s sur deux, mesuré le 29/09/2026. */
+    cyw43_wifi_ap_set_channel(&cyw43_state, ECRAN_CANAL_WIFI);
+    cyw43_arch_enable_ap_mode(ECRAN_SSID, ECRAN_MOT_DE_PASSE, CYW43_AUTH_WPA2_AES_PSK);
+
+    ip_addr_t passerelle, masque;
+    IP4_ADDR(ip_2_ip4(&passerelle), 192, 168, 4, 1);
+    IP4_ADDR(ip_2_ip4(&masque), 255, 255, 255, 0);
+    cyw43_arch_lwip_begin();
+    dhcp_server_init(&serveur_dhcp, &cyw43_state.netif[CYW43_ITF_AP], &passerelle, &masque);
+    cyw43_arch_lwip_end();
+    std::snprintf(ip_texte, sizeof(ip_texte), "%s", ip4addr_ntoa(ip_2_ip4(&passerelle)));
+    associe = true;
+    printf("  reseau « %s » emis sur le canal %d\n", ECRAN_SSID, ECRAN_CANAL_WIFI);
+    return true;
+#else
+    cyw43_arch_enable_sta_mode();
+
+    /* LE levier de latence. Sans cela, 10 à 100 ms s'ajoutent à chaque image. */
+    cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
+
     printf("  association a « %s »...\n", WIFI_SSID);
     if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
                                            CYW43_AUTH_WPA2_AES_PSK, 30000)) {
@@ -595,10 +624,12 @@ bool connecter() {
     noter_ip();
     associe = true;
     return true;
+#endif
 }
 
-/* Surveille le lien et relance une association quand il tombe — repris du
- * module capture (26/09/2026). L'association est ASYNCHRONE : la version
+/* Point d'accès : signale l'arrivée et le départ des sources. Station :
+ * surveille le lien et relance une association quand il tombe — repris du
+ * module capture (26/09/2026) ; l'association est ASYNCHRONE, la version
  * bloquante gèle la boucle principale jusqu'à 30 s. */
 void entretenir() {
     /* Sans paquet entrant pour l'emporter, l'accusé part d'ici. */
@@ -613,6 +644,25 @@ void entretenir() {
         return;
     t_surveillance_ms = maintenant;
 
+#if !WIFI_STATION
+    static int sources_avant = 0;
+    /* ⚠️ Avec un tableau d'adresses nul, le pilote rend le nombre MAXIMAL de
+     * stations, pas celui des connectées : il faut lui donner de la place. */
+    constexpr int SOURCES_MAX = 8;
+    uint8_t macs[6 * SOURCES_MAX];
+    int sources = SOURCES_MAX;
+    cyw43_arch_lwip_begin();
+    cyw43_wifi_ap_get_stas(&cyw43_state, &sources, macs);
+    cyw43_arch_lwip_end();
+    if (sources != sources_avant) {
+        if (sources > sources_avant)
+            compteurs.reconnexions += (uint32_t)(sources - sources_avant);
+        else
+            compteurs.deconnexions += (uint32_t)(sources_avant - sources);
+        printf("\n  %d source(s) connectee(s) au reseau « %s »\n", sources, ECRAN_SSID);
+        sources_avant = sources;
+    }
+#else
     cyw43_arch_lwip_begin();
     const int etat = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
     cyw43_arch_lwip_end();
@@ -634,6 +684,7 @@ void entretenir() {
     if (etat == CYW43_LINK_JOIN || etat == CYW43_LINK_NOIP)
         return; /* une association est déjà en cours */
     cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
+#endif
 }
 
 void annoncer() {

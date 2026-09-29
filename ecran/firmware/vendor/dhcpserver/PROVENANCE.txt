@@ -1,0 +1,14 @@
+dhcpserver — serveur DHCP minimal pour lwIP
+  Amont  : https://github.com/raspberrypi/pico-examples
+           pico_w/wifi/access_point/dhcpserver/
+           lui-même issu de MicroPython (lib/netutils/dhcpserver.c)
+  Commit : 0d62f75bafc2c8120d3276c3343d1a9195e909e9 (pico-examples)
+  Date   : 2026-09-03
+  Licence: MIT — Copyright (c) 2018-2019 Damien P. George (voir LICENSE)
+  Récupéré le : 29/09/2026
+
+Contenu : dhcpserver.c, dhcpserver.h, LICENSE. Fichiers non modifiés.
+
+Rôle : la tête du module écran émet son propre réseau WiFi (point d'accès).
+Les sources qui s'y connectent reçoivent leur adresse de ce serveur, dans
+192.168.4.16 à 192.168.4.23 ; la tête est en 192.168.4.1.

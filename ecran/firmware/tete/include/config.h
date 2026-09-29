@@ -25,6 +25,22 @@
 #endif
 #define RANGEE_H   (CANEVAS_H / NB_RANGEES)
 
+/* -------------------------------------------------------------- réseau */
+/* L'écran émet son propre WiFi : les sources s'y connectent directement,
+ * sans box entre elles et lui (décision du 29/09/2026). Nom et mot de passe
+ * du réseau dans secrets.h (ECRAN_SSID, ECRAN_MOT_DE_PASSE) ; la tête est en
+ * 192.168.4.1, et distribue aux sources des adresses de 192.168.4.16 à .23.
+ *
+ * Canal 2,4 GHz : 1, 6 ou 11 pour ne chevaucher qu'un minimum de voisins.
+ * La box du banc émet sur le canal 4, qui déborde de 2 à 6 : 11 l'évite.
+ *
+ * WIFI_STATION (option CMake) : l'ancien mode, où la tête rejoint la box
+ * (WIFI_SSID, WIFI_PASSWORD). Gardé pour comparer les deux. */
+#ifndef WIFI_STATION
+#define WIFI_STATION 0
+#endif
+#define ECRAN_CANAL_WIFI 11
+
 /* Formats relayés vers les nœuds : ceux qu'un nœud sait développer. RGB565 et
  * IDX4 se découpent déjà, ils s'ajouteront quand le nœud saura les lire. */
 #define FORMATS_ACCEPTES ((1u << 0) /* BGR888 */ | \

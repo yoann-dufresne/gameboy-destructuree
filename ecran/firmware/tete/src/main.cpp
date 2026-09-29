@@ -234,6 +234,11 @@ int main() {
             printf(" %s", nom_format(f));
     printf("\n protocoles  : PXL2, et PXL1 + CTRL_GEOMETRIE en compatibilite\n");
     printf(" clk_sys     : %lu MHz\n", (unsigned long)(clock_get_hz(clk_sys) / 1000000u));
+#if WIFI_STATION
+    printf(" wifi        : station — la tete rejoint la box\n");
+#else
+    printf(" wifi        : point d'acces, canal %d, adresse 192.168.4.1\n", ECRAN_CANAL_WIFI);
+#endif
     printf(" liaisons    : %d, horloge %d kHz (%d Mbit/s), garde RDY %d ms\n", NB_RANGEES,
            LIEN_HORLOGE_KHZ, 2 * LIEN_HORLOGE_KHZ / 1000, GARDE_RDY_US / 1000);
     printf("=================================================================\n\n");
