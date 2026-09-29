@@ -655,7 +655,7 @@ n'écrirait pas : **chaque octet du tampon est écrit à chaque trame**.
 | `include/pxl1.h` | copie conforme de `../../ecran`, + `PROVENANCE.txt` | **aucune modification** |
 
 ⚠️ `pxl1.h` est une **copie**. La tentation de « juste ajouter un champ pour le sniffer » est
-exactement ce qui casse la compatibilité entre deux dépôts. Si le protocole doit évoluer, il
+exactement ce qui casse la compatibilité entre deux modules. Si le protocole doit évoluer, il
 évolue **d'abord** dans `../ecran`, et on recopie.
 
 ### D.8 Prouver par l'image — deux instruments, dans cet ordre
@@ -740,7 +740,7 @@ close que sur le matériel réel.
 <a id="e"></a>
 ## E. Phase 3 — `IDX2` de bout en bout
 
-**Durée : 1 à 2 jours. Cette phase touche les deux dépôts.**
+**Durée : 1 à 2 jours.** Prévue sur les deux modules, elle est autonome depuis le 26/09/2026 : voir §E.0.
 
 ### E.0 Le récepteur de référence est un écran virtuel, pas la matrice
 
@@ -922,6 +922,11 @@ dans `config.h`, avec une réservation DHCP sur la box pour qu'elles ne bougent 
 > est réservé dans le protocole. Ce n'est pas la v1.
 
 ### E.8 ✅ Critère de sortie de la phase 3
+
+> ✅ **Atteint le 26/09/2026 sur l'écran virtuel**, récepteur de référence depuis la décision
+> du §E.0 : 59,71 img/s reçues, aucune trame incomplète, 2 218 trames capturées et autant
+> d'émises ([journal du firmware](../firmware/sniffer/JOURNAL.md)). Les cases ci-dessous
+> supposent la grille : elles reviennent à l'intégration avec le module écran.
 
 - [ ] La recette §E.4 est entièrement verte, **sans le sniffer**
 - [ ] Un jeu tourne sur la console et **s'affiche sur la grille** — suppose que le
