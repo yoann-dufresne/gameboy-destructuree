@@ -20,7 +20,7 @@ Version 1 — 22/09/2026
 | **Mise à l'échelle** | **aucune** — la trame native sort telle quelle | non |
 | **Périmètre de l'émetteur** | **la trame Game Boy brute, rien d'autre** : 160×144 en `IDX2`. Aucune connaissance de l'afficheur | non |
 | **Récepteur de référence** | un **écran virtuel sur PC**. Le sous-projet se valide de bout en bout **sans la matrice LED** | — |
-| **Langage** | **C++20**, pico-sdk 2.x bare-metal, PIO + DMA, 2 cœurs | non |
+| **Langage** | **C++20**, pico-sdk 2.x bare-metal, PIO + DMA, **un seul cœur** (§12, 26/09/2026) | non |
 | **`clk_sys`** | **150 MHz**, la valeur par défaut — pas les 266 MHz du module écran | oui |
 | **Alimentation** | **séparée de la console**, masses communes | non |
 
@@ -30,17 +30,17 @@ Version 1 — 22/09/2026
 > traversent le WiFi, 4 entrées de palette décident de la teinte à l'arrivée. Tout le
 > problème de ce sous-projet est le **timing de capture**, pas le traitement d'image.
 
-> ⚠️ **Ce qui n'est pas encore vrai** : `IDX2` est déclaré dans `pxl1.h` mais le firmware du
-> module ÉCRAN ne décode aujourd'hui que `BGR888` et `IDX8`. C'est la phase 3, et elle porte
-> pour partie sur l'autre dépôt.
+> ⚠️ **Côté module ÉCRAN** : le nœud v1 ne décode que `BGR888` et `IDX8`. C'est la tête v2,
+> firmware écrit le 29/09/2026 et pas encore mesuré, qui accepte ce flux `PXL1`/`IDX2`.
+> D'ici là, le récepteur de référence est l'écran virtuel sur PC (§12, 26/09/2026).
 
 ---
 
 ## 1. Objectif et périmètre
 
 **Ce qu'on construit :** un module qui se branche sur le bus LCD d'une Game Boy Pocket,
-reconstitue chaque trame 160×144 en 2 bits par pixel, et l'émet en UDP `PXL1` vers les trois
-nœuds du module ÉCRAN. La console continue de fonctionner normalement, son écran d'origine
+reconstitue chaque trame 160×144 en 2 bits par pixel, et l'émet en UDP `PXL1` vers un
+récepteur : l'écran virtuel sur PC, ou la tête du module ÉCRAN. La console continue de fonctionner normalement, son écran d'origine
 compris : **on écoute, on ne pilote rien**.
 
 **Ce qu'on ne construit pas :** le son, les boutons, l'habillage mécanique de l'ensemble, et
@@ -61,8 +61,8 @@ Ce sous-projet ne part pas de zéro. Acquis, mesurés, publiés dans `../ecran/`
 |---|---|---|
 | Protocole `PXL1` | en service depuis le 18/09/2026 | rien à concevoir : on écrit un émetteur, pas un protocole |
 | Latence bout en bout | **~8 ms** | il nous reste ~8 ms de budget pour tenir sous une trame |
-| Débit UDP encaissé par un Pico 2 W | **24,6 Mbit/s** | nos 1,5 Mbit/s par nœud sont hors sujet |
-| Découpage en nœuds | 3 rangées de 192×64 | la trame GB est à cheval sur les trois — voir §5.3 |
+| Débit UDP encaissé par un Pico 2 W | **24,6 Mbit/s** | nos 2,75 Mbit/s (§7) sont hors sujet |
+| Placement et répartition | assurés par la tête v2 depuis le 29/09/2026 | le sniffer n'a rien à savoir de l'afficheur — voir §5.3 |
 | Rafraîchissement de la dalle | 788 Hz | ajoute 1,3 ms au pire, négligeable |
 | Palette | transportée par paquet `CTRL`, hors du flux de pixels | les 4 teintes GB sont un réglage, pas une compilation |
 
@@ -79,6 +79,11 @@ Et trois pièges déjà payés, qu'on n'a pas à repayer :
 ---
 
 ## 3. Le signal à capturer
+
+> ⚠️ **Les §3.1 et §3.2 sont les hypothèses d'avant la mesure**, reprises de la spec. La
+> phase 0 en a contredit la plupart : l'horloge pixel est `CP` et non `CPG`, le verrou de
+> ligne est `P2-ST`, le départ de trame `P2-S`. La table qui fait foi est au §3bis de
+> [`signaux-mgb.md`](signaux-mgb.md).
 
 ### 3.1 Les cinq signaux
 
@@ -131,9 +136,15 @@ tolérant 5 V** : une entrée à 5 V détruit le Pico.
 | **≈ 2,4 – 3,3 V** (cas attendu sur MGB, 2×AAA) | 74LVC244 alimenté en 3,3 V. À piles usées (2,4 V) les niveaux deviennent marginaux : **le tampon est fortement conseillé**, pas optionnel |
 | **≈ 5 V** (cas DMG, ou révision inattendue) | **74LVC244 obligatoire**, alimenté en **3,3 V** : entrées tolérantes 5 V, sorties 3,3 V propres |
 
-Le 74LVC244A couvre les deux cas — c'est pour ça qu'il est au BOM par défaut. **Ne prends pas
+Le 74LVC244A couvre les deux cas — c'est pour ça qu'il était au BOM par défaut. **Ne prends pas
 de TXS0108 / TXB0108** : ces convertisseurs sont conçus pour de l'open-drain lent et se
 comportent mal sur du push-pull à plusieurs MHz.
+
+> ✅ **Tranché en phase 0** ([`signaux-mgb.md`](signaux-mgb.md) §1) : `VCC` n'est pas régulé,
+> il suit l'entrée — 3,1 V sur piles neuves, 2,2 V sur piles usées. Le tampon a ensuite été
+> abandonné (§12, 25/09/2026) : **liaison directe, 100 Ω en série**. Il reste une option si le
+> câble doit dépasser 20 cm, ou pour un portage sur DMG, en 5 V
+> ([`liste-achats.md`](liste-achats.md) §1).
 
 ### 3.4 Où souder, et comment
 
@@ -161,14 +172,15 @@ Par ordre de préférence :
 **Règles de câblage — ce sont elles qui décident si l'image d'origine survit :**
 
 - Le PPU attaque un panneau LCD avec une capacité d'attaque **faible**. Toute charge parasite
-  dégrade l'image d'origine. → **100 Ω en série** au départ de chaque prise, tampon en haute
-  impédance (74LVC244, ~5 pF d'entrée), **fils < 10 cm** jusqu'au tampon.
+  dégrade l'image d'origine. → **100 Ω en série** au départ de chaque prise, et un câble
+  **sous 20 cm** jusqu'au Pico : sans tampon, il pend directement sur le PPU, à ≈ 1 pF/cm
+  (§12, 25/09/2026).
 - **Une masse par paquet de signaux**, torsadée avec eux. Une masse unique et lointaine, à
   4 MHz sur du fil volant, sonne.
 - **Reprise d'effort obligatoire** : une goutte de colle chaude sur les six fils dès leur
   sortie de la carte. Un fil émaillé qui bouge arrache sa pastille — et la pastille ne
   revient pas.
-- **Connecteur débrochable** (JST-SH ou barrette 6 pts) entre la console et le module : on
+- **Connecteur débrochable** (JST-SH 8 points, §9) entre la console et le module : on
   voudra refermer la console, la déplacer, la débrancher.
 
 ### 3.5 Chemin de repli si la soudure fine bloque
@@ -185,10 +197,10 @@ Par ordre de préférence :
 |---|---|---|---|
 | **GP0** | LD0 | entrée | base du groupe `in pins` du PIO |
 | **GP1** | LD1 | entrée | contigu à GP0 : `in pins, 2` en **une** instruction |
-| **GP2** | CPG (horloge pixel) | entrée | `wait 1 gpio 2` dans le PIO |
-| **GP3** | CPL (HSYNC) | entrée | 2ᵉ machine d'état, ou IRQ GPIO |
-| **GP4** | ST / FR (VSYNC) | entrée | IRQ GPIO |
-| GP5 | *(réserve)* CP/CPV | entrée | si `CPL` se révèle capricieux |
+| **GP2** | `CP` (horloge pixel) | entrée | `wait 1 pin 2` / `wait 0 pin 2` dans le PIO |
+| **GP3** | `P2-ST` (verrou de ligne, 144 par trame) | entrée | IRQ GPIO : compte les lignes |
+| **GP4** | `P2-S` (départ de trame, VSYNC) | entrée | IRQ GPIO |
+| GP5 | *(réserve)* `P2-CPL` (horloge de ligne, 154 par trame) | entrée | si `P2-ST` se révèle capricieux |
 | GP16 / GP17 | UART0 TX / RX de debug | sortie/entrée | ⚠️ voir ci-dessous |
 | GP20 | mesure — bascule à chaque VSYNC capturée | sortie | analyseur logique, phase 4 |
 | GP21 | mesure — bascule à chaque trame émise | sortie | analyseur logique, phase 4 |
@@ -211,25 +223,27 @@ exactement l'erreur que le module écran a payée en phase 0 avec les adresses A
 ### 5.1 La chaîne
 
 ```
- CPG ──► PIO SM0 : wait 0 / wait 1 / in pins,2   (autopush 32 bits = 16 pixels)
+ CP  ──► PIO SM0 : wait 1 / wait 0 / in pins,2   (autopush 32 bits = 16 pixels)
                         │
                         ▼
                     DMA ──► framebuffer 160×144 IDX2, lignes contiguës
                         │
  P2-ST ► IRQ GPIO ──► compte les lignes (144), déclenche un paquet tous les 35
- P2-S  ► IRQ GPIO ──► bascule les tampons, réarme le DMA, réveille le cœur 1
+ P2-S  ► IRQ GPIO ──► bascule les tampons, réarme le DMA
 
- cœur 1 : lwIP + CYW43 ──► 3 × 3 paquets UDP PXL1/IDX2
+ cœur 0 : lwIP + CYW43 ──► 5 paquets UDP PXL1/IDX2 par trame
 ```
 
-- **PIO SM0** — boucle de 3 instructions : `wait 0 gpio 2` / `wait 1 gpio 2` / `in pins, 2`.
+- **PIO SM0** — boucle de 3 instructions : `wait 1 pin 2` / `wait 0 pin 2` / `in pins, 2`,
+  soit un échantillon sur le front **descendant** de `CP`, au milieu de la fenêtre stable
+  des données (mesuré en phase 0).
   À 150 MHz, une itération dure 20 ns ; l'horloge pixel culmine à ~4,2 MHz, soit 238 ns par
   pixel : **plus de 10× de marge.** Autopush à 32 bits = 16 pixels par mot, 10 mots par ligne.
 - **DMA** — le FIFO du PIO alimente la mémoire sans le CPU. Le CPU **ne touche aucun pixel**.
 - **IRQ VSYNC** — bascule les tampons, réarme le DMA, réveille l'émission.
-- **Cœur 1** — pile réseau (lwIP + CYW43). Séparer capture (cœur 0) et réseau (cœur 1) évite
-  que le WiFi ne fasse rater un front d'horloge. C'est le même découpage que le module écran,
-  pour la même raison.
+- **Réseau** — lwIP et CYW43, servis en arrière-plan sur le **cœur 0**. La capture n'occupe
+  aucun cœur : PIO et DMA travaillent seuls, et une coupure WiFi ne change pas sa cadence
+  (mesuré en phase 4). Le découpage en deux cœurs prévu ici a été abandonné (§12, 26/09/2026).
 
 ### 5.2 Le framebuffer : la trame native, et rien de plus
 
@@ -275,6 +289,9 @@ nœuds, ni le découpage. Il émet une trame Game Boy, vers un récepteur, point
 >
 > C'est un travail réel, à inscrire au plan du module écran. Le noter ici évite qu'il tombe
 > entre les deux sous-projets.
+>
+> ✅ Fait le 29/09/2026 : la tête v2 du module écran apprend la géométrie de la source par
+> `PXL1_CTRL_GEOMETRIE` (§5.4), la place et la répartit elle-même.
 
 ### 5.4 Annoncer la géométrie de la source
 
@@ -350,34 +367,38 @@ de 4 dans le désordre).
 
 **La palette** est envoyée par paquet `PXL1_TYPE_CTRL` / `PXL1_CTRL_PALETTE`, comme pour
 `IDX8` : 256 entrées B,G,R dont seules les 4 premières servent. Renvoyée toutes les 2 s, pour
-qu'un nœud redémarré la retrouve seul. C'est ce qui rend les teintes réglables sans
+qu'un récepteur redémarré la retrouve seul. C'est ce qui rend les teintes réglables sans
 recompiler : vert DMG, gris, bivert, ou n'importe quoi d'autre.
 
 ### 5.6 Ce qu'on écarte, et pourquoi
 
 | Option | Verdict |
 |---|---|
-| **Capture par interruption CPU sur CPG** | ❌ 4 MHz d'interruptions, ~240 ns par pixel pour entrer et sortir d'un handler. Impossible, et c'est précisément ce à quoi sert le PIO |
+| **Capture par interruption CPU sur l'horloge pixel** | ❌ 4 MHz d'interruptions, ~240 ns par pixel pour entrer et sortir d'un handler. Impossible, et c'est précisément ce à quoi sert le PIO |
 | **Lire la VRAM par le bus cartouche** | ❌ il faudrait reconstruire le PPU : fenêtre, sprites, priorités, registres. C'est écrire un émulateur pour ne pas souder cinq fils |
 | **Réduire ou mettre à l'échelle à la source** | ❌ l'émetteur sort la trame native. Toute transformation appartient à l'afficheur, qui seul connaît sa géométrie |
 | **RLE ou `IDX4`** | ❌ `IDX2` est déjà natif et plus compact. Compresser un format natif de 2 bits, c'est du travail pour rien |
 | **Générateur de bus LCD sur un 2ᵉ Pico, pour développer sans ouvrir la console** | 🔶 tentant, écarté en v1 : on validerait le firmware contre **nos propres hypothèses de timing**, pas contre la console. À garder comme repli si la soudure bloque |
 | **Faire transiter par un PC** | ❌ un saut de plus, une machine à allumer, et la latence mesurée du lien direct est déjà de ~8 ms |
-| **FreeRTOS** | ❌ même raison que sur le module écran : le timing dur est déjà en PIO/DMA, et il y a deux activités pour deux cœurs |
+| **FreeRTOS** | ❌ même raison que sur le module écran : le timing dur est déjà en PIO/DMA, et tout le reste tient sur un cœur |
 
 ---
 
 ## 6. Les phases
 
+Les phases 0 à 4 sont terminées. Leurs résultats sont dans [`signaux-mgb.md`](signaux-mgb.md),
+[`recette-cablage.md`](recette-cablage.md) et le [journal du firmware](../firmware/sniffer/JOURNAL.md).
+Le texte ci-dessous est le plan, corrigé là où la réalisation l'a contredit.
+
 ### Phase 0 — identification des signaux · ½ à 1 jour · 🔬 **aucune soudure définitive**
 
 Analyseur logique sur la carte MGB ouverte, alimentée par ses piles. On cherche les cinq
-fréquences du §3.2, on mesure VCC, et on relève la fréquence instantanée de `CPG`.
+fréquences du §3.2, on mesure VCC, et on relève la fréquence instantanée de l'horloge pixel.
 
 **Critère de sortie :**
 - les 5 signaux identifiés, chacun par **sa fréquence ET le test blanc/noir** ;
 - VCC mesuré, donc interface électrique tranchée (§3.3) ;
-- fréquence instantanée max de `CPG` relevée — elle valide (ou non) la marge du PIO ;
+- fréquence instantanée max de l'horloge pixel relevée — elle valide (ou non) la marge du PIO ;
 - polarité de `LD0/LD1` relevée : `00` est-il blanc ?
 - un relevé sauvegardé, annoté, versionné dans `docs/`.
 
@@ -387,14 +408,14 @@ fréquences du §3.2, on mesure VCC, et on relève la fréquence instantanée de
 
 ### Phase 1 — prise de signaux et interface électrique · 1 jour · 🔴 **irréversible**
 
-Soudure des six fils, 100 Ω en série, tampon 74LVC244 sur perfboard, connecteur débrochable,
+Soudure des six fils, 100 Ω en série sur perfboard, connecteur débrochable,
 reprise d'effort à la colle. Alimentation du sniffer **séparée**, masses communes.
 
 **Critère de sortie :**
 - la console démarre et joue normalement, module **branché** puis **débranché** ;
 - **son écran d'origine est intact** — pas de traînée, pas de contraste modifié. Comparer sur
   la même image, avant/après, en photo ;
-- les cinq signaux relevés **côté Pico** (après le tampon) sont propres : fronts nets, pas de
+- les signaux relevés **côté Pico**, au bout du câble, sont propres : fronts nets, pas de
   rebond, niveaux 3,3 V ;
 - on peut refermer la console.
 
@@ -410,31 +431,22 @@ bonne chose.
 - le PNG est **reconnaissable** : l'écran-titre d'un jeu, lisible, sans décalage ;
 - **59,73 trames/s** ± 0,1 ;
 - **0 ligne manquante et 0 ligne en trop sur 10 000 trames** — c'est ce compteur qui dira si
-  `CPL` suffit ou s'il faut basculer sur `CP/CPV` (GP5) ;
+  `P2-ST` suffit ou s'il faut basculer sur `P2-CPL` (GP5) ;
 - l'ordre des pixels dans l'octet est tranché (§5.5) et consigné.
 
-> Un décalage horizontal progressif = un front de `CPG` raté. Un décalage vertical = `CPL` ou
-> `ST`. Une image en groupes de 4 pixels désordonnés = l'ordre des bits. Les trois symptômes
+> Un décalage horizontal progressif = un front de `CP` raté. Un décalage vertical = `P2-ST` ou
+> `P2-S`. Une image en groupes de 4 pixels désordonnés = l'ordre des bits. Les trois symptômes
 > sont distincts : l'image est un bon instrument de diagnostic, contrairement au compteur de
 > trames du module écran, qui ne prouvait rien.
 
 ### Phase 3 — émission réseau · 1 à 2 jours · **autonome depuis le 26/09/2026**
 
-Deux moitiés, dans cet ordre :
+Émission de la trame en 5 paquets `PXL1`/`IDX2` (§5.4bis), plus la palette et la géométrie
+en `CTRL` toutes les 2 s, vers **l'écran virtuel** sur PC (§12, 26/09/2026). Recevoir `IDX2`
+côté module ÉCRAN ne fait plus partie de cette phase : c'est le rôle de la tête v2.
 
-1. **Côté ÉCRAN** : décoder `PXL1_FMT_IDX2` dans `reseau.cpp`. Le chemin `IDX8` existe déjà
-   (indexé + palette) ; il s'agit d'un dépaquetage 4 pixels par octet en amont, et d'ajuster
-   `charge_noeud()`. Éprouvé **sans la console**, avec `pixelpush --format idx2` — à ajouter
-   à l'émetteur PC, ce qui donne au passage un banc de test indépendant du sniffer.
-2. **Côté CAPTURE** : émission des 3 × 3 paquets par nœud, pipelinée selon §5.3, plus la
-   palette en `CTRL` toutes les 2 s.
-
-**Critère de sortie :** le jeu tourne sur la console et **s'affiche sur la grille**, à
-59,73 img/s, sans déchirure ni scintillement, pendant 10 minutes d'affilée.
-
-> Découper la phase ainsi permet de déboguer `IDX2` avec un émetteur PC maîtrisé avant d'y
-> ajouter l'inconnue de la capture. Deux inconnues à la fois, c'est une phase qui n'avance
-> pas.
+**Critère de sortie :** le jeu tourne sur la console et **s'affiche sur l'écran virtuel**, à
+59,73 img/s, sans trame perdue ([`etapes-detaillees.md`](etapes-detaillees.md) §E.8).
 
 ### Phase 4 — mesure · 1 jour
 
@@ -442,11 +454,11 @@ Deux moitiés, dans cet ordre :
   240 img/s, sur un changement brutal (menu qui s'ouvre). Compter les images.
 - **Latence interne** : GP20 (VSYNC capturée) et GP21 (trame émise) à l'analyseur, contre
   `PIN_MESURE_FLIP` du module écran. Trois horodatages, une chaîne complète.
-- **Taux de trames complètes** reçues par les trois nœuds, sur 10 minutes.
+- **Taux de trames complètes** reçues par le récepteur, sur 10 minutes.
 - **Consommation** du sniffer, et vérification que la console ne débite rien pour lui.
 
 **Cible :** sous **une trame GB (16,7 ms)** entre la fin de capture d'une ligne et son
-affichage. Le budget : 4,3 à 15,7 ms de remplissage selon le nœud, ~8 ms de réseau mesurés,
+affichage. Le budget : 3,8 à 15,7 ms de remplissage selon le paquet (§5.4bis), ~8 ms de réseau mesurés,
 1,3 ms de rafraîchissement.
 
 > ⚠️ Comme pour le module écran : **les latences ne se comparent qu'à conditions de lien
@@ -487,7 +499,7 @@ point le plus souvent négligé), alimentation définitive, cadre dessiné dans 
 | 0 · Identification | mesure | 5 signaux identifiés, VCC tranché | ½–1 j | 🟢 |
 | 1 · Prise de signaux | matériel | console intacte, signaux propres | 1 j | 🔴 |
 | 2 · Capture | C++ + PIO | PNG reconnaissable, 59,73 img/s | 2–3 j | 🟡 |
-| 3 · `IDX2` bout en bout | C++ + Python | le jeu s'affiche sur la grille | 1–2 j | 🟡 |
+| 3 · `IDX2` bout en bout | C++ + Python | le jeu s'affiche sur l'écran virtuel | 1–2 j | 🟡 |
 | 4 · Mesure | analyseur + caméra | latence < 16,7 ms | 1 j | 🟢 |
 | 5 · Intégration | mécanique | — | — | 🟢 |
 
@@ -499,12 +511,12 @@ point le plus souvent négligé), alimentation définitive, cadre dessiné dans 
 |---|---|---|---|
 | S1 | Raspberry Pi Pico 2 W | 1 | ⚠️ pas tolérant 5 V |
 | S2 | Game Boy Pocket MGB-001 fonctionnelle | 1 | 🔴 sera ouverte et modifiée |
-| S3 | 74LVC244A (ou 74LVC245A) + support | 1 | tampon haute impédance |
+| S3 | ~~74LVC244A (ou 74LVC245A) + support~~ | 0 | tampon haute impédance, abandonné le 25/09/2026 (§12) |
 | S4 | Résistance 100 Ω | 6 | en série, côté console — une par signal prélevé |
 | S5 | Résistance 10 kΩ | 2 | pull-down, si besoin constaté |
 | S6 | Fil émaillé 0,1–0,2 mm (Kynar / wire-wrap) | 1 rlx | soudures fines |
-| S7 | Connecteur JST-SH **8 pts** + embase | 1 paire | liaison débrochable. **6 signaux + 2 masses** : LD0, LD1, CP, P2-ST, P2-S, CPL(réserve). Une masse par paquet de 3, torsadée avec eux (§3.4) |
-| S8 | Perfboard + barrettes | 1 | carte du tampon, à loger DANS la console |
+| S7 | Connecteur JST-SH **8 pts** + embase | 1 paire | liaison débrochable. **6 signaux + 2 masses** : LD0, LD1, CP, P2-ST, P2-S, P2-CPL (réserve). Une masse par paquet de 3, torsadée avec eux (§3.4) |
+| S8 | Perfboard + barrettes | 1 | porte les 6 résistances, à loger DANS la console |
 | S11 | ~~Condensateur 100 nF~~ | 0 | servait au découplage du tampon, abandonné avec lui |
 | S9 | Alim USB 5 V ou powerbank | 1 | **séparée de la console** |
 | S10 | Colle chaude ou UV | — | reprise d'effort, obligatoire |
@@ -518,33 +530,41 @@ Ordre de grandeur, hors console et hors outillage : **40–60 €**.
 
 ---
 
-## 10. Arborescence cible
+## 10. Arborescence
 
 ```
 capture/
 ├── README.md
 ├── docs/
 │   ├── plan-firmware.md                ← ce document
-│   ├── signaux-mgb.md                  ← à écrire (phase 0) : relevés, photos, brochage réel
-│   └── releves/                         ← captures de l'analyseur logique
+│   ├── etapes-detaillees.md            ← la marche à suivre, étape par étape
+│   ├── signaux-mgb.md                  ← relevés de la phase 0 : le brochage qui fait foi
+│   ├── recette-cablage.md              ← recette de la phase 1
+│   ├── liste-achats.md
+│   └── releves/                        ← captures de l'analyseur logique, images obtenues
 ├── firmware/
 │   └── sniffer/
 │       ├── CMakeLists.txt
-│       ├── include/config.h            ← brochage, géométrie SOURCE (160×144)
-│       ├── include/pxl1.h              ← copie conforme de ../ecran (+ PROVENANCE.txt)
+│       ├── README.md, JOURNAL.md
+│       ├── PROVENANCE.txt              ← d'où viennent les fichiers copiés
+│       ├── include/config.h            ← brochage, géométrie SOURCE (160×144), cible réseau
+│       ├── include/pxl1.h              ← copie de ../ecran/firmware/commun/pxl1.h
+│       ├── include/secrets.h.example
 │       ├── src/main.cpp
-│       ├── src/capture.cpp             ← PIO + DMA + IRQ VSYNC
-│       └── src/net/{reseau.cpp,lwipopts.h}
+│       ├── src/capture.{pio,hpp,cpp}   ← PIO + DMA + IRQ
+│       └── src/net/{reseau.hpp,reseau.cpp,lwipopts.h}
 └── tools/
-    ├── console.py                      ← console série (DTR)
-    ├── flash.sh                        ← flash UF2
-    ├── gbdump.py                       ← trame 160×144 → PNG (phase 2)
-    └── pxl1recv.py                     ← nœud factice sur PC, affiche ce qu'on émet (phase 3)
+    ├── console.py, flash.sh, sniffer.py   ← dialogue avec le firmware
+    ├── gbdump.py                          ← trame 160×144 → PNG (phase 2)
+    ├── ecran_virtuel.py                   ← récepteur de référence sur PC (phase 3)
+    ├── pxl1_envoi.py                      ← émetteur de test, pour l'écran virtuel
+    └── analyse_sr.py, sonde.sh, simuler_bus_gb.py   ← outillage de la phase 0
 ```
 
-> `pxl1.h` est **dupliqué**, pas partagé : les deux sous-projets sont deux dépôts git
-> indépendants. La duplication est assumée, avec un `PROVENANCE.txt` qui dit d'où vient le
-> fichier et à quelle date. Un lien symbolique entre deux dépôts est pire.
+> `pxl1.h` est **dupliqué**, pas partagé : chaque module se construit seul, sans dépendre de
+> l'arborescence de l'autre. La duplication est assumée, avec un `PROVENANCE.txt` qui dit
+> d'où vient le fichier et à quelle date. La définition de référence du protocole reste
+> celle du module écran.
 
 ---
 
@@ -553,12 +573,12 @@ capture/
 | Risque | Gravité | Parade |
 |---|---|---|
 | Arracher une pastille de la carte MGB | 🔴 élevée | Colle chaude dès la sortie des fils, connecteur débrochable, fil émaillé souple |
-| Dégrader l'image d'origine par la charge ajoutée | 🟡 | 100 Ω en série, tampon haute impédance, fils < 10 cm. Photo avant/après |
-| Détruire le Pico par une entrée 5 V | 🔴 | **Mesurer VCC avant de brancher** (§3.3). Le 74LVC244 alimenté en 3,3 V couvre les deux cas |
+| Dégrader l'image d'origine par la charge ajoutée | 🟡 | 100 Ω en série, câble sous 20 cm. Photo avant/après |
+| Détruire le Pico par une entrée 5 V | 🔴 | **Mesurer VCC avant de brancher** (§3.3) : 3,1 V au plus sur MGB. Un portage sur DMG, en 5 V, exigerait le tampon |
 | Identifier le mauvais signal | 🟡 | Fréquence **et** test blanc/noir. Le mod bivert confirme LD0/LD1 indépendamment |
-| `CPL` capricieux (absent, dédoublé) | 🟡 | GP5 en réserve pour `CP/CPV` ; compteur de lignes par trame en phase 2 |
+| `P2-ST` capricieux (absent, dédoublé) | 🟡 | GP5 en réserve sur `P2-CPL` ; compteur de lignes par trame en phase 2 |
 | Ordre des bits inversé dans l'octet `IDX2` | 🟢 | Se voit immédiatement à l'image ; `channel_config_set_bswap()` corrige sans coût |
-| Le WiFi fait rater un front d'horloge | 🟡 | Capture sur le cœur 0, réseau sur le cœur 1 — le découpage qui a fonctionné sur le module écran |
+| Le WiFi fait rater un front d'horloge | 🟡 | La capture ne dépend d'aucun cœur : PIO et DMA. Vérifié en phase 4 : cadence inchangée pendant une coupure WiFi |
 | Antenne du Pico contre une masse | 🟡 | Placement vérifié en phase 5, avant fermeture définitive |
 | Alimenter le sniffer depuis les piles de la console | 🔴 | Alimentation séparée. Masses communes, **jamais les VCC** |
 
