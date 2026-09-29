@@ -1,456 +1,155 @@
-# Phases 2 et 3 — capture et émission ✅
+# Firmware sniffer
 
-*Terminée le 26/09/2026. Tous les critères de sortie sont atteints.*
+Firmware du Raspberry Pi Pico 2 W du module capture. Il échantillonne le bus LCD de
+la Game Boy Pocket, reconstitue chaque image de 160×144 pixels en `IDX2`, et l'émet
+en `PXL1` vers un récepteur UDP.
 
-Firmware du module CAPTURE. Échantillonne le bus LCD de la Game Boy et
-reconstitue la trame 160×144 en 2 bits par pixel. **Pas de réseau** : cette
-phase prouve par l'image.
+Présentation du module, matériel, construction et flashage : [README du module](../../README.md).
+Mesures, recettes et incidents : [JOURNAL.md](JOURNAL.md).
 
-```bash
-export PICO_SDK_PATH=~/pico/pico-sdk
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-../../tools/flash.sh build/sniffer.uf2
-```
+## Configuration
 
-## Découpage
-
-| | |
+| Fichier | Contenu |
 |---|---|
-| `include/config.h` | **tout ce qui vient d'une mesure**, avec la mesure qui le justifie |
-| `src/capture.pio` | les 3 instructions, et pourquoi elles sont dans cet ordre |
-| `src/capture.hpp` | la façade : `init()`, `trame_prete()`, `stats()` |
-| `src/capture.cpp` | PIO, DMA, les 2 interruptions, le double tampon |
-| `src/main.cpp` | recette de phase 2 : vidages et compteurs |
+| `include/secrets.h` | nom et mot de passe du réseau WiFi, code pays. À créer depuis `secrets.h.example` ; ignoré par git |
+| `include/config.h` | **`PXL1_CIBLE_IP`**, l'adresse du récepteur. Aussi : brochage, palette, mode d'émission par défaut. Chaque valeur mesurée y est justifiée par sa mesure |
 
-**Le CPU ne touche aucun pixel.** Le PIO échantillonne, le DMA écrit, le
-processeur compte des lignes et réarme un pointeur une fois par trame — dans
-une fenêtre de VBlank de 1,09 ms, soit 163 000 cycles pour un travail qui en
-demande quelques dizaines.
+Le récepteur écoute sur le port UDP 4242. Ce peut être un PC qui fait tourner
+[`tools/ecran_virtuel.py`](../../tools/ecran_virtuel.py), ou tout afficheur qui parle `PXL1`.
 
-## Les trois instructions, et la mesure derrière chacune
+## Brochage
 
-```
-wait 1 pin 2          ; garantit qu'on verra le prochain front descendant
-wait 0 pin 2 [0]      ; front DESCENDANT
-in   pins, 2          ; LD0 et LD1
-```
+| Broche du Pico | Point de test de la console | Signal |
+|---|---|---|
+| GP0 | `P2-LD0` | donnée, bit 0 |
+| GP1 | `P2-LD1` | donnée, bit 1 |
+| GP2 | `CP` | horloge pixel |
+| GP3 | `P2-ST` | verrou de ligne, 144 par image |
+| GP4 | `P2-S` | départ d'image (VSYNC) |
+| GP5 | `P2-CPL` | horloge de ligne, 154 par image — en réserve |
+| GP20, GP21 | — | sorties de mesure pour l'analyseur : bascule à chaque image capturée, à chaque image émise |
 
-🔬 **Phase 0** : `LD` change sur le front **montant** de l'horloge pixel —
-209 des 256 transitions à +0 échantillon, 47 à +1, aucune au-delà. Le front
-montant est donc exactement l'instant de la transition.
+GP0 à GP2 doivent rester contigus : le PIO les lit comme un groupe. L'identification
+des signaux, mesurée sur la carte, est dans
+[`docs/signaux-mgb.md`](../../docs/signaux-mgb.md) §3bis.
 
-Le temps haut de l'horloge étant de **125 ns** et sa période de **238 ns**, le
-front **descendant** tombe au milieu de la fenêtre stable : 75 ns de marge
-avant, 113 ns après. D'où l'inversion des deux `wait`, et d'où le délai nul.
+## Au démarrage
 
-## Un seul canal DMA
+La console passe par l'USB : l'UART par défaut du SDK est sur GP0 et GP1, occupés par
+les données.
 
-Les lignes du framebuffer sont **contiguës** (40 octets, sans trou), donc les
-frontières de ligne sont implicites : **1 440 mots, un transfert, une trame.**
+Le firmware attend d'abord **3 secondes** : une touche pressée pendant ce délai démarre
+**sans réseau**. La capture et la console fonctionnent alors normalement. C'est la porte
+de sortie si le WiFi bloque le démarrage : on garde de quoi reflasher sans avoir à
+appuyer sur BOOTSEL.
 
-> Une version antérieure du plan prévoyait deux canaux chaînés déroulant une
-> table de 144 adresses, parce qu'une ligne de 40 octets devait aller dans un
-> canevas de 48. Cette mécanique a disparu le 25/09/2026, quand l'émetteur est
-> devenu agnostique de l'afficheur.
+Ensuite, le Pico s'associe au WiFi et commence à émettre. S'il perd le réseau, il tente
+de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capture et
+état du réseau s'affichent toutes les 5 secondes.
 
-⚠️ Le DMA compte des **mots**, pas des lignes. Un front d'horloge pixel raté
-décale tout et ne se rattrape jamais dans la trame. D'où le compteur
-d'intégrité sur `P2-ST` : **144 impulsions par trame**, mesuré en phase 0.
-
-## L'ordre de la séquence VSYNC n'est pas négociable
-
-1. relever le compte de lignes (intégrité)
-2. **arrêter le DMA**, relever ce qu'il n'a pas écrit
-3. **puis** vider le FIFO et redémarrer le PIO
-4. **puis** basculer le tampon
-5. réarmer, relancer
-
-Vider le FIFO avant d'arrêter le PIO le laisserait le remplir à nouveau.
-Basculer le tampon avant d'arrêter le DMA le laisserait écrire dans la trame
-qu'on publie — une déchirure intermittente, donc pénible à trouver.
-
-## Console USB
-
-⚠️ GP0/GP1 portent `LD0`/`LD1` : l'UART par défaut du SDK est inutilisable.
-Même piège que sur le module écran, où ils portaient R1/G1.
-
-```bash
-../../tools/console.py
-```
+## Commandes de la console
 
 | Touche | Effet |
 |---|---|
-| `a` | vidage **ASCII** 80×72 — ne demande aucun outil |
-| `p` | vidage **hexadécimal**, consommé par `tools/gbdump.py` |
-| `s` | compteurs |
+| `a` | image en ASCII, 80×72 caractères : aucun outil nécessaire |
+| `p` | image en hexadécimal, lue par `tools/gbdump.py` |
+| `s` | compteurs de capture |
+| `n` | état du réseau et compteurs d'émission |
+| `l` | histogramme de l'aller-retour réseau |
+| `g` | état brut des 6 entrées : pour vérifier qu'un fil est bien branché |
+| `r` | remise à zéro des compteurs |
+| `d` | rupture volontaire de l'association WiFi, pour éprouver la reconnexion |
+| `P` | bascule entre émission simple et émission pipelinée, et remet les compteurs à zéro |
 | `h` | aide |
 
-Les compteurs s'affichent seuls toutes les 5 s.
+[`tools/sniffer.py`](../../tools/sniffer.py) envoie ces commandes depuis un script.
 
-## Les compteurs, et ce qu'un écart révèle
+## Lire les compteurs
 
 | Compteur | Attendu | Un écart signifie |
 |---|---|---|
-| `cadence` | **59,73 img/s** | 29,86 ⇒ on déclenche sur un signal à moitié fréquence |
-| `lignes/trame` | **144** | `P2-ST` manque des impulsions, ou en invente |
-| `trames douteuses` | **0** | idem, cumulé |
-| `mots restants` | **0** | des fronts d'horloge pixel manquent : délai mal réglé, ou front mal choisi |
-| `débordements FIFO` | **0** | le DMA ne suit pas — ne devrait jamais arriver avec 30 µs de marge |
-| `trames perdues` | — | la boucle principale n'a pas lu assez vite ; sans conséquence en phase 2 |
+| `cadence` | 59,73 img/s | 29,86 : la capture se déclenche sur un signal à mi-fréquence |
+| `lignes/trame` | 144 | `P2-ST` manque des impulsions, ou en invente |
+| `trames douteuses` | 0 | idem, cumulé sur toutes les images |
+| `mots restants` | 0 | des fronts d'horloge pixel ont été manqués : mauvais front ou délai d'échantillonnage |
+| `debordements FIFO` | 0 | le DMA ne suit pas le PIO |
+| `trames perdues` | — | des images capturées n'ont pas été lues par la boucle principale |
+| `tranches perdues` | 0 | en mode pipeliné, la file des paquets à émettre a débordé |
 
-## Faire une image
+Côté réseau (`n`) : images et paquets émis, échecs d'envoi, commandes émises (palette
+et géométrie), état du lien, déconnexions et reconnexions, accusés reçus du récepteur,
+et aller-retour minimal, moyen et maximal.
+
+Au démarrage, ou quand la console est rallumée, quelques images douteuses sont
+normales : la capture a repris au milieu d'une image. `r` remet les compteurs à zéro ;
+une erreur qui apparaît ensuite est réelle. La table symptôme → cause complète est dans
+[`docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
+
+## Obtenir une image
 
 ```bash
-../../tools/gbdump.py --echelle 4                  # gris
-../../tools/gbdump.py --palette dmg                # les 4 verts d'origine
-../../tools/gbdump.py --palette diag               # une couleur franche par indice
+../../tools/gbdump.py --echelle 4       # en gris, 640×576
+../../tools/gbdump.py --palette dmg     # les 4 verts de la Game Boy d'origine
+../../tools/gbdump.py --palette diag    # une couleur franche par valeur de pixel
 ```
 
-> 🔑 **L'instrument ne peut pas mentir.** Contrairement au module écran, dont le
-> compteur de trames annonçait 788 Hz parfaitement stables pendant que la dalle
-> était noire, ici : si l'image est reconnaissable, la chaîne est juste.
+La palette `diag` rend visible au premier coup d'œil une erreur d'ordre des bits.
 
-La palette `diag` rend une erreur d'ordre de bits immédiatement visible — chaque
-indice a sa couleur.
+## Sources
 
-## Recette — résultats du 26/09/2026
-
-Console : Game Boy Pocket MGB-ECPU-01, alimentation de laboratoire à 3,2 V,
-Pokémon Version Rouge. Liaison directe, sans tampon, 6 fils + masse.
-
-```
-  cadence          59.723 img/s   (attendu 59,727)  sur 181 s
-  trames            10828
-  lignes/trame        144        (attendu 144)
-  trames douteuses      0
-  mots restants         0
-  debordements FIFO     0
-  trames perdues        0
-```
-
-| Critère | Mesure | |
-|---|---|---|
-| Image reconnaissable | **écran de titre Pokémon Version Rouge, pixel exact** | ✅ |
-| Cadence | **59,723 img/s**, écart **0,007 %** | ✅ |
-| Lignes par trame | **144** sur **10 828 trames** | ✅ |
-| Trames douteuses | **0** | ✅ |
-| Mots restants | **0** — le DMA n'a jamais manqué un front | ✅ |
-| Débordements FIFO | **0** | ✅ |
-
-> 🔑 **Ce qui prouve la chaîne, c'est le petit texte.** « ©1995-1999 GAME FREAK inc. »
-> est parfaitement lisible dans le PNG. Une erreur d'un seul pixel — front mal choisi,
-> octet inversé, décalage de bit — l'aurait réduit en bouillie. Voir
-> [`../../docs/releves/phase2-premiere-trame.png`](../../docs/releves/phase2-premiere-trame.png).
-
-**Transitoire de démarrage.** Le premier essai montrait 8 trames douteuses et
-4 débordements FIFO, tous **figés** — le DMA armé au milieu d'une trame rend les
-premières incomplètes. La commande `r` a été ajoutée pour le démontrer plutôt que
-le supposer : après remise à zéro, 10 828 trames sans une seule erreur.
-
-## Deux bugs trouvés en éprouvant le firmware
-
-**1. `GP5` jamais initialisée.** `capture::init()` appelait `gpio_init()` sur GP3 et
-GP4 mais pas sur GP5, la réserve. Sans cet appel l'entrée du pad reste désactivée et
-`gpio_get()` renvoie 0 quoi qu'il arrive sur le fil. Le diagnostic annonçait donc
-« fil non branché » sur un câblage sain.
-
-> ⚠️ **Un diagnostic qui ment est pire qu'un diagnostic absent** : il envoie démonter
-> ce qui marche. Corrigé, `GP5` donne 1 840 transitions sur 100 ms — l'attendu étant
-> 9 196 Hz × 2 × 0,1 = 1 839.
-
-**2. Cadence mesurée sur une fenêtre d'une seconde.** Elle ne rendait que des entiers,
-59 ou 60, et ne permettait pas de vérifier les 59,727 attendus. Moyennée sur toute la
-durée d'observation, la résolution tombe à 0,017 img/s sur 60 s.
-
-## Cycle d'extinction de la console — 26/09/2026
-
-Le cas d'usage réel : dans une installation, la console et le Pico ne
-s'allumeront jamais exactement en même temps.
-
-**Protocole** : compteurs remis à zéro, ligne de base propre (657 trames,
-0 erreur), console coupée ~10 s, rallumée, puis observation.
-
-| Observation | Résultat |
+| Fichier | Rôle |
 |---|---|
-| Pendant la coupure | compteurs **gelés**, aucun plantage. Le PIO reste bloqué sur son `wait` |
-| Au rallumage | **5 trames douteuses, 5 débordements** — le transitoire attendu, le DMA étant armé au milieu d'une trame |
-| **Resynchronisation** | **automatique**, sans intervention |
-| Après remise à zéro | **3 566 trames, 0 erreur**, cadence **59,728** (écart 0,002 %) |
-| **Image** | **correcte, non décalée** — voir `phase2-apres-cycle.png` |
+| `include/config.h` | tout ce qui vient d'une mesure, avec la mesure qui le justifie |
+| `include/pxl1.h` | le protocole, copié du module écran (voir `PROVENANCE.txt`) |
+| `src/capture.pio` | le programme PIO : trois instructions |
+| `src/capture.hpp`, `src/capture.cpp` | PIO, DMA, interruptions, double tampon, file des tranches |
+| `src/net/reseau.hpp`, `src/net/reseau.cpp` | WiFi, émission `PXL1`, accusés, reconnexion, mesure de latence |
+| `src/net/lwipopts.h` | configuration de la pile réseau lwIP |
+| `src/main.cpp` | démarrage, boucle principale, console |
 
-> 🔑 **La cadence moyenne affichée pendant l'essai — 55,769 — n'était pas un défaut.**
-> 9 537 trames à 59,727 img/s représentent 159,7 s de fonctionnement ; l'observation
-> durait 171 s. La différence, **11,3 s**, est exactement la durée de la coupure. Une
-> moyenne qui inclut un trou n'est pas une cadence dégradée.
+## Conception
 
-> ℹ️ Détail qui confirme que la capture est **vivante** : l'écran de titre affiche
-> Chenipan sur la première trame et Pikachu après le cycle. Il fait défiler ses
-> sprites — ce n'est pas une trame figée en cache.
+**Le processeur ne touche aucun pixel.** Le PIO échantillonne, le DMA écrit en mémoire.
+Le processeur compte les lignes et réarme le DMA une fois par image, pendant les 1,09 ms
+où l'écran ne reçoit rien (VBlank).
 
-## Endurance — 30 minutes, 26/09/2026
-
-Compteurs remis à zéro, relevé toutes les 5 secondes, journal complet conservé.
+**Échantillonner sur le front descendant.** Le programme PIO attend un front descendant
+de l'horloge pixel, puis lit `LD0` et `LD1` :
 
 ```
-  cadence          59.727 img/s   (attendu 59,727)  sur 1812 s
-  trames           108233
-  lignes/trame        144
-  trames douteuses      0
-  mots restants         0
-  debordements FIFO     0
-  trames perdues        0
+wait 1 pin 2          ; garantit qu'on verra le prochain front descendant
+wait 0 pin 2 [0]      ; front descendant
+in   pins, 2          ; LD0 et LD1
 ```
 
-> 🔑 **363 relevés, et les quatre compteurs d'erreur n'ont jamais pris d'autre
-> valeur que 0.** Pas « terminé à zéro » : *jamais* rien d'autre, à aucun des
-> 363 instants observés. C'est l'intérêt d'avoir gardé le journal plutôt que le
-> seul total — « 3 erreurs » et « 3 erreurs d'un coup à la 22ᵉ minute » ne se
-> diagnostiquent pas pareil.
+Les données changent sur le front montant ; le front descendant tombe au milieu de
+leur fenêtre de stabilité, avec 75 ns de marge avant et 113 ns après.
 
-| Grandeur | Valeur |
-|---|---|
-| Trames | **108 233** en 1812 s, croissance monotone |
-| Cadence finale | **59,727 img/s** — la valeur théorique à trois décimales |
-| Cadence, après convergence de la moyenne | min **59,725**, max **59,738**, amplitude **0,013** |
-| Image après 30 min | **correcte** — `phase2-apres-30min.png` |
+**Un seul transfert DMA par image.** Les 144 lignes de 40 octets sont contiguës en
+mémoire : 1 440 mots de 32 bits, un transfert. Le DMA compte des mots, pas des lignes :
+un front d'horloge manqué décalerait tout le reste de l'image. D'où le contrôle
+d'intégrité : `P2-ST` doit battre 144 fois par image.
 
-## Émission réseau — phase 3, 26/09/2026
+**L'ordre de la séquence VSYNC compte.** À chaque départ d'image, dans cet ordre :
 
-Le sniffeur émet la trame native en `PXL1`/`IDX2` vers **un** récepteur. Le
-récepteur de référence est `tools/ecran_virtuel.py` sur le PC.
+1. relever le compte de lignes ;
+2. arrêter le DMA, relever ce qu'il n'a pas écrit ;
+3. vider la FIFO et redémarrer le PIO ;
+4. basculer le tampon ;
+5. réarmer et relancer.
 
-```
-  reseau           192.168.1.84  ->  192.168.1.73:4242
-  trames emises      2218
-  paquets           11128        (5 par trame)
-  echecs d'envoi        0
-  commandes            38        (palette + geometrie)
-  accuses recus      2000        (90 % des trames)
-  aller-retour     min 4.56   moy 6.23   max 54.26 ms   sur 1991 mesures
-```
+Vider la FIFO avant d'arrêter le PIO le laisserait la remplir à nouveau. Basculer le
+tampon avant d'arrêter le DMA le laisserait écrire dans l'image qu'on publie : une
+déchirure intermittente, difficile à trouver.
 
-Côté écran virtuel, sur la même fenêtre : **59,71 img/s, 0 incomplète, 0 rejet,
-0 resync, 2,79 Mbit/s**. Et côté capture : **2 218 capturées = 2 218 émises =
-0 perdue.**
+**Émission par tranches.** Une image de 5 760 octets part en 5 paquets UDP de
+1 400 octets au plus, soit 35 lignes chacun. En mode pipeliné (par défaut), une tranche
+part dès que ses 35 lignes sont capturées, sans attendre la fin de l'image. La palette
+et la géométrie sont renvoyées toutes les 2 secondes, pour qu'un récepteur redémarré
+retrouve seul de quoi interpréter le flux.
 
-Preuve de bout en bout : `../../docs/releves/phase3-bout-en-bout.png` — l'image
-est en vert DMG, teintes transmises par `PXL1_CTRL_PALETTE`, donc le chemin des
-commandes fonctionne aussi.
+**Tout tourne sur le cœur 0.** PIO et DMA travaillent sans processeur, et la pile
+réseau est servie en arrière-plan. Le second cœur reste libre.
 
-### ⚠️ Tout tourne sur le cœur 0 — le plan avait tort
-
-Le plan §5.1 prévoyait « capture sur le cœur 0, réseau sur le cœur 1 ». C'est
-inutile : **la capture n'a pas besoin d'un cœur.** PIO et DMA travaillent seuls,
-et les deux interruptions s'exécutent de toute façon sur le cœur qui les a
-armées.
-
-Pire, c'était nuisible : `cyw43_arch_init` appelé depuis le cœur 1 n'a pas
-démarré, et `multicore_launch_core1` ne rend la main que si le cœur 1 signale
-son départ. Résultat : cœur 0 bloqué, **console morte, bascule 1200 bauds
-impossible**, et un BOOTSEL physique pour reprendre la main.
-
-Le module écran sert lwIP sur le cœur 0 depuis le début. Il aurait fallu
-reprendre ce qui était validé plutôt que suivre une ligne du plan écrite avant
-qu'on sache tout ça.
-
-### 🔑 La porte de sortie au démarrage
-
-```
-[ une touche dans les 3 s = demarrer SANS reseau ]
-```
-
-Écrite juste après s'être fait avoir. Une touche pendant ces trois secondes
-démarre sans réseau : la capture continue, la console reste vivante, et on garde
-de quoi reflasher. **Un blocage réseau ne peut plus rendre le Pico
-inaccessible.**
-
-### Deux corrections d'instrument, du même genre que les précédentes
-
-**La latence était mesurée par un filtre IIR** (`moy = (moy×7 + dt)/8`), et
-`reinitialiser()` le préservait d'un régime à l'autre. Ça a donné « instantané
-3,11 ms, moyenne 29,49 ms » — deux chiffres qui ne peuvent pas être vrais
-ensemble. Remplacé par min / vraie moyenne / max sur un nombre d'échantillons
-affiché, plus un compteur de mesures écartées : **un instrument qui jette des
-mesures en silence n'est pas un instrument.**
-
-**L'horodatage se fait maintenant AVANT le premier paquet**, pas après le
-dernier : l'accusé peut revenir en 4,5 ms, donc avant qu'on ait fini de pousser
-les cinq. La mesure inclut le temps d'émission, ce qui est le délai qu'on veut
-réellement connaître.
-
-### Le seul transitoire restant
-
-À la première mesure, 641 trames perdues sur 941. Elles datent toutes de
-l'**association WiFi** : la boucle principale est bloquée dans
-`cyw43_arch_wifi_connect_timeout_ms` pendant ~11 s, alors que la capture, elle,
-tourne (PIO, DMA, interruptions). 11 s × 59,7 = 657, ce qui colle. Après remise
-à zéro : **0 perdue**.
-
-## Phase 4 — latence décomposée et distribuée, 26/09/2026
-
-### B · La décomposition, sur 3 920 trames
-
-```
-  attente  capture->envoi  min   0.00  moy   0.01  max   0.14 ms
-  envoi    5 paquets       min   1.89  moy   1.94  max   2.54 ms
-  aller-retour envoi->acc  min   4.47  moy   7.68  max 160.64 ms
-```
-
-**La boucle principale prend la trame en 0,01 ms.** Sa réactivité n'est pas un
-sujet, et on peut cesser de la soupçonner.
-
-> ⚠️ **Pousser 5 paquets coûte 1,94 ms, et j'en avais estimé 0,3.** Un facteur 6.
-> C'est ~0,39 ms par `udp_sendto` — `pbuf_alloc`, la recopie de 1 400 octets, et
-> la liaison SPI vers le CYW43. Ça ne bloque rien à 59,7 img/s (11,6 % de la
-> période), mais ça pèse dans le budget de latence, et l'estimation ne le
-> voyait pas.
->
-> Piste si ça devient limitant : `PBUF_REF` au lieu de `PBUF_RAM` éviterait la
-> recopie. Le double tampon garantit que la trame reste valide 16,7 ms, bien
-> au-delà du besoin.
-
-### A · L'histogramme de l'aller-retour, 3 778 mesures
-
-```
-      4 ms |                                             59   1.56 %
-      5 ms |########################################   2448  64.80 %
-      6 ms |############                                778  20.59 %
-      7 ms |##                                          141   3.73 %
-      8 ms |##                                          143   3.79 %
-      9..31|  (étalé)                                   ~120   3.2 %
-   >=32 ms |#                                            81   2.14 %
-```
-
-| | |
-|---|---|
-| **91 %** des trames | sous 9 ms |
-| ~3 % | entre 9 et 32 ms |
-| **2,14 %** | **au-delà de 32 ms**, max 160,64 ms |
-
-**La queue est réelle mais mince** : environ **1,3 trame par seconde** arrive en
-retard. C'est le comportement du WiFi 2,4 GHz avec ses retransmissions, et rien
-côté Pico ne le corrigera.
-
-> ℹ️ Ces trames-là ne sont pas **perdues** : le récepteur n'a compté qu'**une**
-> trame incomplète sur 3 937. Elles arrivent, en retard. Sur un afficheur, ça se
-> voit comme une micro-saccade occasionnelle, pas comme un trou.
-
-### Le budget de latence qui en découle
-
-| Poste | Moyenne | Meilleur cas | Source |
-|---|---|---|---|
-| Attente de fin de trame | **8,97 ms** | 1,19 ms | arithmétique : `16,74 − L × 0,109` |
-| Boucle principale | 0,01 ms | 0,00 | mesuré |
-| Émission des 5 paquets | 1,94 ms | 1,89 ms | mesuré |
-| WiFi, aller simple | ~3,8 ms | ~2,2 ms | aller-retour / 2 |
-| **Total** | **~14,8 ms** | **~5,3 ms** | |
-
-> 🔑 **La moyenne passe tout juste sous une trame (16,74 ms), et le poste
-> dominant reste l'attente de fin de trame — 61 % du total.** Ce n'est ni le
-> WiFi, ni le Pico.
->
-> **L'émission pipelinée** (un paquet dès ses 35 lignes capturées, §E.5
-> variante 2) ramènerait ce poste de 8,97 à **1,9 ms**, soit un total moyen de
-> **~7,7 ms**. Le compteur de lignes sur `P2-ST` existe déjà : c'est un `if`.
-
-## Phase 4 C — robustesse, 26/09/2026
-
-### ⚠️ Le trou noir : il n'y avait aucune reconnexion
-
-Constat de **lecture de code**, pas d'essai : si l'AP disparaissait, `udp_sendto`
-échouait indéfiniment et rien ne reprenait jamais. Dans une installation qui
-tourne des heures, ça arrive.
-
-Ajouté : surveillance du lien toutes les secondes, et réassociation
-**asynchrone** — `cyw43_arch_wifi_connect_timeout_ms` bloque jusqu'à 30 s, et
-c'est exactement ce qui a fait perdre 641 trames au démarrage.
-
-Et surtout, **une commande `d` qui rompt volontairement l'association** : une
-panne qu'on ne sait pas provoquer est une panne qu'on ne sait pas corriger.
-
-### C1 · Coupure WiFi provoquée
-
-```
-  rupture VOLONTAIRE de l'association
-  reseau PERDU (etat 0) — la capture continue
-     cadence 59.754 img/s      <-- inchangée pendant toute la coupure
-  reseau RETABLI : 192.168.1.84
-  deconnexions 1   reconnexions 1
-```
-
-| | |
-|---|---|
-| Détection | **< 1 s** |
-| Rétablissement | **~5 s**, même adresse IP |
-| **Cadence de capture pendant la coupure** | **59,73 à 59,75 img/s — inchangée** |
-| Échecs d'envoi | 35, tous pendant la coupure, figés ensuite |
-
-> 🔑 **La capture n'a pas bronché.** PIO, DMA et interruptions ne dépendent pas
-> du réseau — c'était l'hypothèse de conception, elle est maintenant vérifiée au
-> lieu d'être supposée.
-
-### C2 · Le récepteur disparaît et revient
-
-Écran virtuel tué 8 secondes, puis relancé :
-
-| | Avant | Après |
-|---|---|---|
-| Cadence | 59,80 img/s | **59,82 img/s** |
-| Incomplètes, retards, resyncs, rejets | 0 | **0, 0, 0, 0** |
-
-Le récepteur reprend **sans une seule erreur**. Côté sniffeur, l'émission n'a
-jamais cessé : `echecs d'envoi` est resté à 35, car un envoi UDP vers un hôte
-qui n'écoute pas ne fait pas échouer `udp_sendto`.
-
-## Phase 4 D — l'émission pipelinée, 26/09/2026
-
-Une tranche part **dès que ses 35 lignes sont capturées**, au lieu d'attendre la
-fin de la trame. Le découpage de 1 400 octets tombe exactement sur 35 lignes de
-40, donc l'interruption de ligne sait quand une tranche est complète.
-
-> ⚠️ J'avais annoncé « c'est un `if` ». C'est faux : il faut émettre depuis le
-> tampon **en cours de remplissage**, donc une file de tranches alimentée par
-> les interruptions et drainée par la boucle principale. Les octets d'une
-> tranche ne sont plus touchés d'ici la fin de la trame, ce qui rend la chose
-> sûre — mais ce n'est pas un `if`.
-
-### Les deux modes, dos à dos sur la même console
-
-| | Simple | **Pipeliné** |
-|---|---|---|
-| Attente de fin de trame *(arithmétique)* | 8,97 ms | **1,96 ms** |
-| Émission sur le chemin critique | 1,89 ms *(5 paquets)* | **0,39 ms** *(le dernier)* |
-| Aller-retour, dernier paquet → accusé | 4,50 ms | **3,53 ms** |
-| Aller-retour, maximum | 84,79 ms | **46,52 ms** |
-| **Latence totale moyenne** | **~13,1 ms** | **~4,1 ms** |
-| Cadence | 59,725 img/s | 59,742 img/s |
-| Trames douteuses / perdues / tranches perdues | 0 / 0 / 0 | **0 / 0 / 0** |
-| Récepteur : incomplètes | 0 sur 2 688 | 1 sur 6 275 |
-
-**Facteur 3,2 sur la latence**, et l'image reste exacte — voir
-`../../docs/releves/phase4-pipeline.png`.
-
-> 🔑 **L'aller-retour s'améliore aussi, et je ne l'avais pas prévu** : 4,50 →
-> 3,53 ms de moyenne, 84,79 → 46,52 ms au maximum. Étaler les 5 paquets sur la
-> trame au lieu de les envoyer en rafale réduit la congestion instantanée, et le
-> WiFi encaisse mieux. Le gain ne vient donc pas seulement de l'attente
-> supprimée.
-
-Le mode est **commutable à chaud** par la commande `P`, ce qui a permis de
-mesurer les deux dans les mêmes conditions — même console, même image, même
-lien WiFi, à une minute d'intervalle. Une comparaison entre deux séances
-n'aurait rien valu : le 2,4 GHz varie au fil de la journée.
-
-## Critère de sortie de la phase 2
-
-- [x] Le vidage ASCII montre un écran **reconnaissable**
-- [x] Le PNG est net : pas de décalage, pas de cisaillement, pas de groupes de 4 inversés
-- [x] **59,73 img/s** ± 0,1 → **59,723**
-- [x] **144 lignes/trame sur 10 000 trames** → **10 828**, `trames douteuses` = 0
-- [x] `mots restants` = 0 et `débordements` = 0 sur la même durée
-- [x] L'image reste correcte après un **cycle d'extinction** de la console
-- [x] L'image reste correcte après **30 min** de capture continue
-
-La table de diagnostic symptôme → cause est dans
-[`../../docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
+Les décisions et leur justification sont dans le
+[plan de réalisation](../../docs/plan-firmware.md).
