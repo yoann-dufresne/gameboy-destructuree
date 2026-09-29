@@ -5,10 +5,10 @@ WiFi, les place dans le canevas de 192 × 192 pixels et les découpe par rangée
 nœuds d'affichage. Son rôle dans l'architecture est décrit dans le
 [README du module](../../README.md#architecture).
 
-**État : phase 5a, firmware écrit, pas encore mesuré sur matériel.** Rien ne sort encore
-vers les nœuds : les segments qui leur sont destinés sont comptés, pas émis. Cette étape
-mesure le seul chiffre qui pourrait remettre l'architecture en cause : une image 192 × 192 en
-IDX8 à 60 images/s reçue par une seule antenne ([§4.4 du plan](../../docs/plan-firmware.md)).
+**État : phase 5a atteinte le 29/09/2026.** Une seule antenne reçoit une image 192 × 192 en
+IDX8 à 60 images/s, 0,003 % de perte sur 10 minutes : le chiffre qui pouvait remettre
+l'architecture en cause ([§4.4 du plan](../../docs/plan-firmware.md)) est acquis. Rien ne sort
+encore vers les nœuds : les segments qui leur sont destinés sont comptés, pas émis (phase 5b).
 
 ## Construire et utiliser
 
@@ -41,9 +41,11 @@ brute de lwIP, fenêtre de resynchronisation de 8 images, même `lwipopts.h`, m�
 - **Pas de tampon d'image.** La tête ne garde pas les pixels, elle compte des positions.
   Elle occupe 99 ko de RAM sur 520, lwIP compris : il reste la place des tampons des
   liaisons de la phase 5b.
-- **Une image est complète quand tous ses octets sont arrivés, dans n'importe quel ordre.**
-  La v1 publiait à l'arrivée de la tranche marquée « dernière », et une tranche retardée
-  derrière elle faisait perdre l'image.
+- **Une image est complète quand toutes ses tranches sont arrivées, dans n'importe quel
+  ordre.** La v1 publiait à l'arrivée de la tranche marquée « dernière », et une tranche
+  retardée derrière elle faisait perdre l'image.
+- **Les doublons sont écartés**, reconnus à leur offset : le WiFi en livre quelques-uns par
+  minute, et compter les octets aurait déclaré complète une image incomplète.
 - **La première image reçue n'est plus perdue.** En v1, une image numéro 0 arrivant en
   premier passait pour une retardataire.
 - **Reconnexion WiFi automatique**, reprise du module capture : l'association est relancée
@@ -85,24 +87,6 @@ cd ../../tools/pixelpush
 Puis le sniffer lui-même, sans modification : il suffit de pointer sa cible (`PXL1_CIBLE_IP`)
 sur l'adresse de la tête.
 
-| Critère | Attendu | Mesuré |
-|---|---|---|
-| IDX8 192 × 192 à 60 images/s | 60 images/s, environ 17,7 Mbit/s | à mesurer |
-| Perte sur 10 minutes | moins de 0,1 % | à mesurer |
-| Pixels par image et par rangée, 192 × 192 | 12 288 / 12 288 / 12 288 | à mesurer |
-| Pixels par image et par rangée, Game Boy | 6 400 / 10 240 / 6 400 | à mesurer |
-| Sniffer en PXL1, sans modification | images comptées, accusés reçus | à mesurer |
-
-Le rapport de la console, toutes les 10 s :
-
-```
-  600 images (60,00/s)  17,68 Mbit/s  perte 0,00 %   paquets 16230 (PXL1 0)
-    rejets 0  hors canevas 0  format refuse 0  sans geometrie 0  retard. 0  resync 0  ctrl 5  ping 0
-    assemblage (us)   moy  ....  min  ....  max  ....
-    pixels par image et par rangee : 12288/ 12288/ 12288   segments par image 29,00
-    source : 192x192 IDX8 en PXL2
-```
-
-**Si le débit ne tient pas**, les replis sont IDX8 à 30 images/s ou IDX4 à 60. Ce serait une
-limite de la radio ou de lwIP, pas de l'architecture de distribution, mais il faut le savoir
-avant de câbler les liaisons.
+La console rend compte toutes les 10 s : cadence, débit, perte, doublons écartés, temps de
+réassemblage, et pixels par image et par rangée — ce que chaque nœud recevra. Résultats et
+enquêtes : [`JOURNAL.md`](JOURNAL.md).

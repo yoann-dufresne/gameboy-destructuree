@@ -780,7 +780,7 @@ La v1 prévoyait ici « `CHAIN_LEN 3`, straps, fil de synchro : une centaine de 
 révision du 29/09/2026 (§2.2 bis) la découpe en trois étapes, **chacune mesurable seule**, dans
 l'ordre du risque : d'abord le chiffre qui peut tout remettre en cause.
 
-#### Phase 5a — la tête seule · ≈ 1 jour · 🔨 firmware écrit le 29/09/2026
+#### Phase 5a — la tête seule · ≈ 1 jour · ✅ **atteinte le 29/09/2026**
 
 **Firmware :** `firmware/tete/`. C'est le firmware réseau des phases 2–4 **sans le HUB75** :
 même pile (lwIP raw, économie d'énergie coupée), même réassemblage avec fenêtre de
@@ -804,6 +804,23 @@ reçu tel quel, découpé en 144 lignes centrées.
 
 **Si le débit ne tient pas :** IDX8 à 30 img/s, ou IDX4 à 60 — le protocole les prévoit.
 C'est le seul résultat qui remettrait en cause l'architecture, d'où sa place en tête.
+
+✅ **Atteint** — détail dans `firmware/tete/JOURNAL.md`. **60,00 img/s en IDX8 192×192,
+17,69 Mbit/s, 1 image abandonnée sur 36 001 en 10 minutes (0,003 %)**, et encore : aucun
+paquet perdu, une tranche arrivée après le début de l'image suivante. 12 288 pixels exacts par
+rangée ; Game Boy simulée placée en (16, 24), 6 400 / 10 240 / 6 400. BGR888 tenu à
+25 img/s (22,1 Mbit/s). **L'architecture v2 est confirmée.**
+
+Deux enseignements pour la suite :
+
+- **Le WiFi livre des doublons**, 146 en 10 minutes. La complétion par comptage d'octets
+  (celle de la v1) aurait déclaré complète une image incomplète : la tête suit désormais les
+  offsets reçus.
+- **La latence d'une image est d'abord son temps de traversée de l'air** : ≈ 29,5 Mbit/s en
+  rafale dans ce montage, soit 9,9 ms pour une image IDX8 pleine et 1,4 ms pour une image
+  Game Boy. Aller-retour médian vu du PC : 13 ms en IDX8.
+
+Reste à faire, sans urgence : le sniffer réel en `PXL1`, et `clk_sys` à 150 MHz.
 
 #### Phase 5b — une liaison, un nœud, une dalle · 2 à 3 jours
 
@@ -869,7 +886,7 @@ protocole plutôt que comme sa raison d'être.
 | 2 · Protocole + réception | C++ | lwIP raw, cyw43 | ✅ 60 img/s, ~0,05 % de perte, 18/09/2026 | 2–3 j |
 | 3 · Émetteur PC | Python | — | ✅ 7 sources + injection, 18/09/2026 | 1–2 j |
 | 4 · Mesure | C++ + Python | — | ✅ ~8 ms de latence, 24,6 Mbit/s, 18/09/2026 | 2 j |
-| 5a · Tête seule | C++ | lwIP raw, cyw43 | IDX8 192×192 à 60 img/s, < 0,1 % de perte | 1 j |
+| 5a · Tête seule | C++ | lwIP raw, cyw43 | ✅ IDX8 192×192 à 60 img/s, 0,003 % de perte, 29/09/2026 | 1 j |
 | 5b · Liaison, 1 nœud | C++ + PIO asm | PIO, DMA, CRC du sniffer DMA | ≤ 9 ms, 0 erreur CRC | 2–3 j |
 | 5c · Passage à 3×3 | C++ + mécanique | idem | 192×192 sans déchirure | 3–5 j |
 | 6 · Game Boy | — | — | 1:1, rien à écrire | — |
@@ -937,6 +954,8 @@ ecran/
 | 29/09/2026 | Liaison PIO 2 bits ~16 MHz, nappe 10 points en étoile, VSYNC + RDY | 32 Mbit/s > 24,6 reçus par WiFi : la nappe n'est jamais le goulot. RDY transforme un nœud en retard en saut d'image commun, pas en déchirement |
 | 29/09/2026 | Pixels relayés dans leur format reçu, au fil de l'eau | La nappe transporte le volume de l'air ; +0,35 ms de latence seulement |
 | 29/09/2026 | Phase 5 découpée en 5a (tête) → 5b (liaison) → 5c (3×3) | Le débit IDX8 192×192 sur une seule antenne est le seul chiffre qui peut remettre l'architecture en cause : on le mesure en premier |
+| 29/09/2026 | **Phase 5a atteinte : une antenne tient l'IDX8 192×192 à 60 img/s**, 0,003 % de perte sur 10 min | L'architecture v2 est confirmée sur matériel |
+| 29/09/2026 | Complétion d'une image par offsets reçus, pas par octets comptés | Le WiFi livre des doublons (146 en 10 min) : compter les octets déclarait complète une image incomplète |
 | 18/09/2026 | IDX8 implémenté | Sur lien dégradé, il reçoit 60 img/s là où BGR888 tombe à 10 — la robustesse, pas seulement le débit |
 | 18/09/2026 | Phase 4 terminée : latence ~8 ms, débit UDP 24,6 Mbit/s | Deux mesures de latence indépendantes concordent à 0,3 ms |
 | 18/09/2026 | Le facteur limitant du 3×3 est **l'air**, pas le Pico | Le Pico encaisse 24,6 Mbit/s ; c'est le total des trois nœuds sur 2,4 GHz qui ne passe pas en BGR888 |

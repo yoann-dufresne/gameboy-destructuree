@@ -123,6 +123,6 @@ cmake --build build
 | 3 · Émetteur PC | ✅ 18/09/2026 — 7 sources, injection de défauts |
 | 4 · Mesure | ✅ 18/09/2026 — latence d'environ 8 ms, 24,6 Mbit/s reçus par un Pico |
 | Révision v2 : une tête et trois nœuds | ✅ 29/09/2026 — [§2.2 bis du plan](docs/plan-firmware.md) |
-| 5a · La tête seule | 🔨 firmware écrit le 29/09/2026, à mesurer sur matériel |
+| 5a · La tête seule | ✅ 29/09/2026 — IDX8 192 × 192 à 60 images/s sur une antenne, 0,003 % de perte |
 | 5b · Une liaison, un nœud | à venir |
 | 5c · Passage à 3 × 3 | à venir |
