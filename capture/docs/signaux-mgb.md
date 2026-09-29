@@ -135,15 +135,15 @@ Voir [`liste-achats.md`](liste-achats.md).
 
 ## 3. Les captures
 
-Deux captures, et c'est **volontaire** — un seul taux ne peut pas répondre aux
-deux questions (`etapes-detaillees.md` §B.3) :
+Deux taux, et c'est **volontaire** — un seul ne peut pas répondre aux deux questions
+(`etapes-detaillees.md` §B.3) : 4 MS/s pour les cadences et les silences, 24 MS/s pour
+l'horloge pixel et les données.
 
-| Fichier | Taux | Durée | À quoi elle sert |
-|---|---|---|---|
-| `releves/rapide.sr` | 24 MS/s | ~4 trames (67 ms) | `CPG` : structure en salves, période minimale. `LD0/LD1` |
-| `releves/lente.sr` | 4 MS/s | ~30 trames (500 ms) | `CPL`, `CP`, `ST`, `FR` : cadences et silences |
-| `releves/blanc.sr` | 24 MS/s | ~4 trames | test §B.5, écran **blanc** |
-| `releves/noir.sr` | 24 MS/s | ~4 trames | test §B.5, écran **noir** |
+Le plan prévoyait deux captures des six voies, `lente.sr` et `rapide.sr`. En pratique,
+chaque point de test a été capturé séparément, à 4 MS/s et, quand il le fallait, à 24 MS/s
+(suffixe `-rapide`). S'y ajoutent `donnees.sr`, qui réunit `LD0`, `LD1` et `CP`, et le test
+blanc/noir (§B.5) : `blanc.sr` et `noir.sr`. Ce que contient chaque fichier :
+[`releves/README.md`](releves/README.md).
 
 ---
 
@@ -257,8 +257,9 @@ décorative.
 ## 4. Dépouillement
 
 ```bash
-./tools/analyse_sr.py docs/releves/lente.sr     # CPL / CP / ST
-./tools/analyse_sr.py docs/releves/rapide.sr    # CPG / LD0 / LD1
+./tools/analyse_sr.py docs/releves/p2-st.sr                               # un point de test
+./tools/analyse_sr.py docs/releves/donnees.sr                             # LD0, LD1 et CP
+./tools/analyse_sr.py --comparer docs/releves/blanc.sr docs/releves/noir.sr   # test blanc/noir
 ```
 
 **Attribution retenue** (coller ici le tableau produit par l'outil, puis

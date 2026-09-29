@@ -231,6 +231,10 @@ un bus à 3 V, et même à 2,4 V piles usées, il lit sans problème et sans ris
 | 11 | Relever le **déphasage `LD` / `CPG`** §B.7 | 🔬 délai du PIO |
 | 12 | Tout consigner dans `docs/signaux-mgb.md` | — |
 
+> ℹ️ **Ce qui a été fait le 25/09/2026** : un point de test à la fois, d'où une capture par
+> signal plutôt que `lente.sr` et `rapide.sr`. Les fichiers réels sont décrits dans
+> [`releves/README.md`](releves/README.md).
+
 > 🔑 **Pourquoi deux captures et pas une.** Elles ne répondent pas à la même question, et
 > aucun taux unique ne fait les deux :
 >
