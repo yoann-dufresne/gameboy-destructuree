@@ -25,13 +25,14 @@ include(${CMAKE_CURRENT_LIST_DIR}/../vendor/hub75-jupfu/hub75-jupfu.cmake)
 
 add_executable(ecran
     src/main.cpp
-    src/display.cpp
+    ../commun/affichage/display.cpp
     src/net/reseau.cpp
 )
 
 target_include_directories(ecran PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/include
-    ${CMAKE_CURRENT_LIST_DIR}/../commun  # pxl1.h
+    ${CMAKE_CURRENT_LIST_DIR}/../commun            # pxl1.h
+    ${CMAKE_CURRENT_LIST_DIR}/../commun/affichage  # display.hpp
     ${CMAKE_CURRENT_LIST_DIR}/src/net   # lwipopts.h
 )
 

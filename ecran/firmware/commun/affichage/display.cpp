@@ -2,6 +2,9 @@
  * Module ÉCRAN — façade d'affichage, mise en œuvre
  *
  * Enveloppe le pilote HUB75 vendorisé (JuPfu, MIT — voir vendor/hub75-jupfu).
+ * Partagée par le nœud WiFi v1 (firmware/ecran) et le nœud v2
+ * (firmware/noeud) : chacun fournit son config.h. Les straps d'identité ne
+ * sont lus que si config.h définit PIN_NODE_ID_0 — la v1 seulement.
  */
 
 #include "display.hpp"
@@ -103,6 +106,10 @@ void core1_entry() {
 }
 
 uint8_t lire_straps() {
+#if !defined(PIN_NODE_ID_0)
+    /* Nœud v2 : pas de straps, l'identité vient du port de la tête (HELLO). */
+    return 0;
+#else
     /* Pull-up, strap vers la masse : une broche tirée à la masse vaut 1.
      * ⚠️ Errata RP2350-E9 — ne jamais utiliser de pull-down interne ici. */
     const uint pins[] = {PIN_NODE_ID_0, PIN_NODE_ID_1};
@@ -117,6 +124,7 @@ uint8_t lire_straps() {
         if (!gpio_get(pins[i]))
             id |= (1u << i);
     return id;
+#endif
 }
 
 } // namespace

@@ -43,7 +43,7 @@ bool occupe();
 /* Luminosité de base, 1 à 255. Plus haut = plus lumineux et moins rafraîchi. */
 void set_brightness(uint8_t basis);
 
-/* Identité du nœud lue sur les straps (0 à NODE_COUNT-1). */
+/* Identité du nœud lue sur les straps (0 à NODE_COUNT-1) ; 0 sans straps. */
 uint8_t node_id();
 
 } // namespace display

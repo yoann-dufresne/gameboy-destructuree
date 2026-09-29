@@ -29,7 +29,7 @@ Pour lui envoyer des images, [`pixelpush`](../../tools/pixelpush/README.md) **sa
 | Fichier | Rôle |
 |---|---|
 | `include/config.h` | tout ce qui dépend du matériel : brochage, géométrie, rendu, horloge. Aucune constante matérielle ailleurs |
-| `include/display.hpp`, `src/display.cpp` | la façade d'affichage — `init()`, `backbuffer()`, `present()`, `occupe()`, `node_id()` — au-dessus du pilote vendorisé |
+| [`../commun/affichage/`](../commun/affichage/) | la façade d'affichage, partagée avec le nœud v2 — `init()`, `backbuffer()`, `present()`, `occupe()`, `node_id()` — au-dessus du pilote vendorisé |
 | `include/reseau.hpp`, `src/net/reseau.cpp` | WiFi, réception PXL1, réassemblage, palette, accusés |
 | `src/net/lwipopts.h` | dimensionnement de la pile réseau lwIP |
 | `src/main.cpp` | recette de démarrage, puis boucle de réception et rapports |
