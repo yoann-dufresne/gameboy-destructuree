@@ -96,8 +96,9 @@ cmake --build build
 | [`firmware/phase0-bringup/`](firmware/phase0-bringup/README.md) | mires de validation du câblage d'une dalle |
 | [`firmware/phase1-clock-sweep/`](firmware/phase1-clock-sweep/README.md) | banc de mesure de l'horloge pixel, et diagnostic de l'écran noir |
 | [`firmware/ecran/`](firmware/ecran/README.md) | v1 : nœud WiFi autonome qui pilote une dalle, en PXL1 |
-| [`firmware/tete/`](firmware/tete/README.md) | v2 : la tête — réception PXL2 et PXL1, placement, découpe par rangée |
-| [`firmware/commun/`](firmware/commun/) | `pxl1.h` et `pxl2.h`, les en-têtes des protocoles, qui font foi pour tout le projet |
+| [`firmware/tete/`](firmware/tete/README.md) | v2 : la tête — réception PXL2 et PXL1, placement, découpe, relais vers les nœuds, synchronisation |
+| [`firmware/noeud/`](firmware/noeud/README.md) | v2 : un nœud d'affichage — liaison depuis la tête, publication au VSYNC |
+| [`firmware/commun/`](firmware/commun/) | `pxl1.h`, `pxl2.h` et `liaison.h`, les protocoles, qui font foi pour tout le projet ; `affichage/`, la façade d'affichage partagée par les nœuds |
 | [`firmware/vendor/hub75-jupfu/`](firmware/vendor/hub75-jupfu/PROVENANCE.txt) | pilote HUB75 de JuPfu (licence MIT), repris avec une modification signalée |
 | [`tools/pixelpush/`](tools/pixelpush/README.md) | émetteur pour PC : mires, images, GIF, vidéo, capture d'écran |
 | `tools/` | `flash.sh` et `console.py`, décrits ci-dessus |
@@ -124,5 +125,5 @@ cmake --build build
 | 4 · Mesure | ✅ 18/09/2026 — latence d'environ 8 ms, 24,6 Mbit/s reçus par un Pico |
 | Révision v2 : une tête et trois nœuds | ✅ 29/09/2026 — [§2.2 bis du plan](docs/plan-firmware.md) |
 | 5a · La tête seule | ✅ 29/09/2026 — IDX8 192 × 192 à 60 images/s sur une antenne, 0,003 % de perte |
-| 5b · Une liaison, un nœud | à venir |
+| 5b · Une liaison, un nœud | 🔨 firmware écrit le 29/09/2026 ; tête éprouvée seule, nœud à éprouver sur la dalle |
 | 5c · Passage à 3 × 3 | à venir |

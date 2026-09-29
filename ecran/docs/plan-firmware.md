@@ -190,11 +190,11 @@ APRÈS (v2)     WiFi (1 IP)        liaison filaire (nappe 10 pts)     HUB75
 TÊTE — Pico 2 W, aucune dalle              NŒUD k — Pico 2 (W), WiFi éteint
 ─────────────────────────────────          ──────────────────────────────────
 cœur 0 : cyw43 + lwIP raw                  PIO RX ← CLK, D0, D1, CS
-  réassemblage (reseau.cpp déplacé)        DMA → tampon de réception A|B
-  placement : 160×144 centré, etc.         CRC vérifié (sniffer DMA, gratuit)
+  réassemblage (reseau.cpp déplacé)        DMA sans fin → anneau → tampon A|B
+  placement : 160×144 centré, etc.         CRC vérifié, pixels comptés
   découpe : rangées 64k…64k+63 → Lk        front VSYNC → display::present()
-PIO TX ×3 + DMA ×3 (L0, L1, L2)            RDY = !display::occupe()
-VSYNC en sortie, RDY0..2 en entrée         cœur 1 : pilote JuPfu, inchangé
+cœur 1 : VALIDER, attente des RDY, VSYNC   RDY = image validée et pilote libre
+PIO TX ×3 + DMA ×3 (L0, L1, L2)            cœur 1 : pilote JuPfu, inchangé
 potentiomètre de luminosité (GP26)
 ```
 
@@ -425,8 +425,8 @@ référence qui tourne déjà sur cette dalle est écrit dedans.
 
 | | Tête (v2) | Nœud (v2) | Nœud v1, pour mémoire |
 |---|---|---|---|
-| **Cœur 0** | WiFi, réassemblage, placement, découpe, relais vers les liaisons, VSYNC | liaison : vérification, développement de palette, publication sur VSYNC | WiFi, réception UDP, décodage, écriture dans le tampon arrière |
-| **Cœur 1** | libre | entretien du rendu HUB75 | idem |
+| **Cœur 0** | WiFi, réassemblage, placement, découpe, relais vers les liaisons, console | liaison : vérification, développement de palette, publication sur VSYNC | WiFi, réception UDP, décodage, écriture dans le tampon arrière |
+| **Cœur 1** | synchronisation : VALIDER, RDY, VSYNC — sans jamais prendre le verrou de lwIP | entretien du rendu HUB75 | idem |
 
 Le flux des liaisons, comme celui des dalles, est en **PIO + DMA** : le CPU ne touche pas
 les octets en transit.
@@ -592,31 +592,41 @@ passante, il rend la chaîne robuste.
 
 ### 4.6 Messages de la liaison tête → nœud
 
-Interne à l'écran : aucune source ne le voit. Un message par salve de CS bas, mots de
-32 bits (ce que le DMA et l'`autopush` du PIO manipulent naturellement) :
+Interne à l'écran : aucune source ne le voit. Défini dans `firmware/commun/liaison.h`. Un
+message = un en-tête de 12 octets, la charge, du bourrage jusqu'au mot de 32 bits (ce que le
+DMA et l'`autopush` du PIO manipulent naturellement). CS reste bas le temps d'un message :
 
 ```
- CS↓ │ type u8 │ image u8 │ pos u16 │ n u16 │ format u8 │ lg u16 │ données…, complétées à 4 o │ CRC16 │ CS↑
+ CS↓ │ type u8 │ image u8 │ lg u16 │ pos u16 │ n u16 │ format u8 │ tampon u8 │ CRC16 │ charge…, complétée à 4 o │ CS↑
 ```
 
 | Type | Contenu |
 |---|---|
-| `PIXELS` | `n` pixels au `format` donné, à partir de la position linéaire `pos` dans la rangée (`y × 192 + x`). Quand l'image fait toute la largeur du canevas, un message couvre plusieurs lignes d'un coup |
+| `PIXELS` | `n` pixels au `format` reçu (BGR888, IDX8, IDX2), à partir de la position linéaire `pos` dans la rangée (`y × largeur du canevas + x`), dans le tampon `tampon`. Quand l'image fait toute la largeur du canevas, un message couvre plusieurs lignes d'un coup |
+| `VALIDER` | l'image `image` est complète dans le tampon `tampon` ; charge : les pixels envoyés à ce nœud |
 | `PALETTE` | 256 × B,G,R |
 | `LUMINOSITE` | 1 octet |
-| `EFFACER` | la rangée passe au noir — changement de géométrie |
-| `HELLO` | numéro de rangée, géométrie du canevas, version |
-| `MIRE` | mire de diagnostic de la rangée |
+| `EFFACER` | les deux tampons au noir — changement de géométrie |
+| `HELLO` | numéro de rangée (le port de la tête), largeur du canevas, hauteur de rangée, version |
 
-- **Les pixels restent dans le format reçu** (IDX8, IDX2…) : la nappe transporte le même
-  volume que l'air, et le nœud garde son `developper_idx8` (≈ 0,75 ms pour 192×64).
-- **Le champ `image`** (bits de poids faible du `frame_id`) choisit le tampon de réception du
-  nœud, A ou B. La tête peut ainsi relayer l'image N+1 pendant que le nœud publie l'image N.
-- **Le CRC16** est calculé par le *sniffer* du DMA, des deux côtés : il ne coûte pas un cycle.
-  Un message corrompu est jeté et compté ; le nœud baisse alors RDY jusqu'à la fin de l'image,
-  qui est abandonnée pour les trois rangées.
-- La découpe d'une tranche WiFi en messages vit dans `firmware/tete/include/decoupe.hpp`,
-  en C++ portable, **testée sur PC** (`firmware/tete/test/`).
+- **Les pixels restent dans le format reçu** : la nappe transporte le même volume que l'air,
+  et le nœud développe la palette en recevant.
+- **La tête choisit le tampon** (`tampon`, 0 ou 1) et numérote ses images (`image`) : elle ne
+  touche jamais au tampon qu'elle a validé tant que son VSYNC n'est pas passé, et relaie
+  l'image suivante dans l'autre.
+- **`VALIDER` porte le nombre de pixels** envoyés au nœud. Le nœud le compare à ce qu'il a
+  reçu : un message perdu en route se voit, même sans erreur de CRC. Refusé, le nœud ne lève
+  pas RDY, et l'image est abandonnée pour toutes les rangées au bout de la garde (40 ms).
+- **Le CRC16** (CCITT) est calculé par table, des deux côtés : ≈ 40 µs pour un message plein.
+  L'idée d'en charger le *sniffer* du DMA n'a pas tenu : côté nœud, le DMA écrit sans fin dans
+  un anneau, et ne découpe pas les messages. Un CRC faux signale aussi une perte
+  d'alignement : la réception repart d'un début de message (CS haut puis bas).
+- **Synchronisation** : `VALIDER` parti sur chaque liaison et tous les RDY hauts, la tête
+  impulse VSYNC (actif bas, 2 µs). Le nœud abaisse RDY dans l'interruption même du VSYNC, en
+  une microseconde : la tête ne peut pas prendre un RDY périmé pour une réponse.
+- La découpe d'une tranche WiFi en messages vit dans `firmware/tete/include/decoupe.hpp`, la
+  reconstruction côté nœud dans `firmware/noeud/include/rangee.hpp` : C++ portable, **testés
+  sur PC** de bout en bout (`firmware/noeud/test/`).
 
 ---
 
@@ -822,14 +832,34 @@ Deux enseignements pour la suite :
 
 Reste à faire, sans urgence : le sniffer réel en `PXL1`, et `clk_sys` à 150 MHz.
 
-#### Phase 5b — une liaison, un nœud, une dalle · 2 à 3 jours
+#### Phase 5b — une liaison, un nœud, une dalle · 2 à 3 jours · 🔨 firmware écrit le 29/09/2026
 
 **Firmware :** `firmware/noeud/`, dérivé de `firmware/ecran/` : la réception WiFi est
-remplacée par la réception PIO de la liaison ; `display.cpp` et le pilote sont repris sans
-changement. Côté tête : PIO TX + DMA, VSYNC, RDY, CRC (§2.6, §4.6).
+remplacée par la réception PIO de la liaison ; la façade d'affichage et le pilote sont repris
+sans changement (la façade vit désormais dans `firmware/commun/affichage/`, partagée par les
+deux nœuds). Côté tête : PIO TX + DMA, VSYNC, RDY, CRC (§2.6, §4.6).
 
-Tout se fait sur la **dalle déjà câblée** : le nœud ne pilote qu'une rangée de 64 pixels de
-haut, et la tête lui envoie celle qui lui revient.
+Tout se fait sur la **dalle déjà câblée** : la tête, construite avec `-DBANC_UNE_DALLE=ON`,
+réduit son canevas à 64 × 64 et n'ouvre qu'une liaison ; l'image entière tient sur la dalle.
+
+**Déjà éprouvé :**
+- **sur PC**, la chaîne tête → nœud de bout en bout (`firmware/noeud/test/`) : découpe,
+  messages, anneau qui boucle, reconstruction, validation, message corrompu refusé ;
+- **sur la tête seule**, sans nœud (RDY tirés haut) : IDX8 192 × 192, 600 images reçues et
+  600 publiées par tranche de 10 s, trois liaisons à 5,96 Mbit/s, aucun débordement.
+
+**La synchronisation a son propre cœur.** Premier essai : ~15 images sur 600 supplantées
+avant validation par tranche de 10 s, et jusqu'à 195. Mesuré : la boucle de synchronisation
+restait bloquée jusqu'à 160 ms, d'abord par le `printf` de la console (l'USB n'avance plus
+quand la pile WiFi occupe le processeur), puis — une fois déplacée sur le cœur 1 — par le
+verrou de lwIP, que la réception garde jusqu'à 140 ms sous charge. Correction : le cœur 1 ne
+prend jamais ce verrou. L'état des tampons et l'ajout d'un message dans un anneau ont chacun un
+verrou matériel de quelques microsecondes ; seul l'accusé à la source passe par lwIP, et part
+du cœur 0. Après correction : plus aucune image supplantée, boucle du cœur 1 à 30 µs au pire.
+
+**Coût mesuré du relais :** le réassemblage d'une image IDX8 192 × 192 passe de 9,9 ms (5a)
+à 12,8 ms — copie, CRC et anneau pour chaque paquet. L'aller-retour vu du PC passe de 13 à
+17 ms. Optimisable (une copie de moins, CRC plus rapide) ; pas bloquant.
 
 **Mesure :** GP18 sur la tête (1er octet WiFi) et GP17 sur le nœud (publication), sur le même
 analyseur logique.
@@ -887,7 +917,7 @@ protocole plutôt que comme sa raison d'être.
 | 3 · Émetteur PC | Python | — | ✅ 7 sources + injection, 18/09/2026 | 1–2 j |
 | 4 · Mesure | C++ + Python | — | ✅ ~8 ms de latence, 24,6 Mbit/s, 18/09/2026 | 2 j |
 | 5a · Tête seule | C++ | lwIP raw, cyw43 | ✅ IDX8 192×192 à 60 img/s, 0,003 % de perte, 29/09/2026 | 1 j |
-| 5b · Liaison, 1 nœud | C++ + PIO asm | PIO, DMA, CRC du sniffer DMA | ≤ 9 ms, 0 erreur CRC | 2–3 j |
+| 5b · Liaison, 1 nœud | C++ + PIO asm | PIO, DMA sans fin, CRC par table, 2 cœurs | 🔨 écrit ; ≤ 9 ms, 0 erreur CRC | 2–3 j |
 | 5c · Passage à 3×3 | C++ + mécanique | idem | 192×192 sans déchirure | 3–5 j |
 | 6 · Game Boy | — | — | 1:1, rien à écrire | — |
 
@@ -956,6 +986,10 @@ ecran/
 | 29/09/2026 | Phase 5 découpée en 5a (tête) → 5b (liaison) → 5c (3×3) | Le débit IDX8 192×192 sur une seule antenne est le seul chiffre qui peut remettre l'architecture en cause : on le mesure en premier |
 | 29/09/2026 | **Phase 5a atteinte : une antenne tient l'IDX8 192×192 à 60 img/s**, 0,003 % de perte sur 10 min | L'architecture v2 est confirmée sur matériel |
 | 29/09/2026 | Complétion d'une image par offsets reçus, pas par octets comptés | Le WiFi livre des doublons (146 en 10 min) : compter les octets déclarait complète une image incomplète |
+| 29/09/2026 | La tête choisit le tampon des nœuds ; `VALIDER` porte le nombre de pixels envoyés | Relais au fil de l'eau : l'image N+1 arrive pendant que N attend son VSYNC. Le compte de pixels révèle un message perdu que le CRC ne peut pas voir |
+| 29/09/2026 | Synchronisation de la tête sur le cœur 1, sans jamais le verrou de lwIP | Sur le cœur 0, un `printf` la bloquait jusqu'à 160 ms ; sur le cœur 1, le verrou de lwIP jusqu'à 140 ms. Deux verrous matériels de quelques µs à la place : plus aucune image supplantée |
+| 29/09/2026 | CRC de la liaison par table, pas par le *sniffer* du DMA | Le DMA du nœud écrit sans fin dans un anneau : il ne découpe pas les messages |
+| 29/09/2026 | Façade d'affichage partagée dans `firmware/commun/affichage/` | Le nœud v2 la reprend sans changement ; les straps d'identité n'y sont lus que si `config.h` les déclare |
 | 18/09/2026 | IDX8 implémenté | Sur lien dégradé, il reçoit 60 img/s là où BGR888 tombe à 10 — la robustesse, pas seulement le débit |
 | 18/09/2026 | Phase 4 terminée : latence ~8 ms, débit UDP 24,6 Mbit/s | Deux mesures de latence indépendantes concordent à 0,3 ms |
 | 18/09/2026 | Le facteur limitant du 3×3 est **l'air**, pas le Pico | Le Pico encaisse 24,6 Mbit/s ; c'est le total des trois nœuds sur 2,4 GHz qui ne passe pas en BGR888 |

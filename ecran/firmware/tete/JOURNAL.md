@@ -86,6 +86,44 @@ qui éloigne sa radio du canal quelques dizaines de millisecondes. Ses propres �
 attendent dans son tampon, mais ce qui lui est destiné est perdu. Sans effet sur l'écran :
 seule la mesure de latence est concernée, et la source finale, le sniffer, n'est pas un PC.
 
+## Phase 5b : la synchronisation affamée — 29/09/2026
+
+Tête seule, liaisons actives mais aucun nœud : les RDY sont tirés haut, la tête doit donc
+publier chaque image. IDX8 192 × 192 à 60 images/s.
+
+**Premier essai, synchronisation dans la boucle du cœur 0 :** 600 images reçues par tranche
+de 10 s, mais seulement 403 à 595 publiées. Les autres étaient **supplantées** : devenues
+complètes, puis remplacées par la suivante avant que la boucle ait eu le temps de les valider.
+
+Le relevé du plus long tour de boucle a tranché : 1,5 ms à vide, **30 à 163 ms sous charge**,
+autour de l'impression du rapport. Pendant les rafales, la pile WiFi occupe le processeur et
+l'USB de la console n'avance plus : `printf` bloque la boucle, qui porte aussi la
+synchronisation.
+
+**Deuxième essai, synchronisation sur le cœur 1 :** tours de boucle encore de **60 à 140 ms**
+sur le cœur 1. Le SDK garantit, en multicœur, que le cœur 1 n'exécute jamais le travail du
+WiFi — mais le cœur 1 attendait le verrou de lwIP, que la réception garde tant qu'elle traite
+des paquets, jusqu'à 140 ms quand ils s'accumulent.
+
+**Correction :** la synchronisation ne prend plus jamais ce verrou. L'état des tampons des
+nœuds a son propre verrou matériel ; l'ajout d'un message dans un anneau de liaison aussi,
+l'encodage et son CRC se faisant hors verrou dans un brouillon propre à chaque cœur. Les deux
+ne sont tenus que quelques microsecondes. L'accusé à la source, seul appel à lwIP, est déposé
+par le cœur 1 et émis par le cœur 0 au paquet reçu suivant.
+
+| | Cœur 0 | Cœur 1, verrou de lwIP | Cœur 1, verrous matériels |
+|---|---|---|---|
+| Images publiées, par 10 s | 403 à 595 | 543 à 583 | **600** |
+| Supplantées, par 10 s | 5 à 195 | 17 à 58 | **0** |
+| Plus long tour de boucle | 30 à 163 ms | 63 à 140 ms | **30 µs** |
+
+Le reste de la synchronisation tient : attente des RDY de 283 µs en moyenne (le `VALIDER`
+patiente derrière les derniers segments de l'image), aucun abandon, aucun débordement
+d'anneau, trois liaisons à 5,96 Mbit/s.
+
+**Le coût du relais :** réassemblage d'une image de 9,9 ms en 5a à 12,8 ms — la copie, le CRC
+et l'anneau de chaque paquet. Aller-retour vu du PC : médiane de 13 à 17 ms.
+
 ## `pixelpush` s'arrêtait au bout de 40 s
 
 `BlockingIOError` sur `sendto` : en IDX8 192 × 192, une image part en rafale de 27 paquets,

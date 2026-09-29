@@ -1,14 +1,16 @@
-# Tête (v2) — réception, placement, découpe
+# Tête (v2) — réception, découpe, relais, synchronisation
 
 Firmware de la **tête** du module écran : un Pico 2 W sans dalle, qui reçoit les images par
-WiFi, les place dans le canevas de 192 × 192 pixels et les découpe par rangée pour les trois
-nœuds d'affichage. Son rôle dans l'architecture est décrit dans le
-[README du module](../../README.md#architecture).
+WiFi, les place dans le canevas de 192 × 192 pixels, les découpe par rangée et relaie chaque
+morceau à son [nœud d'affichage](../noeud/README.md) par une liaison filaire. Elle tient la
+synchronisation : les nœuds publient ensemble, sur son signal VSYNC. Son rôle dans
+l'architecture est décrit dans le [README du module](../../README.md#architecture).
 
-**État : phase 5a atteinte le 29/09/2026.** Une seule antenne reçoit une image 192 × 192 en
-IDX8 à 60 images/s, 0,003 % de perte sur 10 minutes : le chiffre qui pouvait remettre
-l'architecture en cause ([§4.4 du plan](../../docs/plan-firmware.md)) est acquis. Rien ne sort
-encore vers les nœuds : les segments qui leur sont destinés sont comptés, pas émis (phase 5b).
+**État :**
+- **phase 5a atteinte le 29/09/2026** : une seule antenne reçoit une image 192 × 192 en IDX8 à
+  60 images/s, 0,003 % de perte sur 10 minutes ([§4.4 du plan](../../docs/plan-firmware.md)) ;
+- **phase 5b en cours** : liaisons et synchronisation écrites, éprouvées sans nœud (60 images
+  reçues, 60 publiées par seconde) ; reste l'essai avec un nœud et sa dalle.
 
 ## Construire et utiliser
 
@@ -16,16 +18,40 @@ Procédure générique : [README du module](../../README.md#construire-flasher-o
 `secrets.h` est nécessaire et la cible produit `build/tete.uf2`. Au démarrage, la tête
 annonce son adresse sur la console, et au serveur DHCP sous le nom **`ecran`**.
 
+Deux options CMake, pour le banc :
+
+| Option | Effet |
+|---|---|
+| `-DBANC_UNE_DALLE=ON` | canevas réduit à une dalle (64 × 64) et une seule liaison : l'image entière est visible sur le banc de la phase 5b |
+| `-DLIEN_HORLOGE_KHZ=1000` | horloge de la liaison, 16 000 kHz par défaut. La baisser pour une première mise en route. Une liaison transporte 2 bits par coup d'horloge et doit suivre le débit de sa rangée : 6 Mbit/s en IDX8 192 × 192 à 60 images/s, 2 Mbit/s pour une image 64 × 64 en IDX8 au banc |
+
+Sans nœud branché, les entrées RDY sont tirées haut : la tête tourne seule et publie chaque
+image, comme en phase 5a.
+
 ## Sources
 
 | Fichier | Rôle |
 |---|---|
-| `include/config.h` | canevas, rangées, formats acceptés, horloge, et le brochage des liaisons vers les nœuds (utilisé à partir de la phase 5b) |
+| `include/config.h` | canevas, rangées, formats acceptés, brochage et horloge des liaisons, garde RDY |
 | `include/decoupe.hpp` | placement et découpe, en C++ portable, testé sur PC |
-| `include/reseau.hpp`, `src/net/reseau.cpp` | WiFi, PXL2 et PXL1, réassemblage, réponse aux `PING`, accusés, reconnexion |
-| `src/main.cpp` | rapport de recette toutes les 10 s |
+| `include/reseau.hpp`, `src/net/reseau.cpp` | WiFi, PXL2 et PXL1, réassemblage, relais des segments, tampons des nœuds, accusés, reconnexion |
+| `include/lien.hpp`, `src/lien.cpp`, `src/lien.pio` | les liaisons : un anneau, un DMA et une machine PIO par nœud ; VSYNC, RDY |
+| `src/main.cpp` | cœur 1 : la synchronisation ; cœur 0 : l'entretien et le rapport toutes les 10 s |
 | `test/test_decoupe.cpp` | test de la découpe sur PC |
-| [`../commun/pxl1.h`](../commun/pxl1.h), [`../commun/pxl2.h`](../commun/pxl2.h) | les en-têtes des protocoles |
+| [`../commun/pxl1.h`](../commun/pxl1.h), [`../commun/pxl2.h`](../commun/pxl2.h), [`../commun/liaison.h`](../commun/liaison.h) | les protocoles : les sources, et la liaison vers les nœuds |
+
+## Brochage
+
+| GPIO | Broche du Pico | Rôle |
+|---|---|---|
+| GP0–GP3 | 1, 2, 4, 5 | liaison L0 : D0, D1, CLK, CS |
+| GP4–GP7 | 6, 7, 9, 10 | liaison L1 |
+| GP8–GP11 | 11, 12, 14, 15 | liaison L2 |
+| GP12 | 16 | VSYNC vers les trois nœuds, actif bas |
+| GP13–GP15 | 17, 19, 20 | RDY0 à RDY2, entrées en pull-up |
+| GP17, GP18 | 22, 24 | mesure : image complète, premier octet d'une image |
+
+Une résistance de 33 Ω en série sur chaque sortie de liaison et sur VSYNC (plan §2.6).
 
 ## Ce qui change par rapport au nœud v1
 
@@ -38,18 +64,26 @@ brute de lwIP, fenêtre de resynchronisation de 8 images, même `lwipopts.h`, m�
   est apprise par la commande `PXL1_CTRL_GEOMETRIE`, et l'accusé est rendu en PXL1. Tant
   que cette commande n'est pas arrivée (la source la renvoie toutes les 2 s), les tranches
   PXL1 sont comptées en `sans geometrie`.
-- **Pas de tampon d'image.** La tête ne garde pas les pixels, elle compte des positions.
-  Elle occupe 99 ko de RAM sur 520, lwIP compris : il reste la place des tampons des
-  liaisons de la phase 5b.
+- **Pas de tampon d'image.** La tête ne garde pas les pixels : chaque segment part vers son
+  nœud dès que sa tranche arrive. 200 ko de RAM sur 520, dont 96 ko d'anneaux de liaison.
 - **Une image est complète quand toutes ses tranches sont arrivées, dans n'importe quel
-  ordre.** La v1 publiait à l'arrivée de la tranche marquée « dernière », et une tranche
-  retardée derrière elle faisait perdre l'image.
-- **Les doublons sont écartés**, reconnus à leur offset : le WiFi en livre quelques-uns par
-  minute, et compter les octets aurait déclaré complète une image incomplète.
+  ordre**, et les doublons que livre le WiFi sont écartés, reconnus à leur offset.
 - **La première image reçue n'est plus perdue.** En v1, une image numéro 0 arrivant en
   premier passait pour une retardataire.
-- **Reconnexion WiFi automatique**, reprise du module capture : l'association est relancée
-  chaque seconde, sans bloquer la boucle.
+- **Reconnexion WiFi automatique**, reprise du module capture.
+
+## La synchronisation, sur le cœur 1
+
+Une image complète est validée auprès de chaque nœud (message `VALIDER`, avec le nombre de
+pixels qu'il doit avoir reçus). Quand ce message a quitté la tête et que tous les RDY sont
+hauts, la tête impulse VSYNC : les nœuds publient ensemble. Un nœud qui n'a pas levé RDY au
+bout de 40 ms fait abandonner l'image à tous.
+
+Cette boucle a son propre cœur, et ne prend jamais le verrou de lwIP : l'état des tampons et
+l'ajout d'un message dans un anneau ont chacun un verrou matériel, tenu quelques
+microsecondes. Seul l'accusé à l'émetteur passe par lwIP ; il part du cœur 0. La raison est
+mesurée, voir [`JOURNAL.md`](JOURNAL.md) : sous charge, la réception garde le verrou de lwIP
+jusqu'à 140 ms.
 
 ## Tester la découpe sur PC
 
@@ -62,17 +96,10 @@ Le test fabrique 5 000 images aléatoires dans tous les formats et sur cinq cane
 largeurs impaires. Il les débite en tranches, les découpe, puis rejoue les segments comme le
 feraient les nœuds : le canevas reconstitué doit être l'image centrée, au pixel près. Chacune
 des quatre erreurs introduites volontairement dans `decoupe.hpp` pour l'éprouver l'a fait
-échouer.
+échouer. La chaîne complète, jusqu'aux tampons des nœuds, est éprouvée par le
+[test du nœud](../noeud/README.md#tester-sur-pc).
 
-Résultats attendus pour les cas nominaux, en tranches de 1 400 octets :
-
-| Source | Tranches | Segments | |
-|---|---|---|---|
-| 192 × 192 IDX8 | 27 | 29 | lignes jointives : on ne coupe qu'aux frontières de rangée |
-| 192 × 192 BGR888 | 80 | 82 | |
-| 160 × 144 IDX2, Game Boy | 5 | 144 | un segment par ligne, image placée en (16, 24) |
-
-## Recette de la phase 5a
+## Recettes
 
 Les images viennent de [`pixelpush`](../../tools/pixelpush/README.md), avec `--cible` :
 
@@ -87,6 +114,7 @@ cd ../../tools/pixelpush
 Puis le sniffer lui-même, sans modification : il suffit de pointer sa cible (`PXL1_CIBLE_IP`)
 sur l'adresse de la tête.
 
-La console rend compte toutes les 10 s : cadence, débit, perte, doublons écartés, temps de
-réassemblage, et pixels par image et par rangée — ce que chaque nœud recevra. Résultats et
-enquêtes : [`JOURNAL.md`](JOURNAL.md).
+La console rend compte toutes les 10 s : images reçues et publiées, débit, perte, doublons,
+synchronisation (abandons, images supplantées, attente des RDY), débit de chaque liaison et
+état de son RDY, pixels par image et par rangée. Résultats et enquêtes :
+[`JOURNAL.md`](JOURNAL.md).
