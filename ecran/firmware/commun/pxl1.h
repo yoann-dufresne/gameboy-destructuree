@@ -1,10 +1,13 @@
 /**
- * Protocole PXL1 — transport d'images sur UDP
+ * Protocole PXL1 — transport d'images sur UDP, version 1
  *
- * Conçu tuile-conscient et multi-format dès la v1 : c'est la seule décision du
- * projet qui coûterait cher à prendre en retard (plan §4). Un nœud ne reçoit que
- * les pixels de SON rectangle ; le protocole est donc indépendant du nombre de
- * nœuds — 1, 3 ou 9, seul le fichier de disposition de l'émetteur change.
+ * Conçu tuile-conscient et multi-format : un nœud ne reçoit que les pixels de
+ * SON rectangle, et l'émetteur connaît la grille. Remplacé par PXL2 depuis la
+ * révision du 29/09/2026 (plan §4) ; la tête l'accepte encore, en
+ * compatibilité, parce que le sniffer du module capture l'émet (plan §4.3).
+ *
+ * Ce fichier fait foi pour les deux sous-projets : le module capture en tient
+ * une copie.
  *
  * Tous les champs multi-octets sont en little-endian, comme le RP2350 : la
  * structure se lit donc directement, sans conversion.
@@ -48,7 +51,17 @@ enum : uint8_t {
 enum : uint8_t {
     PXL1_CTRL_PALETTE    = 0, /* + 256 x 3 octets B,G,R */
     PXL1_CTRL_LUMINOSITE = 1, /* + 1 octet, luminosité de base 1..255 */
+
+    /* + uint16 largeur, uint16 hauteur, uint8 format — géométrie de la SOURCE.
+     *
+     * Extension du module capture (25/09/2026), reportée ici le 29/09/2026 :
+     * un émetteur agnostique de l'afficheur doit annoncer la taille de son
+     * image, que l'en-tête de 12 octets ne porte pas. Renvoyée toutes les 2 s
+     * avec la palette. PXL2 la porte dans chaque en-tête. */
+    PXL1_CTRL_GEOMETRIE  = 2,
 };
+
+#define PXL1_GEOMETRIE_OCTETS 5   /* largeur(2) + hauteur(2) + format(1) */
 
 #define PXL1_PALETTE_ENTREES 256
 #define PXL1_PALETTE_OCTETS  (PXL1_PALETTE_ENTREES * 3)
