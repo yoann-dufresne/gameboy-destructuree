@@ -688,7 +688,7 @@ Alternative : [dgrantpete/Pi-Pico-Hub75-Driver](https://github.com/dgrantpete/Pi
 **≥ 150 Hz mesurés à l'oscilloscope sur /OE** ; une boucle `while(1)` saturant le cœur 0 ne
 dégrade pas l'image ; photo à 1/250 s sans bandes.
 
-✅ **Atteint** — `firmware/phase1-driver/`. **788 Hz, rigoureusement constants** au repos,
+✅ **Atteint** — `firmware/phase1-driver/`, devenu depuis `firmware/ecran/`. **788 Hz, rigoureusement constants** au repos,
 cœur 0 saturé et sous publication à 60 Hz (min = max sur les trois phases) : l'affichage
 est autonome. Sonde sur les pads : `AFFICHE`, adresses actives 96 %. Empreinte 114 ko de
 RAM sur 520. `clk_sys` retenu : **266 MHz** et non les 200 MHz envisagés — mesuré stable,
