@@ -5,8 +5,9 @@ pico_sdk_import.cmake
 
 pxl1.h
   Copié depuis ../../../ecran/firmware/ecran/include/, le 26/09/2026.
-  MODIFIÉ : ajout de PXL1_CTRL_GEOMETRIE. Le protocole est possédé par le
-  module écran ; cette extension est à y reporter.
+  MODIFIÉ : ajout de PXL1_CTRL_GEOMETRIE. Extension reportée côté écran le
+  29/09/2026 : la référence est désormais ../../../ecran/firmware/commun/pxl1.h,
+  qui ne diffère de cette copie que par ses commentaires.
 
 lwipopts.h, secrets.h.example
   Copiés depuis ../../../ecran/firmware/ecran/, le 26/09/2026. Non modifiés.
