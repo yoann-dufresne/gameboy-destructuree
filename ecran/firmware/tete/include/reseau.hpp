@@ -21,16 +21,19 @@ struct Stats {
     uint32_t format_refuse;    /* format que les nœuds ne savent pas lire */
     uint32_t sans_geometrie;   /* tranche PXL1 reçue avant sa géométrie */
     uint32_t images;           /* images complètes */
-    uint32_t incompletes;      /* dernière tranche reçue mais octets manquants,
-                                * ou image abandonnée pour une plus récente */
-    uint32_t retardataires;    /* tranches d'une image déjà soldée : écartées */
+    uint32_t incompletes;      /* image abandonnée : une plus récente a commencé
+                                * avant qu'elle soit complète */
+    uint32_t retardataires;    /* tranches d'une image abandonnée, arrivées après
+                                * le début de la suivante : écartées */
+    uint32_t doublons;         /* tranche déjà reçue pour cette image : écartée */
+    uint32_t non_suivies;      /* tranches au-delà du suivi des doublons */
     uint32_t resynchros;       /* compteur de l'émetteur reparti en arrière */
     uint32_t geometries;       /* changements de géométrie de la source */
     uint32_t ctrl;             /* palette, luminosité, géométrie */
     uint32_t pings;
     uint64_t octets;           /* charge utile des tranches acceptées */
-    uint32_t segments;         /* messages qui partiront vers les nœuds */
-    uint64_t pixels_rangee[NB_RANGEES]; /* pixels relayés, par rangée */
+    uint32_t segments;         /* messages vers les nœuds, images complètes seules */
+    uint64_t pixels_rangee[NB_RANGEES]; /* pixels par rangée, images complètes seules */
     uint32_t deconnexions, reconnexions;
 };
 

@@ -12,10 +12,14 @@
  *     l'image dans le canevas et découpe chaque tranche en segments, un par
  *     rangée touchée. En phase 5a les segments sont comptés ; en phase 5b ils
  *     partiront sur les liaisons, au fil de l'eau.
- *   - Une image est complète quand TOUS ses octets sont arrivés, dans
+ *   - Une image est complète quand TOUTES ses tranches sont arrivées, dans
  *     n'importe quel ordre. La v1 publiait à la tranche marquée « dernière »,
  *     si bien qu'une tranche retardée derrière elle faisait perdre l'image ;
  *     ici elle la complète.
+ *   - Les doublons sont reconnus à leur offset et écartés. Le WiFi en livre :
+ *     2 à 3 par tranche de 10 s en IDX8 192×192, mesuré le 29/09/2026. Compter
+ *     les octets seulement, comme la v1, aurait déclaré complète une image à
+ *     laquelle il manquait une tranche.
  */
 
 #include "reseau.hpp"
@@ -68,6 +72,18 @@ decoupe::Geometrie geo_courante;
 uint8_t proto_courant = 2;
 uint32_t octets_image = 0;
 uint64_t t_premier_courant = 0;
+
+/* Offsets des tranches déjà reçues pour l'image courante. 128 couvrent
+ * largement le pire cas, 192×192 en BGR888 : 80 tranches. Au-delà, les
+ * doublons ne sont plus reconnus — compté dans `non_suivies`. */
+constexpr uint32_t TRANCHES_SUIVIES = 128;
+uint32_t offsets_recus[TRANCHES_SUIVIES];
+uint32_t nb_offsets = 0;
+
+/* Comptes de l'image courante, versés aux compteurs globaux seulement si elle
+ * se complète : une image abandonnée ne fausse pas les moyennes par image. */
+uint32_t pixels_image[NB_RANGEES];
+uint32_t segments_image = 0;
 
 /* Dernière géométrie vue, pour signaler un changement. */
 decoupe::Geometrie geo_connue;
@@ -229,6 +245,10 @@ void commencer_image(const Tranche &t, const decoupe::Geometrie &g) {
     geo_courante = g;
     proto_courant = t.proto;
     octets_image = 0;
+    nb_offsets = 0;
+    segments_image = 0;
+    for (uint32_t &n : pixels_image)
+        n = 0;
     t_premier_courant = time_us_64();
     gpio_xor_mask(1u << PIN_MESURE_RX);
 
@@ -277,7 +297,9 @@ void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_
         compteurs.retardataires++;
         return;
     } else if (age == 0 && !image_en_cours) {
-        compteurs.retardataires++; /* image déjà soldée */
+        /* Image déjà complète : toutes ses tranches sont là, celle-ci en est
+         * forcément une seconde copie. */
+        compteurs.doublons++;
         return;
     } else if (age <= RESYNC) {
         compteurs.resynchros++;
@@ -288,9 +310,20 @@ void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_
         commencer_image(t, g);
     }
 
-    compteurs.segments += decoupe::decouper(
+    for (uint32_t i = 0; i < nb_offsets; ++i) {
+        if (offsets_recus[i] == t.offset) {
+            compteurs.doublons++;
+            return;
+        }
+    }
+    if (nb_offsets < TRANCHES_SUIVIES)
+        offsets_recus[nb_offsets++] = t.offset;
+    else
+        compteurs.non_suivies++;
+
+    segments_image += decoupe::decouper(
         CANEVAS, geo_courante, t.offset, t.charge, [&](const decoupe::Segment &s) {
-            compteurs.pixels_rangee[s.rangee] += s.n;
+            pixels_image[s.rangee] += s.n;
             /* Phase 5b : recopier ici l'en-tête de message (§4.6) puis les
              * s.octets octets de la charge, lus dans le pbuf à partir de
              * t.entete + s.debut, dans l'anneau de la liaison s.rangee. */
@@ -301,9 +334,12 @@ void recevoir_tranche([[maybe_unused]] pbuf *p, const Tranche &t, const ip_addr_
     if (octets_image < geo_courante.taille)
         return;
 
-    /* Tous les octets sont là. */
+    /* Toutes les tranches sont là. */
     image_en_cours = false;
     compteurs.images++;
+    compteurs.segments += segments_image;
+    for (int r = 0; r < NB_RANGEES; ++r)
+        compteurs.pixels_rangee[r] += pixels_image[r];
     gpio_xor_mask(1u << PIN_MESURE_IMAGE);
 
     pret.id = image_courante;

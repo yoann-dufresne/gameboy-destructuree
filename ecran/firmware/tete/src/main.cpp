@@ -67,14 +67,18 @@ void rapport(const reseau::Stats &st, const reseau::Stats &avant, uint32_t duree
            (unsigned long)images, cadence, debit, perte,
            (unsigned long)(st.paquets - avant.paquets), (unsigned long)(st.pxl1 - avant.pxl1));
     printf("    rejets %lu  hors canevas %lu  format refuse %lu  sans geometrie %lu  "
-           "retard. %lu  resync %lu  ctrl %lu  ping %lu\n",
+           "doublons %lu  retard. %lu  resync %lu  ctrl %lu  ping %lu\n",
            (unsigned long)(st.rejets - avant.rejets),
            (unsigned long)(st.hors_canevas - avant.hors_canevas),
            (unsigned long)(st.format_refuse - avant.format_refuse),
            (unsigned long)(st.sans_geometrie - avant.sans_geometrie),
+           (unsigned long)(st.doublons - avant.doublons),
            (unsigned long)(st.retardataires - avant.retardataires),
            (unsigned long)(st.resynchros - avant.resynchros),
            (unsigned long)(st.ctrl - avant.ctrl), (unsigned long)(st.pings - avant.pings));
+    if (st.non_suivies != avant.non_suivies)
+        printf("    ⚠ %lu tranches hors du suivi des doublons : tranches trop petites\n",
+               (unsigned long)(st.non_suivies - avant.non_suivies));
     if (images == 0) {
         printf("\n");
         return;
