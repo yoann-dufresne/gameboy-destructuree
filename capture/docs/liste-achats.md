@@ -141,13 +141,14 @@ câbles **pré-sertis** · **embase incluse** (sinon la commander à part).
 **~3–5 €**
 
 > 💡 Si la place le permet dans la coque, le **JST-ZH 1,5 mm** est nettement plus facile à
-> manipuler. À arbitrer une fois la carte tampon dessinée.
+> manipuler. À arbitrer une fois la perfboard dessinée.
 
 ---
 
 ## 7. Perfboard
 
-Le support du 244, des 6 résistances et du condensateur. Il vit **dans** la console — d'où la
+Le support des 6 résistances, entre les fils soudés et le connecteur. Le 244 et son
+condensateur, prévus ici au départ, sont abandonnés (§1). Il vit **dans** la console — d'où la
 contrainte : il faut pouvoir en découper un morceau d'environ 20 × 15 mm.
 
 | | |

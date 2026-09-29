@@ -206,7 +206,7 @@ un bus à 3 V, et même à 2,4 V piles usées, il lit sans problème et sans ris
 4. 🔑 **La sonde est elle-même une charge — regarde l'écran d'origine pendant que tu sondes.**
    Ces analyseurs n'ont pas de tampon d'entrée : la broche du FX2LP (~10 pF) plus le fil
    dupont (30–50 pF) atterrissent directement sur la sortie du PPU. C'est exactement la
-   question que la phase 1 traite avec le 74LVC244.
+   question que la phase 1 devait traiter avec le 74LVC244, abandonné depuis (§C.2).
 
    Si l'image d'origine se dégrade visiblement pendant que tu sondes `CPG`, tu viens
    d'apprendre **gratuitement** que le PPU est près de sa limite : le tampon devient non

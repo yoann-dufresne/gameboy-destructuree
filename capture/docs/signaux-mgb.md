@@ -347,7 +347,7 @@ Ce que ça permet de conclure, et ce que ça ne permet pas :
 | | |
 |---|---|
 | Charge du sondage | broche FX2LP ~10 pF **+ fil dupont long 30–50 pF**, **sans résistance série**, ≈ **40–60 pF** par voie |
-| Charge de la phase 1 | **100 Ω en série** + entrée 74LVC244 ~5 pF + fil court ≈ **15–25 pF**, amortie |
+| Charge prévue pour la phase 1 | **100 Ω en série** + entrée 74LVC244 ~5 pF + fil court ≈ **15–25 pF**, amortie. Le tampon a été abandonné depuis : ce sont l'entrée du Pico et un câble sous 20 cm, à ≈ 1 pF/cm, qui chargent le PPU |
 
 > 🔑 **La prise définitive chargera le PPU deux à trois fois MOINS que ce qu'on
 > vient de lui faire subir — et ça n'a rien dégradé.** Le risque n° 5 du §H
