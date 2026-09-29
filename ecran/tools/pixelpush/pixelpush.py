@@ -173,6 +173,9 @@ class Emetteur:
         self.protocole = protocole
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setblocking(False)
+        # Une image 192×192 part en rafale de 27 à 80 paquets : le tampon
+        # d'émission par défaut du noyau déborde dès que le WiFi hoquette.
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1 << 20)
         self.frame_id = 0
         # Mesure de latence : le firmware renvoie un accusé au moment où la
         # trame est affichée. L'aller-retour est donc chronométré sur la seule
@@ -188,6 +191,7 @@ class Emetteur:
         self.desordre = desordre / 100.0
         self.perdus = 0
         self.retardes = 0
+        self.bloques = 0  # paquets abandonnés : tampon d'émission plein
         self.format = format_
         self.palette = palette_gris4() if format_ == FMT_IDX2 else palette_cube()
         self.palette_envoyee = 0.0
@@ -264,14 +268,10 @@ class Emetteur:
                     self.retardes += 1
                     continue
 
-                self.sock.sendto(paquet, dest)
-                self.octets += len(paquet)
-                self.paquets += 1
+                self.expedier(paquet, dest)
 
         for paquet, dest in differes:
-            self.sock.sendto(paquet, dest)
-            self.octets += len(paquet)
-            self.paquets += 1
+            self.expedier(paquet, dest)
 
         self.envois[self.frame_id] = time.monotonic()
         if len(self.envois) > 512:  # borne mémoire : on oublie les vieux
@@ -279,6 +279,22 @@ class Emetteur:
                 del self.envois[k]
 
         self.frame_id = (self.frame_id + 1) & 0xFFFF
+
+    def expedier(self, paquet: bytes, dest: tuple[str, int]) -> None:
+        """Envoie sans jamais lever d'exception. Si le tampon d'émission du
+        noyau est plein, on attend qu'il se vide, 50 ms au plus, puis on
+        abandonne le paquet : compté, pas fatal. Constaté le 29/09/2026 en
+        IDX8 192×192 — `BlockingIOError` au bout de 40 s."""
+        for _ in range(2):
+            try:
+                self.sock.sendto(paquet, dest)
+            except BlockingIOError:
+                select.select([], [self.sock], [], 0.05)
+                continue
+            self.octets += len(paquet)
+            self.paquets += 1
+            return
+        self.bloques += 1
 
     def charge_utile(self) -> int:
         """Taille utile d'une tranche. Multiple de 3 en BGR888 pour ne jamais
@@ -296,13 +312,13 @@ class Emetteur:
         charge = bytes([CTRL_PALETTE]) + self.palette[:, ::-1].tobytes()
         for n in self.noeuds:
             paquet = self.entete(n, 0, True, TYPE_CTRL) + charge
-            self.sock.sendto(paquet, (n.ip, n.port))
+            self.expedier(paquet, (n.ip, n.port))
 
     def regler_luminosite(self, basis: int) -> None:
         charge = bytes([CTRL_LUMINOSITE, max(1, min(255, basis))])
         for n in self.noeuds:
             paquet = self.entete(n, 0, True, TYPE_CTRL) + charge
-            self.sock.sendto(paquet, (n.ip, n.port))
+            self.expedier(paquet, (n.ip, n.port))
 
     def relever_accuses(self) -> None:
         """Vide la file des accusés arrivés, sans bloquer."""
@@ -469,6 +485,8 @@ def main() -> int:
                          f"{decrochages} décrochages")
                 if em.perdus or em.retardes:
                     ligne += f"  [injecté : {em.perdus} perdus, {em.retardes} retardés]"
+                if em.bloques:
+                    ligne += f"  ⚠ {em.bloques} non émis (tampon d'émission plein)"
                 print(ligne)
 
                 if em.latences:
@@ -485,7 +503,7 @@ def main() -> int:
                           f"{len(em.envois)} en attente)")
                     em.latences.clear()
                     em.accuses_recus = em.accuses_orphelins = 0
-                em.octets = em.paquets = em.perdus = em.retardes = 0
+                em.octets = em.paquets = em.perdus = em.retardes = em.bloques = 0
                 trames = 0
                 pire_ecart = 0.0
                 decrochages = 0
