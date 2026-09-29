@@ -12,7 +12,7 @@ du projet « Game Boy Pocket déstructurée ».
 | **Archivé le** | 16/09/2026 |
 
 > ⚠️ Cette dalle est un **écran nu** : elle n'embarque aucun contrôleur. Il faut une carte
-> qui génère elle-même tout le timing HUB75 (ici : le Pico 2 W du module ÉCRAN).
+> qui génère elle-même tout le timing HUB75 (ici : un Pico 2 du module ÉCRAN).
 
 ---
 
@@ -38,8 +38,9 @@ Contenu de la boîte : 1 dalle + 1 câble d'alimentation VH3.96 + 1 nappe grise 
 - 4 A à 5 V dans le pire cas (blanc plein écran). Le rendu Game Boy (4 niveaux de vert,
   luminosité réduite) tirera bien moins, mais l'alim doit être dimensionnée pour le pic.
 - **Ne jamais alimenter la dalle par le 5 V du Pico** : alim séparée, masses communes.
-- 1/32 scan ⇒ pilote HUB75 « classique » à 5 lignes d'adresse. La conversion 160×144 → 64×64
-  se fait côté logiciel (cf. `Spec_Video_Sniffer_et_Matrice_LED.md` du projet parent).
+- 1/32 scan ⇒ pilote HUB75 « classique » à 5 lignes d'adresse.
+- Le module ÉCRAN assemble 3 × 3 dalles, soit 192 × 192 pixels : l'image 160×144 de la
+  Game Boy s'y affiche à l'échelle 1:1, sans conversion (cf. [`../plan-firmware.md`](../plan-firmware.md) §0).
 
 ---
 
@@ -103,10 +104,11 @@ les 6 bits RGB sont sur GP2-GP7, les 5 bits d'adresse sur GP8-GP12, le contrôle
 
 > ℹ️ **Ces brochages ne sont contraignants que si on utilise la carte adaptatrice Seengreat.**
 > La dalle, elle, ne connaît que le HUB75 : en nappe directe Pico ↔ dalle, on choisit
-> librement ses GPIO. Le module ÉCRAN du projet a déjà son propre mapping
+> librement ses GPIO. Le module ÉCRAN du projet a son propre mapping
 > (**GP0–GP5** RGB, **GP6–GP10** adresse, **GP11** CLK, **GP12** LAT, **GP13** /OE),
-> défini dans `Spec_Video_Sniffer_et_Matrice_LED.md` §6.2 — même principe de contiguïté pour
-> le PIO, mais décalé d'un cran vers le bas.
+> qui fait foi dans [`../plan-firmware.md`](../plan-firmware.md) §2.3, avec sa fiche de
+> câblage [`../cablage-pico-hub75.html`](../cablage-pico-hub75.html) — même principe de
+> contiguïté pour le PIO, mais décalé d'un cran vers le bas.
 
 ### 3.2 Raspberry Pi Pico / Pico 2 — carte adaptatrice **V3.8 et antérieure**
 
@@ -278,8 +280,8 @@ docs/seengreat-rgb-matrix-p3-64x64/
     └── Colorlight_5A-75E_rcvbp.rar
 ```
 
-Les `.rar` ne sont pas décompressés ici (pas d'outil `unrar` sur la machine) :
-`sudo apt install unrar` ou `sudo apt install unar`, puis `unar <fichier>.rar`.
+Les `.rar` sont archivés tels quels, sans version décompressée. Pour les ouvrir :
+`sudo apt install unar`, puis `unar <fichier>.rar`.
 
 ### Ressources restées en ligne
 
