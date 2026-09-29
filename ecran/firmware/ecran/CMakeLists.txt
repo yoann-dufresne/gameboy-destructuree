@@ -31,6 +31,7 @@ add_executable(ecran
 
 target_include_directories(ecran PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/include
+    ${CMAKE_CURRENT_LIST_DIR}/../commun  # pxl1.h
     ${CMAKE_CURRENT_LIST_DIR}/src/net   # lwipopts.h
 )
 
