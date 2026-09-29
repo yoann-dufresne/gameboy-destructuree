@@ -1,117 +1,73 @@
-# Phase 1 — pilote d'affichage
+# Nœud WiFi autonome (v1)
 
-Firmware du module ÉCRAN. Expose une façade minimale — *un tampon arrière, on le
-remplit, on le publie* — au-dessus du pilote HUB75 vendorisé.
+Firmware d'un nœud de la v1 du module écran : un Pico 2 W qui pilote une dalle 64 × 64 et
+reçoit lui-même ses images par WiFi, en PXL1. C'est le firmware des phases 1 à 4. En v2, il
+servira de base au firmware des nœuds (phase 5b), où la réception WiFi sera remplacée par la
+liaison filaire venant de la tête.
 
-```bash
-export PICO_SDK_PATH=~/pico/pico-sdk
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-../../tools/flash.sh build/ecran.uf2
-```
+## Ce qu'il fait
 
-## Découpage
+1. Il affiche une mire de recette et vérifie seul que le pilote affiche vraiment, en sondant
+   les broches de données et d'adresse : au repos, puis avec le cœur 0 saturé de calcul.
+2. Il se connecte au WiFi et annonce sur la console son adresse IP et le format attendu.
+   Sans réseau, la mire reste affichée.
+3. Il affiche chaque image PXL1 dès qu'elle est complète, en BGR888 ou en IDX8, et renvoie un
+   accusé à l'émetteur. Les commandes de palette et de luminosité sont appliquées au vol.
+4. Toutes les 10 s, il écrit un rapport : images reçues, pertes, et latence interne
+   décomposée (assemblage, attente, rendu).
 
-| | |
+## Construire et utiliser
+
+Procédure générique : [README du module](../../README.md#construire-flasher-observer). Ici,
+`secrets.h` est nécessaire et la cible produit `build/ecran.uf2`.
+
+Pour lui envoyer des images, [`pixelpush`](../../tools/pixelpush/README.md) **sans**
+`--cible` : il parle alors PXL1 et lit l'adresse du nœud dans `layout-1x1.toml`.
+
+## Sources
+
+| Fichier | Rôle |
 |---|---|
-| `include/config.h` | **tout** ce qui change entre la phase 1 et la phase 5 : brochage, géométrie, rendu. Aucune constante matérielle ailleurs |
-| `include/display.hpp` | la façade : `init()`, `backbuffer()`, `present()`, `node_id()` |
-| `src/display.cpp` | enveloppe le pilote vendorisé, possède le cœur 1 |
-| `src/main.cpp` | recette de phase 1 |
+| `include/config.h` | tout ce qui dépend du matériel : brochage, géométrie, rendu, horloge. Aucune constante matérielle ailleurs |
+| `include/display.hpp`, `src/display.cpp` | la façade d'affichage — `init()`, `backbuffer()`, `present()`, `occupe()`, `node_id()` — au-dessus du pilote vendorisé |
+| `include/reseau.hpp`, `src/net/reseau.cpp` | WiFi, réception PXL1, réassemblage, palette, accusés |
+| `src/net/lwipopts.h` | dimensionnement de la pile réseau lwIP |
+| `src/main.cpp` | recette de démarrage, puis boucle de réception et rapports |
+| [`../commun/pxl1.h`](../commun/pxl1.h) | l'en-tête du protocole PXL1 |
 
-**Cœur 0** remplit le tampon arrière puis publie. **Cœur 1** possède le pilote :
-création, interruptions, conversion en plans de bits. Le flux vers la dalle est en
-PIO + DMA — le CPU n'y participe pas.
+Points de configuration à connaître, dans `include/config.h` :
 
-**Un seul tampon de notre côté**, et c'est délibéré : le pilote tient déjà le sien,
-basculé en fin de trame, donc les mises à jour sont sans déchirure. `present()` est
-synchrone — au retour, le tampon est libre. Le contenu persiste d'une publication à
-l'autre : republier sans redessiner réaffiche la même image.
+- **`CLK_SYS_KHZ`** vaut 266 MHz, ce qui donne une horloge pixel de 29,6 MHz. Il est lié à
+  `CYW43_PIO_CLOCK_DIV_INT` dans `CMakeLists.txt` : la liaison avec la puce WiFi en dérive, et
+  si elle part trop vite la puce décroche (`[CYW43] STALL: timeout`). Changer l'un impose de
+  recalculer l'autre.
+- **`PIN_NODE_ID_0`, `PIN_NODE_ID_1`** (GP14, GP15) : deux cavaliers donnent le numéro du
+  nœud. À câbler en pull-up, cavalier vers la masse, à cause de l'errata RP2350-E9.
+- **`CHAIN_LEN`, `NODE_COUNT`** valent 1 : une dalle, un nœud.
 
-> Une première version ajoutait un double tampon par-dessus. Il n'apportait rien et
-> était un piège : `present()` basculait vers un tampon que l'appelant n'avait pas
-> rempli, si bien qu'afficher deux fois la même image alternait **image / noir** —
-> scintillement à 60 Hz. Corrigé le 18/09/2026.
+## Notes de conception
 
-## Trois pièges du pilote amont, consignés dans le code
+**Répartition des cœurs.** Le cœur 0 sert le réseau et remplit le tampon. Le cœur 1 possède
+le pilote : création, interruptions, conversion en plans de bits. Le flux vers la dalle
+passe par PIO et DMA, sans le processeur.
 
-1. **`setBasisBrightness()` est obligatoire après `start()` sur le cœur 1.** Sans cet
-   appel, les commandes de ligne restent à zéro : adresse figée à 0, `lit_cycles` à 0,
-   panneau noir — **alors que le compteur de trames tourne normalement**. Mesuré, voir
-   [`../phase1-clock-sweep/DIAGNOSTIC.md`](../phase1-clock-sweep/DIAGNOSTIC.md).
-2. **`chain_rows` / `chain_cols` : le README amont contredit son propre code.** Le code
-   fait `DISPLAY_WIDTH = matrix_panel_width * chain_cols`, donc c'est `chain_cols` qui
-   compte les dalles côte à côte. Sans effet à `CHAIN_LEN = 1`, déterminant en phase 5.
-3. **`update_bgr()` n'a aucun garde-fou de réentrance.** Il n'est synchrone que pour le
-   remaniement des pixels ; la construction des plans de bits qu'il amorce se poursuit
-   par interruption à travers toute la séquence BCM. Rappelé en cours de construction,
-   il repart du plan 0 **sans réinitialiser le compteur de plan** : les plans s'écrivent
-   aux mauvais offsets et l'image se brouille. La démo amont publie à 100 Hz, donc une
-   construction tient dans 10 ms : c'est le plancher retenu (`display::PERIODE_MIN_US`).
+**Un seul tampon de notre côté.** Le pilote tient déjà le sien, basculé en fin de trame :
+l'affichage est donc sans déchirure. `present()` est synchrone ; au retour, le tampon est
+libre, et son contenu persiste d'une publication à l'autre.
 
-   Le piège se manifeste quand les publications ne sont **pas régulières** — chez nous
-   elles sont déclenchées par l'arrivée du dernier paquet, et le WiFi livre par rafales.
-   Deux trames peuvent se terminer à 2 ms d'intervalle. D'où le symptôme : des
-   clignotements intermittents, jamais périodiques.
+**Trois pièges du pilote amont**, consignés aussi dans le code :
 
-   La parade retenue est un accesseur `occupe()` **ajouté au pilote vendorisé**
-   (cf. son `PROVENANCE.txt`) : on publie quand le pilote a fini, pas après un délai
-   deviné. Une première version utilisait un plancher de 10 ms repris de la cadence
-   de la démo amont — mesure faite, **une construction prend 2,23 ms en moyenne et
-   5,8 ms au pire** : le plancher était 4,5 fois trop conservateur et écartait des
-   trames sans raison, d'où des chutes de cadence visibles par à-coups.
+1. **`setBasisBrightness()` est obligatoire après `start()` sur le cœur 1.** Sans cet appel,
+   la dalle reste noire alors que le compteur de trames du pilote tourne normalement.
+   L'enquête est dans [`../phase1-clock-sweep/DIAGNOSTIC.md`](../phase1-clock-sweep/DIAGNOSTIC.md).
+2. **`chain_cols` compte les dalles côte à côte**, contrairement à ce qu'affirme le README
+   amont : le code calcule `DISPLAY_WIDTH = matrix_panel_width * chain_cols`. Sans effet
+   avec une dalle, déterminant avec trois.
+3. **`update_bgr()` n'a aucun garde-fou de réentrance.** La construction des plans de bits
+   qu'il amorce se poursuit par interruption ; rappelé avant la fin, il repart de zéro sans
+   tout réinitialiser et l'image se brouille. Le pilote vendorisé a donc reçu un accesseur
+   `occupe()` (voir son [`PROVENANCE.txt`](../vendor/hub75-jupfu/PROVENANCE.txt)) : la boucle
+   ne consomme une image que si le pilote a fini, et sinon une image plus récente la
+   remplace.
 
-## Recette — résultats du 18/09/2026
-
-Une dalle 64×64, `clk_sys` 266 MHz (horloge pixel 29,6 MHz), 10 plans BCM,
-canaux CIE séparés, luminosité de base 6.
-
-| Critère du plan §5 | Mesure | |
-|---|---|---|
-| Mire fixe affichée | sonde : `AFFICHE`, adresses actives 96 % | ✅ |
-| Rafraîchissement ≥ 150 Hz | **788 Hz** | ✅ 5× la cible |
-| Cœur 0 saturé ne dégrade pas | **788 Hz, min = max**, au repos comme sous charge | ✅ |
-| Damier 1 px sans ghosting | grain fin régulier, aucune traînée | ✅ |
-| Absence de scintillement | stable dans les deux régimes | ✅ |
-
-Le rafraîchissement est **rigoureusement constant** entre les trois phases de la
-recette : au repos, cœur 0 saturé par du calcul continu, et publication à 60 Hz. C'est
-la démonstration objective que l'affichage est autonome.
-
-> La mesure vient du compteur de trames du pilote, adossé à la fin de transfert DMA —
-> pas d'un oscilloscope sur `/OE` comme l'envisageait le plan. C'est la même grandeur,
-> relevée en interne.
-
-## Le bon instrument pour un écran noir ou clignotant
-
-Deux mesures ont servi, et l'une est trompeuse :
-
-- **`/OE`** pilote l'activation globale de la dalle, **pas le contenu**. Une trame
-  entièrement noire a exactement le même rapport cyclique qu'une trame pleine. Mesurer
-  `/OE` ne dit donc rien d'un problème d'image — vérifié : 58,6 % contre 58,5 % entre
-  un régime sain et un régime qui clignotait visiblement.
-- **Les lignes de données R1..B2** portent le contenu : c'est là qu'il faut regarder.
-- **Les lignes d'adresse A..E** distinguent « le pilote ne balaie pas » de « il balaie
-  du noir ».
-
-Et le compteur de trames du pilote ne prouve rien : il a annoncé 788 Hz parfaitement
-stables pendant que l'écran était noir, puis pendant qu'il clignotait.
-
-## Régime nominal
-
-Publication à 60 Hz d'une image statique, relevé toutes les 15 s :
-
-```
-  regime nominal   donnees 85 %  adresses 96 %  -> AFFICHE
-  regime nominal   allumage moyen 58,3 %  min 57,8  max 59,3  ecart 1,5 pt
-  900 trames publiees
-```
-
-900 trames en 15 s : la cadence est tenue exactement. En phase 2, c'est la réception
-d'une trame réseau qui déclenchera `present()` à la place du réveil périodique.
-
-## Empreinte
-
-114 ko de RAM sur 520, 47 ko de flash, pour une dalle en 10 plans.
-À `CHAIN_LEN = 3` les plans de bits triplent : prévoir ~370 ko. Ça passe, sans marge
-confortable — le passage à 8 plans est le repli si nécessaire.
+Recette, mesures et enquêtes de mise au point : [`JOURNAL.md`](JOURNAL.md).
