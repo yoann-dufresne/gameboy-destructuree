@@ -359,3 +359,20 @@ n'aurait rien valu : le 2,4 GHz varie au fil de la journée.
 
 La table de diagnostic symptôme → cause est dans
 [`../../docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
+
+## Rien n'arrivait à l'écran : `udp_sendto: invalid pcb` — 08/10/2026
+
+Premier essai avec le module écran, qui émet désormais son propre réseau WiFi. Le sniffer
+capturait (59,7 img/s, 144 lignes par trame), se disait associé (`lien UP`), et pourtant la
+tête de l'écran ne recevait **aucun paquet** : 20 190 échecs d'envoi en 109 s, la console
+inondée de `udp_sendto: invalid pcb`.
+
+Cause : le pcb UDP n'était créé qu'après une **première association réussie**. Allumé avant
+l'écran, le sniffer ratait cette première association (30 s d'attente) ; la reconnexion
+automatique finissait par associer, mais l'émission partait sur un pcb nul. Le défaut
+existait avant : il fallait simplement que le réseau soit absent au démarrage, ce qui ne
+s'était jamais produit avec la box.
+
+Correction : le pcb est créé avant l'association, quel qu'en soit le résultat. Après
+reflashage, sniffer et écran démarrés dans n'importe quel ordre : 59,73 img/s émises,
+aller-retour moyen de 1,85 ms jusqu'à l'accusé de l'écran.

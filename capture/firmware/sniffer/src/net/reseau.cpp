@@ -251,31 +251,42 @@ bool associer() {
      * 10 à 100 ms s'ajoutent à chaque trame. */
     cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
 
-    printf("  association a « %s »...\n", WIFI_SSID);
-    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
-                                           CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-        printf("  association : ECHEC (SSID, mot de passe, ou hors de portee ?)\n");
-        return false;
-    }
-    noter_ip();
-
     if (!ip4addr_aton(PXL1_CIBLE_IP, &cible)) {
         printf("  PXL1_CIBLE_IP illisible : « %s »\n", PXL1_CIBLE_IP);
         return false;
     }
 
+    /* Le pcb UDP AVANT l'association, et quel qu'en soit le résultat.
+     *
+     * ⚠️ Jusqu'au 08/10/2026 il n'était créé qu'après une première association
+     * réussie. Si le réseau manquait au démarrage — le module écran l'émet
+     * lui-même, et la Game Boy peut s'allumer avant lui —, surveiller_lien()
+     * finissait par associer, mais l'émission partait sur un pcb nul :
+     * « udp_sendto: invalid pcb » à chaque tranche, 20 190 échecs en 109 s,
+     * aucune image reçue. */
+    cyw43_arch_lwip_begin();
     pcb = udp_new();
-    if (pcb == nullptr) {
-        printf("  udp_new : ECHEC\n");
-        return false;
-    }
     /* On se lie au port PXL1 pour que les accusés reviennent à une adresse
      * connue plutôt qu'à un port éphémère. */
-    if (udp_bind(pcb, IP_ANY_TYPE, PXL1_PORT) != ERR_OK) {
-        printf("  udp_bind sur %d : ECHEC\n", PXL1_PORT);
+    const bool lie = pcb != nullptr && udp_bind(pcb, IP_ANY_TYPE, PXL1_PORT) == ERR_OK;
+    if (lie)
+        udp_recv(pcb, sur_accuse, nullptr);
+    cyw43_arch_lwip_end();
+    if (!lie) {
+        printf("  udp_new / udp_bind sur %d : ECHEC\n", PXL1_PORT);
         return false;
     }
-    udp_recv(pcb, sur_accuse, nullptr);
+
+    printf("  association a « %s »...\n", WIFI_SSID);
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
+                                           CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+        /* Pas fatal : surveiller_lien() relance l'association chaque seconde,
+         * et le pcb est prêt pour le jour où elle aboutit. */
+        printf("  association : ECHEC (SSID, mot de passe, ou hors de portee ?)\n"
+               "  nouvelle tentative chaque seconde\n");
+        return false;
+    }
+    noter_ip();
 
     printf("  associe : %s  ->  %s:%d\n", ip_texte, PXL1_CIBLE_IP, PXL1_PORT);
     return true;
