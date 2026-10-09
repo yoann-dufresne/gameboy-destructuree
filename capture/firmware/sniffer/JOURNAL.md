@@ -377,7 +377,7 @@ Correction : le pcb est créé avant l'association, quel qu'en soit le résultat
 reflashage, sniffer et écran démarrés dans n'importe quel ordre : 59,73 img/s émises,
 aller-retour moyen de 1,85 ms jusqu'à l'accusé de l'écran.
 
-## Le premier pixel instable, et l'image décalée — 08/10/2026 · 🔍 en cours
+## Le premier pixel instable, et l'image décalée — 08 et 09/10/2026
 
 Vu sur la dalle du module écran, dans un intérieur de Pokémon Rouge : un pixel du bord
 gauche de l'image clignote, alors que la scène est immobile. Le module écran n'y est pour
@@ -385,13 +385,11 @@ rien : il affiche fidèlement ce que le sniffer lui envoie. Dix images prises à
 du sniffer (`tools/gbdump.py`), à 0,65 s d'intervalle, montrent **deux défauts de
 capture**.
 
-**1. Le premier pixel d'une ligne prend parfois la valeur du dernier pixel de la ligne
-précédente.** Le pixel (0, 15) vaut clair sur 7 images et noir sur 3, le reste de la ligne
-étant identique au pixel près. La bonne valeur se déduit du motif : chaque bibliothèque fait
-16 pixels, liseré clair compris (`.##############.`) ; (0, 15) est donc clair. La valeur
-fausse, noir, est celle du pixel (159, 14). L'erreur ne se voit que là où ces deux pixels
-diffèrent : dans cette scène, entre les lignes 14 et 15 seulement. Relevés :
-`premier-pixel-juste.png`, `premier-pixel-faux.png`.
+**1. Le premier pixel d'une ligne prend parfois une valeur fausse.** Le pixel (0, 15) vaut
+clair sur 7 images et noir sur 3, le reste de la ligne étant identique au pixel près. La
+bonne valeur se déduit du motif : chaque bibliothèque fait 16 pixels, liseré clair compris
+(`.##############.`) ; (0, 15) est donc clair. Relevés : `premier-pixel-juste.png`,
+`premier-pixel-faux.png`.
 
 **2. Une image entière perd parfois son premier pixel** : 1 sur 10 ici, toutes ses lignes
 glissées d'un cran vers la gauche. Relevé : `image-decalee.png`.
@@ -406,27 +404,94 @@ glissées d'un cran vers la gauche. Relevé : `image-decalee.png`.
 | Pixels ordinaires | donnée changée 2 à 3 éch. (83 à 125 ns) avant le front de lecture, stable 3 éch. après : la marge de la phase 0 |
 | Premier front d'une image | **19,5 µs** après le front montant de `S` |
 
-Deux hypothèses, une par défaut :
+**L'analyseur n'a finalement pas servi.** Le montage ne tenait qu'une pince à la fois,
+alors que les deux questions portent sur l'écart entre deux signaux. Chaque correctif a été
+éprouvé depuis le sniffer lui-même, avec des images vidées par la console et des délais de
+lecture réglables à chaud. [`tools/mesure_debut_ligne.sh`](../../tools/mesure_debut_ligne.sh)
+reste prêt pour une mesure à l'analyseur.
 
-- **Défaut 1** — le premier pixel, produit à part, a sa donnée présentée plus tard que les
-  autres par rapport à son front : le front descendant, bon pour les pixels ordinaires,
-  tombe pour lui trop près de la transition, et lit parfois l'ancienne valeur. Le relevé
-  ne permet pas de le voir : sa colonne 0 est uniforme, la donnée du premier pixel n'y
-  change jamais.
-- **Défaut 2** — `sur_vsync()` relance le PIO trop tard. Elle arrête le DMA, remet le PIO à
-  zéro, pousse la dernière tranche, réarme le DMA : si l'interruption est servie en retard
-  ou dure plus de 19,5 µs, le PIO repart après le premier pixel, et toute l'image glisse
-  d'un cran.
+### Défaut 2 : le PIO repartait trop tard
 
-**La mesure qui tranche** : [`tools/mesure_debut_ligne.sh`](../../tools/mesure_debut_ligne.sh),
-24 MS/s pendant 1 s, sur une scène où la colonne 0 change d'une ligne à l'autre. Câblage de
-la phase 1, plus **D6 sur GP20** (broche 26 du Pico), qui bascule à la fin de
-`sur_vsync()`. L'outil répond :
+`sur_vsync()` relançait le PIO en dernier, après la tranche finale et la publication.
+Désormais :
 
-- **B** : où tombe le changement de donnée du premier pixel par rapport à son front, et sur
-  combien de lignes ce front lit faux ;
-- **C** : le délai entre `S` et la fin de `sur_vsync()`, et combien d'images ont vu leur PIO
-  repartir après le premier pixel.
+- le PIO repart juste après l'arrêt du DMA ;
+- le programme est calé sur `ST`, une ligne à la fois : il doit savoir quel pixel est le
+  premier, puisqu'il le lit autrement (ci-dessous) ;
+- une image dont le PIO est reparti après le début de la ligne 0, ou qui est incomplète,
+  n'est ni émise en entier ni publiée, et l'écran garde la précédente. Trois compteurs
+  suivent ces cas : `trames incompl.`, `relances tard.`, `trames rejetees`.
 
-L'outil a été éprouvé sur une capture synthétique où ces défauts étaient injectés : il
-retrouve les lignes lues fausses et les images ratées.
+Résultat : plus aucune image décalée sur 20 vidages, contre 1 sur 10 avant. En régime
+établi : 0 relance tardive, 0 image rejetée, sur 3 708 images.
+
+### Défaut 1 : la donnée du premier pixel n'est valide que pendant que l'horloge est haute
+
+**Première tentative, fausse.** Elle supposait que la donnée du premier pixel ne bouge plus
+pendant le silence, et lisait 640 ns après son front descendant. Résultat : une colonne 0
+stable, mais égale à la colonne 3 sur les 144 lignes. La donnée continue donc d'avancer
+pendant le silence.
+
+**Juste après le front descendant**, de 0 à 207 ns, la colonne 0 vaut le pixel 1 partout.
+L'ancienne lecture, quelques nanosecondes plus tôt, tombait pile sur la transition : tantôt
+le pixel 0, tantôt le pixel 1. Dans la scène du 08/10, le pixel 1 de la ligne 15 vaut le
+dernier de la ligne 14, ce qui m'avait fait accuser la ligne précédente.
+
+**Après le front montant.** Le délai a été balayé de 0 à 31 cycles PIO de 6,67 ns, avec les
+commandes `<` et `>` et l'outil
+[`tools/balaye_premier_pixel.py`](../../tools/balaye_premier_pixel.py). La scène était
+celle du 08/10, et sa colonne 0 servait de référence ; 6 images par délai :
+
+| Délai | Colonne 0 |
+|---|---|
+| 0 | juste, sauf une image sur six : bordure |
+| 1 à 17 | juste et stable, 0 erreur |
+| 18 | instable |
+| 19 et au-delà | le pixel 1 |
+
+Retenu : 9 cycles, au milieu, soit à peu près au milieu du temps haut de l'horloge. Le
+front descendant du premier pixel doit ensuite être consommé (`wait 0`) : sinon la boucle le
+prend pour celui du pixel 1, et toute la ligne glisse. Vérifié sur 20 images : colonne 0
+juste partout, et (0, 15) clair 20 fois sur 20. Même fenêtre retrouvée sur une autre scène.
+
+### Un troisième défaut : le parasite du front descendant
+
+Le premier pixel corrigé, quelques pixels scintillaient encore au milieu de l'image, sur la
+dalle. Les vidages le confirment : de temps en temps, un pixel prend la valeur 3 sur une
+seule image, en pleine zone uniforme. C'est un bit brièvement à 1. Or la donnée n'y change
+pas d'un pixel à l'autre : ce n'est donc pas une lecture trop proche d'une transition, mais
+un parasite du front descendant, sur lequel on lisait.
+
+Le délai des pixels ordinaires est devenu réglable à chaud (commandes `[` et `]`). Il a été
+mesuré par blocs de 200 images, en alternance sur une même scène. Un pixel faux est un pixel
+qui diffère de l'image d'avant et de celle d'après alors que ces deux-là concordent ; sont
+exclues les zones où la scène bouge, c'est-à-dire les pixels qui changent sur au moins
+3 images, élargis de 2 pixels.
+
+| Délai après le front descendant | Pixels faux sur une seule image | Écarts permanents |
+|---|---|---|
+| 0, l'ancien réglage | **8 sur 594 images**, tous lus 3 | 0 |
+| 5 (33 ns) | 0 sur 198 | 0 |
+| 9 (60 ns) | **0 sur 594** | 0 |
+| 13 (87 ns) | 0 sur 198 | 0 |
+| 17 (113 ns) | — | 0, puis ~260 par image à l'essai suivant : bordure |
+| 19 à 29 | — | ~850 par image : le pixel suivant |
+
+Retenu : 9 cycles. Vérifié sur 300 images : 0 pixel faux, 0 écart permanent, colonne 0
+juste.
+
+### Un défaut de l'instrument : le vidage mélangeait les images
+
+`vidage_hex()` lisait l'image en place, dans le tampon de capture, pendant jusqu'à 100 ms,
+soit six images. Or la capture réécrit ce tampon une image sur deux. Sur une scène immobile,
+cela ne se voit pas ; dès qu'elle bouge, on obtient des images composites, et des centaines
+de « pixels faux » qui n'en sont pas. Le vidage copie maintenant l'image d'un bloc avant de
+l'imprimer. Le flux envoyé à l'écran n'était pas concerné.
+
+Les vidages en rafale perturbent aussi la capture. Ils bloquent la boucle principale, si
+bien que des tranches sont perdues et que l'écran saute des images. Pendant ces vidages, on a
+aussi compté 37 relances tardives en 31 s, contre 0 en 60 s sans vidage. Une séance de
+diagnostic par vidages ne dit donc rien de la fluidité de l'écran.
+
+**Bilan, 60 s sans vidage :** 3 585 images, 0 relance tardive, 0 image rejetée, 0 tranche
+perdue ; 100 % des images acquittées par l'écran.
