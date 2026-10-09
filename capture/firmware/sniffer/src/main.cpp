@@ -68,6 +68,12 @@ void afficher_stats() {
            s.trames_douteuses ? "  <-- lignes != 144" : "");
     printf("  mots restants    %6lu %s\n", (unsigned long)s.mots_restants,
            s.mots_restants ? "  <-- fronts d'horloge pixel manquants" : "");
+    printf("  trames incompl.  %6lu %s\n", (unsigned long)s.trames_incompletes,
+           s.trames_incompletes ? "  <-- mots manquants a la VSYNC" : "");
+    printf("  relances tard.   %6lu %s\n", (unsigned long)s.relances_tardives,
+           s.relances_tardives ? "  <-- PIO reparti apres le debut de la ligne 0" : "");
+    printf("  trames rejetees  %6lu        (mal capturees : ni emises ni publiees)\n",
+           (unsigned long)s.rejetees);
     printf("  debordements FIFO%6lu %s\n", (unsigned long)s.debordements,
            s.debordements ? "  <-- le DMA ne suit pas" : "");
     printf("  trames perdues   %6lu        (non lues par la boucle)\n",

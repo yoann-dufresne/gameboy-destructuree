@@ -76,6 +76,9 @@ de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capt
 | `lignes/trame` | 144 | `P2-ST` manque des impulsions, ou en invente |
 | `trames douteuses` | 0 | idem, cumulé sur toutes les images |
 | `mots restants` | 0 | des fronts d'horloge pixel ont été manqués : mauvais front ou délai d'échantillonnage |
+| `trames incompl.` | 0 | idem, cumulé sur toutes les images |
+| `relances tard.` | 0 | le PIO est reparti après le début de la ligne 0 : l'image en a manqué le début |
+| `trames rejetees` | 0 | images incomplètes ou relancées tard : ni émises ni publiées, l'écran garde la précédente |
 | `debordements FIFO` | 0 | le DMA ne suit pas le PIO |
 | `trames perdues` | — | des images capturées n'ont pas été lues par la boucle principale |
 | `tranches perdues` | 0 | en mode pipeliné, la file des paquets à émettre a débordé |
@@ -139,12 +142,16 @@ d'intégrité : `P2-ST` doit battre 144 fois par image.
 1. relever le compte de lignes ;
 2. arrêter le DMA, relever ce qu'il n'a pas écrit ;
 3. vider la FIFO et redémarrer le PIO ;
-4. basculer le tampon ;
-5. réarmer et relancer.
+4. basculer le tampon, réarmer et relancer ;
+5. émettre la dernière tranche et publier l'image qui vient de se terminer.
 
 Vider la FIFO avant d'arrêter le PIO le laisserait la remplir à nouveau. Basculer le
 tampon avant d'arrêter le DMA le laisserait écrire dans l'image qu'on publie : une
-déchirure intermittente, difficile à trouver.
+déchirure intermittente, difficile à trouver. Et le PIO doit repartir avant
+l'émission : le premier pixel de l'image arrive 19,5 µs après `P2-S`.
+
+Une image mal capturée, incomplète ou dont le PIO est reparti trop tard, n'est ni
+émise en entier ni publiée : l'écran garde la précédente, plutôt qu'une image fausse.
 
 **Émission par tranches.** Une image de 5 760 octets part en 5 paquets UDP de
 1 400 octets au plus, soit 35 lignes chacun. En mode pipeliné (par défaut), une tranche

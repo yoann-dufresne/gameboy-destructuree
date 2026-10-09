@@ -39,6 +39,7 @@ volatile uint32_t t_vsync_pret = 0;   /* horodatage de la trame publiée   */
 uint32_t t_vsync_rendu = 0;           /* … saisi par trame_prete()         */
 
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
+bool trame_suspecte = false;        /* PIO relancé trop tard pour l'image en cours */
 
 /* File de tranches : un producteur (les interruptions), un consommateur (la
  * boucle principale). Huit créneaux pour cinq tranches par trame — largement
@@ -81,17 +82,33 @@ void armer_dma(uint8_t idx) {
  *   - vider le FIFO avant d'arrêter le PIO le laisserait le remplir à nouveau ;
  *   - basculer le tampon avant d'arrêter le DMA le laisserait écrire quelques
  *     mots dans la trame qu'on est en train de publier — une déchirure
- *     intermittente, donc pénible à trouver.
+ *     intermittente, donc pénible à trouver ;
+ *   - et le PIO doit repartir AVANT tout le reste : le premier pixel de
+ *     l'image tombe 19,5 µs après le front de S. Jusqu'au 08/10/2026 il
+ *     repartait en dernier, après la tranche finale et la publication, et une
+ *     image sur dix environ perdait son premier pixel — décalée d'un cran.
  */
 void sur_vsync() {
-    /* 1. intégrité : P2-ST doit avoir battu exactement 144 fois */
-    compteurs.lignes_derniere = lignes;
-    if (lignes != LIGNES_VISIBLES)
+    /* 1. intégrité : P2-ST doit avoir battu exactement 144 fois. Une de plus :
+     *    l'interruption a été servie si tard que le ST de la ligne 0 de l'image
+     *    SUIVANTE l'a précédée — le gestionnaire du SDK traite les broches dans
+     *    l'ordre, et ST (GP3) passe avant S (GP4). */
+    const bool ligne0_deja_vue = lignes == LIGNES_VISIBLES + 1;
+    compteurs.lignes_derniere = ligne0_deja_vue ? LIGNES_VISIBLES : lignes;
+    if (compteurs.lignes_derniere != LIGNES_VISIBLES)
         compteurs.trames_douteuses++;
 
     /* 2. arrêter le DMA, et relever ce qu'il n'a pas eu le temps d'écrire */
     dma_channel_abort(canal);
     compteurs.mots_restants = dma_channel_hw_addr(canal)->transfer_count;
+    if (compteurs.mots_restants)
+        compteurs.trames_incompletes++;
+
+    /* Une image mal capturée n'est pas émise : relancée trop tard, son PIO en
+     * a manqué le début ; incomplète, des fronts d'horloge lui manquent.
+     * Sans sa dernière tranche, le module écran ne la voit jamais complète et
+     * garde la précédente — une image sautée plutôt qu'une image fausse. */
+    const bool rejetee = trame_suspecte || compteurs.mots_restants != 0;
 
     /* 3. remettre le PIO à zéro : FIFO, mais aussi compteurs de décalage de
      *    l'ISR — une ligne tronquée y laisserait un mot partiel qui décalerait
@@ -106,28 +123,43 @@ void sur_vsync() {
         pio->fdebug = 1u << (PIO_FDEBUG_RXSTALL_LSB + sm);
     }
 
-    /* 4. tranche finale — AVANT la bascule : elle pointe dans le tampon qui
-     *    vient d'être rempli, et porte le même frame_id que les précédentes. */
-    if (pipeline_on) {
-        const uint16_t off = (uint16_t)((TRANCHES_PAR_TRAME - 1) * OCTETS_TRANCHE);
-        pousser(trame[idx_capture] + off, off,
-                (uint16_t)(OCTETS_TRAME - off), id_trame, true);
-    }
-
-    /* 5. publier la trame qui vient de se terminer, et basculer */
-    if (idx_pret >= 0)
-        compteurs.perdues++;   /* la boucle n'a pas suivi : on écrase */
-    idx_pret = (int8_t)idx_capture;
-    t_vsync_pret = time_us_32();
-    id_pret = id_trame;
-    id_trame = id_trame + 1;
+    /* 4. réarmer sur l'autre tampon et relancer — tout de suite */
+    const uint8_t pleine = idx_capture;
     idx_capture ^= 1u;
-
-    /* 6. réarmer sur l'autre tampon et relancer */
     armer_dma(idx_capture);
     pio_sm_set_enabled(pio, sm, true);
 
-    lignes = 0;
+    /* Trop tard si ST a déjà levé : la ligne 0 a commencé sans le PIO. Son
+     * interruption est alors en attente — on est dans le même gestionnaire —,
+     * ou déjà traitée (cas ci-dessus). L'image qui commence sera rejetée. */
+    trame_suspecte = ligne0_deja_vue ||
+                     (gpio_get_irq_event_mask(PIN_LIGNE) & GPIO_IRQ_EDGE_RISE);
+    if (trame_suspecte)
+        compteurs.relances_tardives++;
+
+    if (rejetee) {
+        compteurs.rejetees++;
+    } else {
+        /* 5. tranche finale : elle pointe dans le tampon qui vient d'être
+         *    rempli, et porte le même frame_id que les précédentes. */
+        if (pipeline_on) {
+            const uint16_t off = (uint16_t)((TRANCHES_PAR_TRAME - 1) * OCTETS_TRANCHE);
+            pousser(trame[pleine] + off, off,
+                    (uint16_t)(OCTETS_TRAME - off), id_trame, true);
+        }
+
+        /* 6. publier la trame qui vient de se terminer */
+        if (idx_pret >= 0)
+            compteurs.perdues++;   /* la boucle n'a pas suivi : on écrase */
+        idx_pret = (int8_t)pleine;
+        t_vsync_pret = time_us_32();
+        id_pret = id_trame;
+    }
+    /* Le numéro avance même pour une image rejetée : ses premières tranches
+     * sont déjà parties sous ce numéro. */
+    id_trame = id_trame + 1;
+
+    lignes = ligne0_deja_vue ? 1u : 0u;
     compteurs.trames++;
 
     gpio_xor_mask(1u << PIN_MESURE_VSYNC);

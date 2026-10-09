@@ -27,6 +27,10 @@ struct Stats {
     uint32_t lignes_derniere; /* compte de lignes de la dernière trame       */
     uint32_t mots_restants;   /* mots que le DMA n'a pas écrits à la VSYNC.
                                * ≠ 0 ⇒ des fronts d'horloge pixel manquent   */
+    uint32_t trames_incompletes; /* trames où mots_restants ≠ 0, cumulées   */
+    uint32_t relances_tardives;  /* PIO relancé après le début de la ligne 0 :
+                                  * premier pixel de l'image manqué          */
+    uint32_t rejetees;           /* images mal capturées, ni émises ni publiées */
     uint32_t debordements;    /* RX FIFO du PIO saturé — ne devrait jamais   */
     uint32_t perdues;         /* trames prêtes jamais lues par la boucle     */
     uint32_t tranches_perdues;/* file pleine : la boucle n'a pas suivi        */
