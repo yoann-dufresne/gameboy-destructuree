@@ -56,3 +56,10 @@ Images de 640×576 pixels, soit 160×144 agrandi 4 fois. Contexte de chacune :
 | `phase2-apres-30min.png` | après 30 minutes de capture continue |
 | `phase3-bout-en-bout.png` | reçue en WiFi par l'écran virtuel |
 | `phase4-pipeline.png` | reçue en émission pipelinée |
+| `premier-pixel-juste.png` | Pokémon Rouge, intérieur : le pixel (0, 15) est clair, comme le liseré des bibliothèques |
+| `premier-pixel-faux.png` | la même scène, à 4 s d'intervalle : (0, 15) lu noir — la valeur du dernier pixel de la ligne 14 |
+| `image-decalee.png` | la même scène : toute l'image a perdu son premier pixel et glissé d'un cran à gauche |
+
+Ces trois dernières sont l'enquête du 08/10/2026 sur le début des lignes : voir le
+[journal du firmware](../../firmware/sniffer/JOURNAL.md). Sa mesure à l'analyseur se fait
+avec [`../../tools/mesure_debut_ligne.sh`](../../tools/mesure_debut_ligne.sh).

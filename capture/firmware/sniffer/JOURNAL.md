@@ -376,3 +376,57 @@ s'était jamais produit avec la box.
 Correction : le pcb est créé avant l'association, quel qu'en soit le résultat. Après
 reflashage, sniffer et écran démarrés dans n'importe quel ordre : 59,73 img/s émises,
 aller-retour moyen de 1,85 ms jusqu'à l'accusé de l'écran.
+
+## Le premier pixel instable, et l'image décalée — 08/10/2026 · 🔍 en cours
+
+Vu sur la dalle du module écran, dans un intérieur de Pokémon Rouge : un pixel du bord
+gauche de l'image clignote, alors que la scène est immobile. Le module écran n'y est pour
+rien : il affiche fidèlement ce que le sniffer lui envoie. Dix images prises à la console
+du sniffer (`tools/gbdump.py`), à 0,65 s d'intervalle, montrent **deux défauts de
+capture**.
+
+**1. Le premier pixel d'une ligne prend parfois la valeur du dernier pixel de la ligne
+précédente.** Le pixel (0, 15) vaut clair sur 7 images et noir sur 3, le reste de la ligne
+étant identique au pixel près. La bonne valeur se déduit du motif : chaque bibliothèque fait
+16 pixels, liseré clair compris (`.##############.`) ; (0, 15) est donc clair. La valeur
+fausse, noir, est celle du pixel (159, 14). L'erreur ne se voit que là où ces deux pixels
+diffèrent : dans cette scène, entre les lignes 14 et 15 seulement. Relevés :
+`premier-pixel-juste.png`, `premier-pixel-faux.png`.
+
+**2. Une image entière perd parfois son premier pixel** : 1 sur 10 ici, toutes ses lignes
+glissées d'un cran vers la gauche. Relevé : `image-decalee.png`.
+
+**Ce que dit déjà `phase1-rapide.sr`**, dépouillé par le nouvel outil
+[`tools/debut_ligne.py`](../../tools/debut_ligne.py) :
+
+| | |
+|---|---|
+| Fronts d'horloge entre deux `ST` | 160, sur toutes les lignes |
+| **Premier pixel d'une ligne** | **isolé** : 1,7 µs après le début de `ST`, pendant que `ST` est encore haut (3,5 µs), puis **2 µs de silence** avant les 159 autres |
+| Pixels ordinaires | donnée changée 2 à 3 éch. (83 à 125 ns) avant le front de lecture, stable 3 éch. après : la marge de la phase 0 |
+| Premier front d'une image | **19,5 µs** après le front montant de `S` |
+
+Deux hypothèses, une par défaut :
+
+- **Défaut 1** — le premier pixel, produit à part, a sa donnée présentée plus tard que les
+  autres par rapport à son front : le front descendant, bon pour les pixels ordinaires,
+  tombe pour lui trop près de la transition, et lit parfois l'ancienne valeur. Le relevé
+  ne permet pas de le voir : sa colonne 0 est uniforme, la donnée du premier pixel n'y
+  change jamais.
+- **Défaut 2** — `sur_vsync()` relance le PIO trop tard. Elle arrête le DMA, remet le PIO à
+  zéro, pousse la dernière tranche, réarme le DMA : si l'interruption est servie en retard
+  ou dure plus de 19,5 µs, le PIO repart après le premier pixel, et toute l'image glisse
+  d'un cran.
+
+**La mesure qui tranche** : [`tools/mesure_debut_ligne.sh`](../../tools/mesure_debut_ligne.sh),
+24 MS/s pendant 1 s, sur une scène où la colonne 0 change d'une ligne à l'autre. Câblage de
+la phase 1, plus **D6 sur GP20** (broche 26 du Pico), qui bascule à la fin de
+`sur_vsync()`. L'outil répond :
+
+- **B** : où tombe le changement de donnée du premier pixel par rapport à son front, et sur
+  combien de lignes ce front lit faux ;
+- **C** : le délai entre `S` et la fin de `sur_vsync()`, et combien d'images ont vu leur PIO
+  repartir après le premier pixel.
+
+L'outil a été éprouvé sur une capture synthétique où ces défauts étaient injectés : il
+retrouve les lignes lues fausses et les images ratées.
