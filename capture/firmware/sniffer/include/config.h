@@ -71,10 +71,17 @@
  * transitions mesurées tombent à +0 échantillon, 47 à +1, aucune au-delà.
  * Le temps haut de l'horloge est de 125 ns.
  *
- * ⇒ on échantillonne sur le front DESCENDANT, au milieu de la fenêtre stable :
- *    75 ns de marge avant, 113 ns après. Le programme PIO inverse donc ses
- *    deux `wait` par rapport à ce qu'envisageait le plan, et ce délai vaut 0. */
-#define DELAI_ECHANTILLON  0   /* cycles PIO après le front descendant, 0..31 */
+ * ⇒ on échantillonne après le front DESCENDANT, au milieu de la fenêtre
+ *    stable : 75 ns de marge avant, 113 ns après. Le programme PIO inverse donc
+ *    ses deux `wait` par rapport à ce qu'envisageait le plan.
+ *
+ * 🔬 Mais pas pile dessus. Le 09/10/2026, lu au plus tôt (délai 0), environ un
+ * pixel par seconde d'image prenait la valeur 3 en pleine zone uniforme : un
+ * bit brièvement à 1, un parasite du front. Mesuré en alternance sur une même
+ * scène : délai 0, 8 pixels faux sur 594 images ; 5, 9 et 13, aucun ; 17 en
+ * bordure, et à partir de 19, le pixel suivant. 9 cycles, 60 ns, au milieu.
+ * Réglable à chaud par les commandes « [ » et « ] ». */
+#define DELAI_ECHANTILLON  9   /* cycles PIO après le front descendant, 0..31 */
 
 /* 🔬 Délai de lecture du PREMIER pixel de chaque ligne, en cycles PIO (6,67 ns
  * à 150 MHz) après son front MONTANT, 0..31. Sa donnée n'est valide que

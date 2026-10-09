@@ -72,6 +72,11 @@ bool pipeline_actif();
 void delai_premier(uint8_t cycles);
 uint8_t delai_premier();
 
+/* Délai de lecture des autres pixels, en cycles PIO après leur front
+ * descendant (0..31). Réglable à chaud, pour la même raison. */
+void delai_echantillon(uint8_t cycles);
+uint8_t delai_echantillon();
+
 const Stats &stats();
 
 /* Remet les compteurs et la mesure de cadence à zéro. Sert à démontrer qu'une

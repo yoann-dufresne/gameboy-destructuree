@@ -41,6 +41,7 @@ uint32_t t_vsync_rendu = 0;           /* … saisi par trame_prete()         */
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
 bool trame_suspecte = false;        /* PIO relancé trop tard pour l'image en cours */
 uint8_t delai_premier_courant = DELAI_PREMIER_PIXEL;
+uint8_t delai_echantillon_courant = DELAI_ECHANTILLON;
 
 /* File de tranches : un producteur (les interruptions), un consommateur (la
  * boucle principale). Huit créneaux pour cinq tranches par trame — largement
@@ -277,6 +278,16 @@ void delai_premier(uint8_t cycles) {
 }
 
 uint8_t delai_premier() { return delai_premier_courant; }
+
+void delai_echantillon(uint8_t cycles) {
+    if (cycles > 31)
+        cycles = 31;
+    delai_echantillon_courant = cycles;
+    pio->instr_mem[offset_pio + gb_pixels_offset_echantillon] =
+        (uint16_t)(pio_encode_wait_pin(false, 2) | pio_encode_delay(cycles));
+}
+
+uint8_t delai_echantillon() { return delai_echantillon_courant; }
 
 uint16_t numero_trame() { return id_pret; }
 uint32_t horodatage_trame() { return t_vsync_rendu; }

@@ -220,6 +220,7 @@ void aide() {
            "  d = rompre l'association (essai de reconnexion)\n"
            "  P = basculer emission simple <-> pipelinee\n"
            "  < > = delai de lecture du premier pixel, -/+ 1 cycle PIO\n"
+           "  [ ] = delai de lecture des autres pixels, -/+ 1 cycle PIO\n"
            "  h = cette aide\n\n");
 }
 
@@ -326,6 +327,11 @@ int main() {
                 const int d = capture::delai_premier() + (c == '>' ? 1 : -1);
                 capture::delai_premier((uint8_t)(d < 0 ? 0 : d));
                 printf("\n  DELAI_PREMIER %u\n", capture::delai_premier());
+            }
+            else if (c == '[' || c == ']') {
+                const int d = capture::delai_echantillon() + (c == ']' ? 1 : -1);
+                capture::delai_echantillon((uint8_t)(d < 0 ? 0 : d));
+                printf("\n  DELAI_ECHANTILLON %u\n", capture::delai_echantillon());
             }
             else if (c == 'h')
                 aide();

@@ -3,15 +3,16 @@
 ;
 ; Une ligne à la fois, calée sur le verrou de ligne ST. Chaque instruction est
 ; justifiée par une mesure : phase 0 pour les pixels ordinaires, enquête des
-; 08 et 09/10/2026 pour le premier pixel de chaque ligne.
+; 08 et 09/10/2026 pour le premier pixel de chaque ligne et les délais de
+; lecture.
 ;
 .program gb_pixels
 
 ; Délai entre le front descendant et l'échantillonnage, en cycles PIO.
-; 🔬 Mesuré nul en phase 0 : le front descendant tombe déjà au milieu de la
-; fenêtre stable. `PUBLIC` l'exporte en C, où un static_assert vérifie qu'il
-; n'a pas divergé de config.h — pioasm ne sait pas lire un en-tête C.
-.define PUBLIC DELAI 0
+; 🔬 Mesuré le 09/10/2026 (config.h, DELAI_ECHANTILLON). `PUBLIC` l'exporte
+; en C, où un static_assert vérifie qu'il n'a pas divergé de config.h —
+; pioasm ne sait pas lire un en-tête C. Le C le réécrit à chaud (« [ », « ] »).
+.define PUBLIC DELAI 9
 
 ; Point d'entrée, à chaque départ d'image (sur_vsync) : Y = 158, soit les
 ; pixels d'une ligne après le premier, moins un pour `jmp x--`. `set` ne charge
@@ -35,7 +36,8 @@ public premier:
     mov  x, y             ; les 159 autres
 pixel:
     wait 1 pin 2          ; attendre que l'horloge pixel soit HAUTE
-    wait 0 pin 2 [DELAI]  ; front DESCENDANT — LD est stable depuis 125 ns
+public echantillon:
+    wait 0 pin 2 [DELAI]  ; front DESCENDANT + 60 ns : loin de son parasite et du pixel suivant
     in   pins, 2          ; échantillonner LD0 et LD1
     jmp  x-- pixel
 .wrap
@@ -76,7 +78,13 @@ pixel:
 ;
 ; Le temps haut de l'horloge étant de 125 ns et sa période de 238 ns, le front
 ; DESCENDANT tombe au milieu de la fenêtre stable : 75 ns de marge avant,
-; 113 ns après. D'où l'inversion, et d'où DELAI = 0.
+; 113 ns après. D'où l'inversion.
+;
+; Mais pas pile sur ce front : le 09/10/2026, lu au plus tôt (DELAI = 0), un
+; pixel prenait de temps en temps la valeur 3, en pleine zone uniforme — un
+; bit brièvement à 1, un parasite du front lui-même. Un balayage de DELAI
+; situe la fenêtre propre entre 5 et 16 cycles ; au-delà, on lit le pixel
+; suivant. D'où DELAI = 9.
 ;
 ; ── Pourquoi `wait 1` AVANT `wait 0`
 ;

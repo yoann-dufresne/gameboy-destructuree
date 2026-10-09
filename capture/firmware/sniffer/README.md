@@ -65,6 +65,7 @@ de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capt
 | `d` | rupture volontaire de l'association WiFi, pour éprouver la reconnexion |
 | `P` | bascule entre émission simple et émission pipelinée, et remet les compteurs à zéro |
 | `<` `>` | délai de lecture du premier pixel de chaque ligne, −/+ 1 cycle PIO ; [`tools/balaye_premier_pixel.py`](../../tools/balaye_premier_pixel.py) le balaye |
+| `[` `]` | délai de lecture des autres pixels, −/+ 1 cycle PIO |
 | `h` | aide |
 
 [`tools/sniffer.py`](../../tools/sniffer.py) envoie ces commandes depuis un script.
@@ -121,17 +122,19 @@ La palette `diag` rend visible au premier coup d'œil une erreur d'ordre des bit
 Le processeur compte les lignes et réarme le DMA une fois par image, pendant les 1,09 ms
 où l'écran ne reçoit rien (VBlank).
 
-**Échantillonner sur le front descendant.** Pour chaque pixel, le programme PIO attend
-un front descendant de l'horloge pixel, puis lit `LD0` et `LD1` :
+**Échantillonner après le front descendant.** Pour chaque pixel, le programme PIO
+attend un front descendant de l'horloge pixel, puis lit `LD0` et `LD1` 60 ns plus tard :
 
 ```
 wait 1 pin 2          ; garantit qu'on verra le prochain front descendant
-wait 0 pin 2 [0]      ; front descendant
+wait 0 pin 2 [9]      ; front descendant, + 9 cycles
 in   pins, 2          ; LD0 et LD1
 ```
 
 Les données changent sur le front montant ; le front descendant tombe au milieu de
-leur fenêtre de stabilité, avec 75 ns de marge avant et 113 ns après.
+leur fenêtre de stabilité, avec 75 ns de marge avant et 113 ns après. Lues pile sur ce
+front, elles subissaient de temps en temps son parasite : la fenêtre propre mesurée
+va de 5 à 16 cycles après lui.
 
 **Sauf le premier pixel de chaque ligne.** Il est produit à part, suivi de 2 µs de
 silence, et sa donnée n'est valide que pendant que l'horloge est haute : elle passe à
