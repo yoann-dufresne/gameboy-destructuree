@@ -66,6 +66,12 @@ bool tranche_prete(Tranche &out);
 void pipeline(bool actif);
 bool pipeline_actif();
 
+/* Délai de lecture du premier pixel de chaque ligne, en cycles PIO après son
+ * front montant (0..31). Réglable à chaud : sert à retrouver sa fenêtre valide
+ * sans analyseur logique, par tools/balaye_premier_pixel.py. */
+void delai_premier(uint8_t cycles);
+uint8_t delai_premier();
+
 const Stats &stats();
 
 /* Remet les compteurs et la mesure de cadence à zéro. Sert à démontrer qu'une

@@ -98,6 +98,7 @@ Puis, sur le PC dont l'adresse a été configurée, depuis ce dossier :
 |---|---|
 | [`tools/ecran_virtuel.py`](tools/ecran_virtuel.py) | reçoit le flux `PXL1` et l'affiche sur le PC ; mesure cadence, pertes et débit |
 | [`tools/gbdump.py`](tools/gbdump.py) | demande une image au firmware par la console USB et l'enregistre en PNG |
+| [`tools/balaye_premier_pixel.py`](tools/balaye_premier_pixel.py) | balaye le délai de lecture du premier pixel de chaque ligne et compare la colonne 0 à une référence : retrouve sa fenêtre sans analyseur |
 | [`tools/sniffer.py`](tools/sniffer.py) | envoie des commandes au firmware depuis un script |
 | [`tools/console.py`](tools/console.py) | console série du Pico |
 | [`tools/flash.sh`](tools/flash.sh) | flashe un `.uf2` |

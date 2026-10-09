@@ -76,6 +76,14 @@
  *    deux `wait` par rapport à ce qu'envisageait le plan, et ce délai vaut 0. */
 #define DELAI_ECHANTILLON  0   /* cycles PIO après le front descendant, 0..31 */
 
+/* 🔬 Délai de lecture du PREMIER pixel de chaque ligne, en cycles PIO (6,67 ns
+ * à 150 MHz) après son front MONTANT, 0..31. Sa donnée n'est valide que
+ * pendant que l'horloge est haute : elle passe à celle du pixel suivant sur le
+ * front descendant (capture.pio). Balayé le 09/10/2026 sur une scène connue :
+ * bonne valeur de 1 à 17 cycles, pixel suivant à partir de 18. 9 en est le
+ * milieu. Réglable à chaud par les commandes « < » et « > ». */
+#define DELAI_PREMIER_PIXEL  9
+
 /* ─────────────────────────────────────────────────────────────── horloge
  *
  * 150 MHz, la valeur par défaut. Inutile de monter : la marge PIO est déjà de

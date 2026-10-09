@@ -40,6 +40,7 @@ uint32_t t_vsync_rendu = 0;           /* … saisi par trame_prete()         */
 
 volatile uint32_t lignes = 0;       /* impulsions de P2-ST depuis la VSYNC */
 bool trame_suspecte = false;        /* PIO relancé trop tard pour l'image en cours */
+uint8_t delai_premier_courant = DELAI_PREMIER_PIXEL;
 
 /* File de tranches : un producteur (les interruptions), un consommateur (la
  * boucle principale). Huit créneaux pour cinq tranches par trame — largement
@@ -116,7 +117,7 @@ void sur_vsync() {
     pio_sm_set_enabled(pio, sm, false);
     pio_sm_clear_fifos(pio, sm);
     pio_sm_restart(pio, sm);
-    pio_sm_exec(pio, sm, pio_encode_jmp(offset_pio));
+    pio_sm_exec(pio, sm, pio_encode_jmp(offset_pio + gb_pixels_offset_entree));
 
     if (pio->fdebug & (1u << (PIO_FDEBUG_RXSTALL_LSB + sm))) {
         compteurs.debordements++;
@@ -210,6 +211,7 @@ void init() {
     gpio_set_dir(PIN_LIGNE154, GPIO_IN);
 
     offset_pio = pio_add_program(pio, &gb_pixels_program);
+    delai_premier(DELAI_PREMIER_PIXEL);
     gb_pixels_init(pio, sm, offset_pio);
 
     /* Un SEUL canal : les lignes du framebuffer sont contiguës, donc les
@@ -262,6 +264,19 @@ void pipeline(bool actif) {
 }
 
 bool pipeline_actif() { return pipeline_on; }
+
+/* Le délai vit dans le champ « delay » de l'instruction qui attend le front
+ * montant du premier pixel : la réécrire en mémoire d'instructions suffit,
+ * même machine d'état en marche — un mot de 16 bits, écrit d'un coup. */
+void delai_premier(uint8_t cycles) {
+    if (cycles > 31)
+        cycles = 31;
+    delai_premier_courant = cycles;
+    pio->instr_mem[offset_pio + gb_pixels_offset_premier] =
+        (uint16_t)(pio_encode_wait_pin(true, 2) | pio_encode_delay(cycles));
+}
+
+uint8_t delai_premier() { return delai_premier_courant; }
 
 uint16_t numero_trame() { return id_pret; }
 uint32_t horodatage_trame() { return t_vsync_rendu; }

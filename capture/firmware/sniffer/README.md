@@ -64,6 +64,7 @@ de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capt
 | `r` | remise à zéro des compteurs |
 | `d` | rupture volontaire de l'association WiFi, pour éprouver la reconnexion |
 | `P` | bascule entre émission simple et émission pipelinée, et remet les compteurs à zéro |
+| `<` `>` | délai de lecture du premier pixel de chaque ligne, −/+ 1 cycle PIO ; [`tools/balaye_premier_pixel.py`](../../tools/balaye_premier_pixel.py) le balaye |
 | `h` | aide |
 
 [`tools/sniffer.py`](../../tools/sniffer.py) envoie ces commandes depuis un script.
@@ -108,7 +109,7 @@ La palette `diag` rend visible au premier coup d'œil une erreur d'ordre des bit
 |---|---|
 | `include/config.h` | tout ce qui vient d'une mesure, avec la mesure qui le justifie |
 | `include/pxl1.h` | le protocole, copié du module écran (voir `PROVENANCE.txt`) |
-| `src/capture.pio` | le programme PIO : trois instructions |
+| `src/capture.pio` | le programme PIO : une ligne à la fois, calée sur `P2-ST` |
 | `src/capture.hpp`, `src/capture.cpp` | PIO, DMA, interruptions, double tampon, file des tranches |
 | `src/net/reseau.hpp`, `src/net/reseau.cpp` | WiFi, émission `PXL1`, accusés, reconnexion, mesure de latence |
 | `src/net/lwipopts.h` | configuration de la pile réseau lwIP |
@@ -120,8 +121,8 @@ La palette `diag` rend visible au premier coup d'œil une erreur d'ordre des bit
 Le processeur compte les lignes et réarme le DMA une fois par image, pendant les 1,09 ms
 où l'écran ne reçoit rien (VBlank).
 
-**Échantillonner sur le front descendant.** Le programme PIO attend un front descendant
-de l'horloge pixel, puis lit `LD0` et `LD1` :
+**Échantillonner sur le front descendant.** Pour chaque pixel, le programme PIO attend
+un front descendant de l'horloge pixel, puis lit `LD0` et `LD1` :
 
 ```
 wait 1 pin 2          ; garantit qu'on verra le prochain front descendant
@@ -131,6 +132,14 @@ in   pins, 2          ; LD0 et LD1
 
 Les données changent sur le front montant ; le front descendant tombe au milieu de
 leur fenêtre de stabilité, avec 75 ns de marge avant et 113 ns après.
+
+**Sauf le premier pixel de chaque ligne.** Il est produit à part, suivi de 2 µs de
+silence, et sa donnée n'est valide que pendant que l'horloge est haute : elle passe à
+celle du pixel suivant sur le front descendant. Il est donc lu 9 cycles PIO (60 ns)
+après son front montant, au milieu d'une fenêtre mesurée de 1 à 17 cycles.
+
+**Une ligne à la fois.** Le programme attend `P2-ST` avant chaque ligne, puis lit
+160 pixels : il doit savoir quel pixel est le premier, puisqu'il le lit autrement.
 
 **Un seul transfert DMA par image.** Les 144 lignes de 40 octets sont contiguës en
 mémoire : 1 440 mots de 32 bits, un transfert. Le DMA compte des mots, pas des lignes :

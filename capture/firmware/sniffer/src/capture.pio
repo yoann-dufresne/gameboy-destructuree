@@ -1,7 +1,9 @@
 ;
 ; Module CAPTURE — échantillonnage du bus LCD de la Game Boy
 ;
-; Trois instructions, et chacune est justifiée par une mesure de la phase 0.
+; Une ligne à la fois, calée sur le verrou de ligne ST. Chaque instruction est
+; justifiée par une mesure : phase 0 pour les pixels ordinaires, enquête des
+; 08 et 09/10/2026 pour le premier pixel de chaque ligne.
 ;
 .program gb_pixels
 
@@ -11,11 +13,59 @@
 ; n'a pas divergé de config.h — pioasm ne sait pas lire un en-tête C.
 .define PUBLIC DELAI 0
 
+; Point d'entrée, à chaque départ d'image (sur_vsync) : Y = 158, soit les
+; pixels d'une ligne après le premier, moins un pour `jmp x--`. `set` ne charge
+; que 0..31 : la constante est assemblée dans l'ISR, 19 << 3 | 6, puis l'ISR
+; est vidée — `mov isr, null` remet aussi son compteur de décalage à zéro.
+public entree:
+    set x, 19
+    in  x, 5
+    set x, 6
+    in  x, 3
+    mov y, isr
+    mov isr, null
+
 .wrap_target
+ligne:
+    wait 1 pin 3          ; ST HAUT : une ligne commence — son 1er pixel tombe pendant ST
+public premier:
+    wait 1 pin 2          ; front MONTANT du premier pixel, + DELAI_PREMIER_PIXEL (posé par le C)
+    in   pins, 2
+    wait 0 pin 2          ; fin du premier pixel : la boucle ne doit pas le recompter
+    mov  x, y             ; les 159 autres
+pixel:
     wait 1 pin 2          ; attendre que l'horloge pixel soit HAUTE
     wait 0 pin 2 [DELAI]  ; front DESCENDANT — LD est stable depuis 125 ns
     in   pins, 2          ; échantillonner LD0 et LD1
+    jmp  x-- pixel
 .wrap
+
+; ── Le premier pixel d'une ligne — enquête des 08 et 09/10/2026
+;
+; Il est produit à part : 1,7 µs après le début de ST, puis 2 µs de silence
+; avant les 159 autres (phase1-rapide.sr, dépouillé par tools/debut_ligne.py).
+; Sa donnée ne se comporte pas comme celle des autres : elle n'est valide que
+; pendant que l'horloge est HAUTE, passe à celle du pixel 1 sur le front
+; DESCENDANT, puis continue d'avancer pendant le silence. Lu sur ce front comme
+; les autres, il prenait tantôt sa valeur, tantôt celle du pixel 1.
+;
+; Il est donc lu après son front montant, au bout de DELAI_PREMIER_PIXEL
+; cycles. Le délai est le champ « delay » de l'instruction `premier`, que le C
+; réécrit : le balayer de 0 à 31 (commandes « < » et « > ») donne la bonne
+; valeur de 1 à 17 cycles, celle du pixel 1 à partir de 18. Le `wait 0` qui
+; suit consomme son front descendant : sans lui, la boucle le prendrait pour
+; celui du pixel 1, et toute la ligne glisserait d'un cran.
+;
+; ── Pourquoi se caler sur ST
+;
+; Le premier pixel d'une ligne se lit autrement que les autres : le programme
+; doit savoir où commence une ligne, et ST le lui dit. Un front d'horloge
+; manqué décalerait encore la suite de l'image d'un pixel — ST reste haut
+; 3,5 µs, assez pour qu'un PIO en retard y entre sur le pixel 1. Mais l'image
+; finit alors à court d'un pixel : son dernier mot n'est jamais poussé, et
+; sur_vsync() la rejette (mots_restants). Vérifié par émulation du programme
+; sur phase1-rapide.sr, un front effacé. `wait ... pin 3` vise ST, la broche
+; IN_BASE + 3 (config.h).
 
 ; ── Pourquoi cet ordre de `wait`, et pas l'inverse
 ;
@@ -48,7 +98,9 @@ static inline void gb_pixels_init(PIO pio, uint sm, uint offset) {
     pio_sm_config c = gb_pixels_program_get_default_config(offset);
 
     /* LD0, LD1 et l'horloge pixel sont lus par le PIO. `in pins, 2` prend les
-     * deux premiers à partir d'IN_BASE ; `wait ... pin 2` vise le troisième. */
+     * deux premiers à partir d'IN_BASE ; `wait ... pin 2` vise le troisième,
+     * `wait ... pin 3` le verrou de ligne ST — que le CPU lit aussi, pour son
+     * interruption de ligne : le PIO n'a pas besoin de le prendre en charge. */
     sm_config_set_in_pins(&c, PIN_IN_BASE);
     for (uint i = 0; i < PIN_IN_N; ++i)
         pio_gpio_init(pio, PIN_IN_BASE + i);
@@ -67,8 +119,12 @@ static inline void gb_pixels_init(PIO pio, uint sm, uint offset) {
      * par celle du PIO. */
     sm_config_set_clkdiv(&c, 1.0f);
 
-    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_init(pio, sm, offset + gb_pixels_offset_entree, &c);
 }
+
+/* Garde-fou : le programme attend ST sur `pin 3`, relatif à IN_BASE. */
+static_assert(PIN_LIGNE == PIN_IN_BASE + 3,
+              "le PIO attend le verrou de ligne ST sur IN_BASE + 3");
 
 /* Garde-fou : le délai vit dans le .pio (pioasm ne lit pas config.h), et
  * config.h le documente. Si les deux divergent, la compilation échoue. */
