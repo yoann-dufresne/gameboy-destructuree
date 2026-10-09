@@ -10,6 +10,7 @@
  * peut pas mentir : si l'image est reconnaissable, la chaîne est juste.
  */
 #include <cstdio>
+#include <cstring>
 
 #include "hardware/clocks.h"
 #include "pico/stdlib.h"
@@ -296,10 +297,18 @@ int main() {
         if (c != PICO_ERROR_TIMEOUT) {
             if (derniere == nullptr && (c == 'a' || c == 'p'))
                 printf("\n  aucune trame capturee pour l'instant\n");
-            else if (c == 'a')
-                vidage_ascii(derniere);
-            else if (c == 'p')
-                vidage_hex(derniere);
+            else if (c == 'a' || c == 'p') {
+                /* Copier d'abord : un vidage dure jusqu'à 100 ms, six images,
+                 * et la capture réécrit ce tampon une image sur deux. Lu en
+                 * place, il mélangeait plusieurs images — invisible tant que
+                 * la scène est immobile. */
+                static uint8_t copie[OCTETS_TRAME];
+                memcpy(copie, derniere, OCTETS_TRAME);
+                if (c == 'a')
+                    vidage_ascii(copie);
+                else
+                    vidage_hex(copie);
+            }
             else if (c == 's')
                 afficher_stats();
             else if (c == 'n')
