@@ -104,6 +104,8 @@ Puis, sur le PC dont l'adresse a été configurée, depuis ce dossier :
 | [`tools/pxl1_envoi.py`](tools/pxl1_envoi.py) | émetteur `PXL1` de test, avec perte de paquets simulée : éprouve l'écran virtuel sans le Pico |
 | [`tools/sonde.sh`](tools/sonde.sh) | capture courte à l'analyseur logique et dépouillement immédiat, pour sonder la carte point par point |
 | [`tools/analyse_sr.py`](tools/analyse_sr.py) | dépouille une capture PulseView `.sr` et identifie les signaux, preuves à l'appui |
+| [`tools/debut_ligne.py`](tools/debut_ligne.py) | chronomètre le début des lignes et des images face au sniffer : donnée du premier pixel contre son front, relance du PIO après `S` |
+| [`tools/mesure_debut_ligne.sh`](tools/mesure_debut_ligne.sh) | capture à l'analyseur, 24 MS/s, puis `debut_ligne.py` — l'enquête du 08/10/2026 |
 | [`tools/simuler_bus_gb.py`](tools/simuler_bus_gb.py) | fabrique une capture `.sr` synthétique, pour éprouver `analyse_sr.py` sans console |
 
 Dépendances Python : `numpy`, `Pillow`, `pyserial` et `tkinter`. `sonde.sh` demande
