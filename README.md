@@ -31,6 +31,7 @@ quatre écrans, haut-parleurs ou manettes s'y connectent en direct. Le plan d'en
 | Document | Contenu |
 |---|---|
 | [`reseau.md`](reseau.md) | Le réseau : un réseau par type de périphérique, émis par la console ; canaux, adresses, bus de la console, banc de coexistence. |
+| [`banc-reseau/`](banc-reseau/) | Le banc de coexistence de `reseau.md` : firmwares et outil de verdict pour éprouver les quatre radios de la console, le sniffer en point d'accès et le bus de la console. |
 | [`achats.md`](achats.md) | La liste d'achats du 11/10/2026, tous modules confondus, pour leurs prochaines phases et le banc de coexistence. |
 | [`Spec_Gameboy_Pocket_Destructuree.md`](Spec_Gameboy_Pocket_Destructuree.md) | L'intention : une vraie console au centre, cinq modules, et ce qui a changé depuis la v1, qui plaçait un émulateur dans la cartouche. |
 | [`Spec_Video_Sniffer_et_Matrice_LED.md`](Spec_Video_Sniffer_et_Matrice_LED.md) | Le départ de la chaîne vidéo : l'image prise sur une vraie console plutôt que sur un émulateur. |

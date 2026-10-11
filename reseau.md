@@ -157,8 +157,19 @@ largement à des ordres que personne ne remarque à 20 ms près. Le SDK du Pico 
 esclave I²C. Deux broches par microcontrôleur : sur le sniffer, GP6 et GP7 (I2C1) sont libres
 d'après le brochage du module capture ; la doublure monte à 34 broches sur 41.
 
-Le format des messages se fixera avec le code, dans un en-tête partagé par les quatre
-firmwares.
+**Le format est fixé** dans [`bus_console.h`](banc-reseau/firmware/commun/bus_console.h),
+qui fait foi et que les quatre firmwares copieront. En bref :
+
+| | |
+|---|---|
+| Vitesse, cadence | 400 kHz ; 50 interrogations par seconde et par esclave, 7 % du bus |
+| Broches | I2C1, GP6 (SDA) et GP7 (SCL) ; une seule paire de tirages de 4,7 kΩ vers 3,3 V pour tout le bus |
+| Adresses | sniffer 0x41, source de son 0x42, doublure 0x43 |
+| L'ordre, 10 octets | version, numéro, drapeaux (marche ; « aucune manette »), luminosité, volume, secondes d'absence de la manette, secondes avant l'extinction, CRC |
+| L'état, 5 octets | version, numéro du dernier ordre compris, drapeaux (prêt ; copie de cartouche prête), ordres refusés, CRC |
+| L'intégrité | CRC-8 du SMBus, initialisé à l'adresse de l'esclave : un message à la mauvaise adresse est refusé comme un message abîmé |
+
+L'injecteur écrit le même ordre aux trois esclaves ; chacun y prend ce qui le concerne.
 
 ---
 
@@ -178,12 +189,15 @@ firmwares.
 
 Huit Pico 2 W de rechange : quatre points d'accès posés à l'écart qu'ils auront dans la
 console, quatre clients à 3 m. Un firmware de banc qui émet le trafic réel de chaque réseau,
-et un outil qui donne le verdict, sur le modèle des outils des modules.
+et un outil qui donne le verdict, sur le modèle des outils des modules. Tout est écrit, dans
+[`banc-reseau/`](banc-reseau/README.md) : firmwares, déroulé pas à pas, et
+`tools/banc.py`, qui règle les cartes, enregistre et donne le verdict. Compilé, éprouvé sur
+PC, jamais flashé.
 
 | Test | Ce que tu fais | Ce que tu dois trouver |
 |---|---|---|
 | **R1** 🔬 Quatre radios côte à côte | Les quatre réseaux émettent leur trafic au plus : 11,2 Mbit/s d'image, 6,2 de son, des manettes, des rafales de cartouche ; 10 minutes en trois canaux, puis 10 minutes sur un seul | pour chaque réseau, les pertes et les retards, à comparer aux exigences du module. Le plan de canaux qui les tient, ou aucun : alors, écarter les antennes, baisser la puissance, et recommencer |
-| **R2** 🔬 Le sniffer et ses quatre écrans | Le vrai sniffer, en point d'accès, capture la console et envoie quatre copies : à la tête, et à trois Pico qui jouent les écrans | aucune tranche perdue en 10 minutes ; la capture ne décroche pas ; la marge de temps du cœur réseau |
+| **R2** 🔬 Le sniffer et ses quatre écrans | Le vrai sniffer, compilé avec l'option `POINT_ACCES`, capture la console et envoie quatre copies : à la tête, et à trois Pico qui jouent les écrans | aucune tranche perdue en 10 minutes ; la capture ne décroche pas ; la marge de temps du cœur réseau |
 | **R3** Le bus de la console | Quatre Pico reliés en I²C, l'injecteur en maître ; une heure | aucun message perdu ni corrompu |
 
 ✅ **Critère de sortie :** R1 et R2 tenus. Alors seulement, les modules passent à cette

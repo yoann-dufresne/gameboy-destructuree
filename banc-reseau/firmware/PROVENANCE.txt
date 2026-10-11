@@ -1,0 +1,15 @@
+pico_sdk_import.cmake
+  Copié depuis ../../capture/firmware/sniffer/, lui-même issu de
+  pico-sdk/external/ (SDK 2.x). Non modifié. Copié le 11/10/2026.
+
+commun/lwipopts.h
+  Copié depuis ../../capture/firmware/sniffer/src/net/, le 11/10/2026.
+  Seul le titre change.
+
+Utilisés en place, sans copie (reseau.md §4) :
+  ../../ecran/firmware/vendor/dhcpserver/  le serveur DHCP des points d'accès
+  ../../ecran/firmware/commun/pxl1.h       le protocole de l'image, pour le faux écran
+
+../tools/console.py, ../tools/flash.sh
+  Copiés depuis ../../son/tools/, le 11/10/2026. Seuls changent la première
+  ligne de console.py et l'exemple d'usage de flash.sh.
