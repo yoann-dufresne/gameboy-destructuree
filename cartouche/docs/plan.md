@@ -10,7 +10,7 @@ Version 1 — 11/10/2026 : la cartouche est lue à l'insertion, la console joue 
 
 ## 0. Décisions
 
-Les sept premières lignes sont tes décisions. Les autres sont des propositions : la dernière
+Les huit premières lignes sont tes décisions. Les autres sont des propositions : la dernière
 colonne dit quel test les confirme ou les renverse, ou s'il te revient de trancher.
 
 | Sujet | Décision ou proposition | Tranchée par |
@@ -22,6 +22,7 @@ colonne dit quel test les confirme ou les renverse, ou s'il te revient de tranch
 | **Pas de cartouche au démarrage** | comme l'original : un rectangle noir à la place du logo Nintendo, et rien de plus | toi, 11/10/2026 |
 | **La sauvegarde parquée** | une sauvegarde pas encore arrivée dans la cartouche quand on l'arrache est gardée par le lecteur. Si la même cartouche revient, telle qu'on l'avait laissée, le lecteur l'y écrit avant d'envoyer la copie. Si une autre cartouche arrive, elle est oubliée | toi, 11/10/2026 ; T4.7 |
 | **Le journal ne se perd pas** | un journal que le WiFi n'a pas pu remettre au lecteur est écrit dans la flash de la doublure dès que la console s'éteint, et part au retour du WiFi | toi, 11/10/2026 ; T4.8 |
+| **Le réseau** | la doublure émet le réseau de la cartouche, dont elle est le point d'accès ; le lecteur s'y connecte en direct (§8.2) | toi, 11/10/2026 ; banc R1 du [document réseau](../../reseau.md) |
 | **Les deux moitiés** | le **lecteur**, qui porte la fente ; la **doublure**, le microcontrôleur de la console qui tient le rôle de la cartouche | — |
 | **Ce qui remonte à la vraie cartouche** | la sauvegarde, l'horloge des jeux qui en ont une, le vibreur. Pas les changements de banque : personne ne lit la vraie cartouche pendant la partie (§3) | T4.3 |
 | **Microcontrôleur** | une carte au format du Pico 2 W, mais avec un RP2350B : 41 broches au lieu de 26, 16 Mo de flash, le même WiFi (Waveshare RP2350B-Plus-W). La même des deux côtés | T2.2 |
@@ -57,8 +58,8 @@ colonne dit quel test les confirme ou les renverse, ou s'il te revient de tranch
 **Ce qu'on ne construit pas :** les cartouches à capteurs ou à émetteurs, qui demandent la
 vraie cartouche à chaque instant : la Game Boy Camera, l'infrarouge des HuC1 et HuC3, le
 capteur d'inclinaison du MBC7, qui sont d'ailleurs presque tous des jeux Game Boy Color. Ni
-les jeux Game Boy Color seulement, que la Pocket refuse de toute façon. Ni la topologie du
-réseau, qui se décide pour tout le projet (§8).
+les jeux Game Boy Color seulement, que la Pocket refuse de toute façon. Ni le plan du réseau,
+commun à tout le projet ([document réseau](../../reseau.md)).
 
 **Chaque moitié s'éprouve seule** :
 
@@ -357,7 +358,8 @@ la cartouche présente, s'il y en a une.
 Une cartouche dans la fente doit donner le jeu, pas un rectangle noir : si la copie est en
 cours quand on bascule l'interrupteur, **l'injecteur du module
 [manette](../../manette/docs/plan.md), qui alimente la console, attend le feu vert de la
-doublure**, quelques secondes au plus (§9). Fente vide, la console s'allume aussitôt.
+doublure**, quelques secondes au plus (§9). Le feu vert passe par le bus filaire de la console
+([document réseau](../../reseau.md), §5). Fente vide, la console s'allume aussitôt.
 
 ---
 
@@ -432,22 +434,20 @@ Le format octet par octet sera fixé avec le code, dans `firmware/commun/car1.h`
 **C'est le module le moins exigeant du projet.** Rien n'y est pressé, sauf le vibreur : le
 reste supporte des secondes de retard.
 
-### 8.2 La topologie, à décider maintenant
+### 8.2 Le réseau de la cartouche
 
-La topologie du réseau devait se décider avec la cartouche distante : c'est le moment. Ce
-module n'impose rien, sinon que le lecteur et la doublure se joignent. Mais le compte des
-radios du projet pèse sur la décision :
+Décision du 11/10/2026, pour tout le projet ([document réseau](../../reseau.md)) : sur la
+console, un microcontrôleur par type de périphérique, chacun point d'accès de son propre
+réseau. **La doublure émet le réseau de la cartouche**, `gb-cartouche` :
 
-| Où | Radios |
-|---|---|
-| console principale | sniffer (capture), injecteur (manette), doublure (cartouche), et peut-être celle du son |
-| ailleurs | tête de l'écran, haut-parleur, manette, lecteur |
+- **un seul saut radio** : le lecteur est client direct de la doublure ;
+- **des adresses fixes** : la doublure en 192.168.7.1, le lecteur en .2 ;
+- le canal proposé est le 6, partagé avec le réseau des manettes, peu chargé ;
+- le réseau accepterait jusqu'à 4 lecteurs. Ce que ferait la console avec plusieurs
+  cartouches se décidera plus tard ; ce plan n'en prévoit qu'un.
 
-Sept ou huit radios, quand un Pico 2 W en point d'accès n'accepte que **4 clients**. Deux pistes
-à peser, sans les trancher ici : un vrai point d'accès pour toute l'installation, ou moins de
-radios dans la console. La doublure et l'injecteur, par exemple, tiendraient peut-être sur la
-même carte RP2350B : 32 broches pour la doublure, 9 pour l'injecteur, 41 disponibles. C'est
-juste : à recompter quand le brochage sera figé.
+Ce réseau ne lève pas le risque principal du module : la doublure a une radio, et le WiFi lit
+la même flash que la ROM (§5.3, T3.5). Le plan B à deux puces reste possible.
 
 ### 8.3 Au banc
 
@@ -537,7 +537,7 @@ le PC** (phase 1).
 | Un contrôleur de banques mal imité | 🟡 | le lecteur relit la doublure comme une cartouche et compare à la copie (T2.4) ; un jeu par type de MBC (T3.6) |
 | La doublure alimente la console éteinte | 🟡 | 74LVC8T245 qui isolent ; la doublure se tait sans VCC (§5.4) ; T3.1 |
 | Des contacts sales donnent une copie fausse | 🟢 | logo, sommes de contrôle, CRC (§4.3) ; LED orange |
-| Le nombre de radios dépasse ce que le réseau accepte | 🟡 | à décider pour tout le projet (§8.2) |
+| Les quatre radios de la console se gênent | 🟡 | le banc de coexistence R1 du [document réseau](../../reseau.md), avant tout changement |
 
 ---
 
@@ -556,3 +556,4 @@ le PC** (phase 1).
 | 11/10/2026 | **Décision de Yoann** : sans cartouche, un rectangle noir à la place du logo, rien de plus | Le comportement d'origine. Remplace la proposition d'un programme « insère une cartouche » ; la doublure n'a qu'à se taire |
 | 11/10/2026 | **Décision de Yoann** : une sauvegarde pas encore écrite quand on arrache la cartouche est parquée dans le lecteur ; écrite si la même cartouche revient inchangée, oubliée si une autre arrive | Rattraper la seconde de retard du journal, sans jamais écrire sur la mauvaise cartouche |
 | 11/10/2026 | **Décision de Yoann** : un journal non remis est écrit dans la flash de la doublure quand la console s'éteint | Ne pas dépendre du WiFi ni de l'alimentation de la doublure pour garder une partie. Pas avant : écrire la flash, console allumée, ferait planter le jeu |
+| 11/10/2026 | **Décision de Yoann** : la doublure émet le réseau de la cartouche, le lecteur s'y connecte en direct | La topologie de tout le projet : un microcontrôleur par type de périphérique sur la console ([réseau](../../reseau.md)) |
