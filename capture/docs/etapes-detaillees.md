@@ -1023,6 +1023,7 @@ sniffer, sans aucune hypothèse de synchronisation entre les cartes.
 | **Sortie de la console** | Option élégante : réutiliser le **port link (EXT)**, qui est déjà un connecteur 6 points avec son ouverture dans la coque. Contrepartie : on sacrifie la fonction link. À trancher, pas avant que tout le reste marche |
 | **Le cadre** | ⚠️ **N'est plus du ressort de ce module.** Depuis que l'émetteur est agnostique (plan §5.3), bordure, centrage et habillage appartiennent au module ÉCRAN, qui dispose de 16 px de marge horizontale et 24 px verticale |
 | **Remontage** | Vérifier que le ruban LCD d'origine n'est pas pincé, et que le module ne force sur rien avant de visser |
+| **Réseau** | Décision du 11/10/2026 : le sniffer émet le réseau « image » et sert jusqu'à 4 écrans ; il rejoint le bus I²C de la console. Le banc R2 de [`reseau.md`](../../reseau.md) passe d'abord |
 
 ---
 

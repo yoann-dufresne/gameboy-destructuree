@@ -21,6 +21,13 @@ est sa tête, en 192.168.4.1. Pour travailler sans l'écran, le récepteur peut 
 fait tourner [`tools/ecran_virtuel.py`](../../tools/ecran_virtuel.py) : `secrets.h` vise
 alors le réseau du PC, et `PXL1_CIBLE_IP` son adresse.
 
+**À venir, décision du 11/10/2026** ([`reseau.md`](../../../reseau.md)) : dans l'installation,
+le sniffer **émettra lui-même** le réseau « image », en 192.168.4.1, et enverra une copie de
+chaque paquet à chaque écran connecté, quatre au plus. Il recevra la marche, l'arrêt, la
+luminosité et le message « aucune manette » par le bus I²C de la console. Rien n'est changé
+dans le code avant le banc R2 : le sniffer en point d'accès, quatre copies, pendant la
+capture.
+
 ## Brochage
 
 | Broche du Pico | Point de test de la console | Signal |

@@ -11,7 +11,9 @@ Pour voir le résultat, un récepteur de référence tourne sur n'importe quel P
 mesure sa régularité.
 
 Dans la [Game Boy Pocket déstructurée](../README.md), ce module est la source d'image
-du [module écran](../ecran/README.md).
+du [module écran](../ecran/README.md). Là, le sniffer émettra le réseau « image », que
+rejoignent jusqu'à quatre écrans : c'est la décision du 11/10/2026, à venir après le banc de
+coexistence, décrite dans [`reseau.md`](../reseau.md).
 
 ## Principe
 

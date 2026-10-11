@@ -23,6 +23,7 @@ Version 1 — 22/09/2026
 | **Langage** | **C++20**, pico-sdk 2.x bare-metal, PIO + DMA, **un seul cœur** (§12, 26/09/2026) | non |
 | **`clk_sys`** | **150 MHz**, la valeur par défaut — pas les 266 MHz du module écran | oui |
 | **Alimentation** | **séparée de la console**, masses communes | non |
+| **Réseau** | aujourd'hui, le sniffer rejoint le réseau de l'écran. **À venir** (11/10/2026) : il émet le réseau « image », jusqu'à 4 écrans, une copie par écran ; bus I²C vers les autres Pico de la console ([`reseau.md`](../../reseau.md)) | après le banc R2 |
 
 > 🔑 **Le point qui structure tout** : la Game Boy produit déjà ses pixels sur **2 bits**, et
 > `PXL1_FMT_IDX2` existe déjà dans le protocole depuis sa v1. La chaîne complète est donc
@@ -611,3 +612,4 @@ capture/
 | 26/09/2026 | **Un écran virtuel sur PC devient le récepteur de référence** | Sépare les problèmes : tant qu'on mettra au point le sniffeur, on veut savoir si **le sniffeur** émet correctement, sans que la matrice, son firmware et son WiFi s'ajoutent à la liste des suspects. Retire aussi une dépendance inter-dépôts du chemin critique |
 | 26/09/2026 | L'écran virtuel imite le récepteur réel, accusés compris | Mêmes règles de réassemblage, et il renvoie `PXL1_TYPE_PING` : l'émetteur mesure donc l'aller-retour sans modification, et le passage à la vraie matrice ne changera rien pour lui |
 | 25/09/2026 | **La longueur du câble devient un paramètre de conception** | Sans tampon, le câble pend directement sur le PPU. ≈ 1 pF/cm : rester **sous 20 cm** |
+| 11/10/2026 | **Décision de Yoann** : le sniffer émettra le réseau « image » en point d'accès, jusqu'à 4 écrans, une copie de chaque paquet par écran ; il recevra marche, arrêt, luminosité et le message « aucune manette » par le bus I²C de la console ([`reseau.md`](../../reseau.md)) | Un microcontrôleur par type de périphérique sur la console, chacun point d'accès de son réseau : un seul saut radio, plusieurs écrans pour une partie. Deux broches pour l'I²C : le brochage (§4) en laisse de libres, GP6 et GP7 par exemple (I2C1). À appliquer après le banc R2 |
