@@ -22,15 +22,21 @@ seul : `capture` avec un écran virtuel sur PC, `ecran` avec un émetteur de tes
 haut-parleur virtuel et un émetteur de test, `manette` avec un récepteur et une fausse manette
 sur PC, `cartouche` avec un PC qui lit le lecteur ou envoie une ROM à la doublure.
 
+Sur la console, chaque module a son microcontrôleur, qui émet son propre réseau WiFi : jusqu'à
+quatre écrans, haut-parleurs ou manettes s'y connectent en direct. Le plan d'ensemble est dans
+[`reseau.md`](reseau.md).
+
 ## Documents de conception
 
 | Document | Contenu |
 |---|---|
-| [`Spec_Gameboy_Pocket_Destructuree.md`](Spec_Gameboy_Pocket_Destructuree.md) | La spécification initiale : quatre modules WiFi autour d'un émulateur. |
-| [`Spec_Video_Sniffer_et_Matrice_LED.md`](Spec_Video_Sniffer_et_Matrice_LED.md) | La chaîne vidéo : l'image prise sur une vraie console plutôt que sur un émulateur. |
+| [`reseau.md`](reseau.md) | Le réseau : un réseau par type de périphérique, émis par la console ; canaux, adresses, bus de la console, banc de coexistence. |
+| [`Spec_Gameboy_Pocket_Destructuree.md`](Spec_Gameboy_Pocket_Destructuree.md) | L'intention : une vraie console au centre, cinq modules, et ce qui a changé depuis la v1, qui plaçait un émulateur dans la cartouche. |
+| [`Spec_Video_Sniffer_et_Matrice_LED.md`](Spec_Video_Sniffer_et_Matrice_LED.md) | Le départ de la chaîne vidéo : l'image prise sur une vraie console plutôt que sur un émulateur. |
 
-Les deux spécifications sont les documents de départ. Là où elles divergent de la
-documentation d'un module, c'est le module qui fait foi : ses mesures les ont corrigées.
+La spécification principale dit l'intention d'aujourd'hui ; la spécification vidéo est le
+document de départ de la chaîne image. Là où elles divergent de la documentation d'un module,
+c'est le module qui fait foi : ses mesures les ont corrigées.
 
 ## Licence
 
