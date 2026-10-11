@@ -15,7 +15,7 @@ Dans la [Game Boy Pocket déstructurée](../README.md), ce module est au son ce 
 ## Principe
 
 ```
- Game Boy Pocket                          réseau WiFi émis par l'écran
+ Game Boy Pocket                          réseau « son », émis par la source
  processeur ── G, D ──► [Pico 2 W · source] ─── SON1 / UDP ───► [Pico 2 W · haut-parleur]
  (analogique)            ADC + DMA                               tampon, I2S
                                                                      │
@@ -27,26 +27,27 @@ range les échantillons en mémoire, sans le processeur : c'est le principe de l
 vidéo, appliqué au son. Le flux part par blocs de 5 ms, en PCM 16 bits stéréo à 48 kHz :
 200 paquets par seconde, 1,6 Mbit/s.
 
-## Un seul Pico pour l'image et le son ?
+## Un Pico à lui
 
-Pour la puissance de calcul et le débit, oui, avec une marge large. La radio, elle, est
-unique : le son sera un second flux UDP sur le même réseau, pas un second canal WiFi, et
-c'est suffisant. Reste une inconnue qui ne se calcule pas : **la radio s'entendra-t-elle
-dans l'ADC ?** Un second Pico ne la lèverait pas, puisqu'il aurait sa propre radio. Une
-phase de mesure tranche ; l'analyse est au [§2 du plan](docs/plan.md).
+Le son a son propre Pico dans la console, à côté de celui du sniffer : un microcontrôleur par
+type de périphérique, chacun émet son réseau ([le réseau du projet](../reseau.md)). Jusqu'à
+quatre haut-parleurs s'y connectent en direct, et la source envoie une copie du son à chacun.
 
-La soudure dans la console est la même dans les deux cas : deux points et une masse, une
-résistance de 10 kΩ sur chacun, un connecteur. Seul change le Pico au bout du câble. Où
-souder : [`docs/prise-son-mgb.md`](docs/prise-son-mgb.md).
+Reste une inconnue qui ne se calcule pas : **la radio s'entendra-t-elle dans l'ADC ?** Elle
+est à quelques centimètres, et c'est elle qui émet le son. Une phase de mesure tranche, et
+donne les remèdes ; l'analyse est au [§2 du plan](docs/plan.md).
+
+Où souder : [`docs/prise-son-mgb.md`](docs/prise-son-mgb.md). Deux points et une masse, une
+résistance de 10 kΩ sur chacun, un connecteur.
 
 ## Matériel
 
 | Rôle | Pièce |
 |---|---|
-| Source | le Pico 2 W du [sniffer](../capture/README.md), ou un Pico 2 W dédié selon la phase 3 |
+| Source | un Pico 2 W dédié, dans la console : point d'accès du réseau des haut-parleurs |
 | Prise du son | 2 fils soudés sur la carte de la console, en amont du volume, 10 kΩ en série, connecteur JST-SH 3 points séparé de celui de la vidéo |
 | Étage d'entrée | une poignée de passifs près du Pico : couplage, polarisation, filtre |
-| Haut-parleur | Pico 2 W, module MAX98357A (convertisseur et amplificateur I2S), haut-parleur de Game Boy |
+| Haut-parleur | un à quatre ; chacun un Pico 2 W, un module MAX98357A (convertisseur et amplificateur I2S), un haut-parleur de Game Boy |
 | Mesure | un multimètre, des écouteurs, et un **banc de mesure** : un Pico 2 W de rechange avec l'étage d'entrée sur plaque d'essai. Aucun matériel audio |
 
 Nomenclature complète : [§11 du plan](docs/plan.md).
@@ -91,7 +92,7 @@ si le signal DTR est activé.
 
 | Document | Contenu |
 |---|---|
-| [`docs/plan.md`](docs/plan.md) | l'analyse et les décisions : un ou deux Pico, la chaîne, le format, le réseau, les horloges, la latence, les risques |
+| [`docs/plan.md`](docs/plan.md) | l'analyse et les décisions : le Pico du son et la radio dans l'ADC, la chaîne, le format, le réseau, les horloges, la latence, les risques |
 | [`docs/prise-son-mgb.md`](docs/prise-son-mgb.md) | où souder et quoi : le chemin du son dans la console, les points candidats, l'étage d'entrée ; la fiche de la phase 0, à remplir |
 | [`docs/plan-de-tests.md`](docs/plan-de-tests.md) | les tests de chaque phase, pas à pas, et leur critère de réussite |
 
@@ -104,7 +105,7 @@ Rien n'est encore soudé. Le module s'ouvre le 11/10/2026.
 | 0 · Trouver où souder, et quelle résistance mettre | banc de mesure prêt (firmware compilé, script éprouvé sur des mesures simulées) ; mesures à faire |
 | 1 · Soudure et étage d'entrée | à venir |
 | 2 · Capture seule, sans réseau | à venir |
-| 3 · Cohabitation avec la vidéo : un Pico ou deux | à venir |
+| 3 · La radio dans l'ADC | à venir |
 | 4 · Émission réseau, récepteur sur PC | à venir |
 | 5 · Haut-parleur | à venir |
 | 6 · Intégration | à venir |

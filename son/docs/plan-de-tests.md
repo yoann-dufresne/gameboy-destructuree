@@ -1,7 +1,7 @@
 # Module SON — plan de tests
 
 *Ce qu'il faut mesurer, dans quel ordre, et à quoi on reconnaît la réussite.*
-Version 2 — 11/10/2026 : la phase 0 se mesure avec un Pico, sans matériel audio.
+Version 3 — 11/10/2026 : le son a son propre Pico, qui émet le réseau des haut-parleurs.
 
 Le pourquoi des choix est dans [`plan.md`](plan.md) ; où souder, et la fiche à remplir pendant
 la phase 0, dans [`prise-son-mgb.md`](prise-son-mgb.md).
@@ -124,20 +124,20 @@ saturation.
 
 ---
 
-## Phase 3 — la cohabitation : un seul Pico suffit-il ?
+## Phase 3 — la radio dans l'ADC
 
-**C'est la phase qui décide** ([`plan.md`](plan.md) §2). Elle se fait en deux temps, pour ne
-rouvrir le firmware du sniffer que si le premier passe.
+**C'est la phase qui décide du montage** ([`plan.md`](plan.md) §2.2). Le Pico du son est le
+sien, mais c'est lui qui émet : chaque bloc part en autant de copies que de haut-parleurs. Le
+trafic se fait imiter : les copies partent toutes vers le PC, l'antenne travaille autant.
 
 | Test | Ce que tu fais | Critère |
 |---|---|---|
-| **T3.1** La radio s'entend-elle ? | Firmware de la phase 2, sur le Pico qui restera en place. Quatre enregistrements dos à dos sur une scène silencieuse : radio éteinte · WiFi connecté, sans trafic · trafic qui imite l'image, 299 paquets/s de 1 400 octets · image et son imités, ≈ 500 paquets/s | rien de nouveau au casque, volume au maximum ; à la mesure, un bruit de fond au plus 2 fois (6 dB) celui de T2.3. Si un bruit apparaît, sa hauteur dit d'où il vient : 298,6 Hz, le rythme des paquets de l'image ; 59,7 Hz, celui des images ; 200 Hz, celui des paquets de son ; 10 Hz, les balises du WiFi |
-| **T3.2** Les remèdes, si T3.1 échoue | Un à la fois, T3.1 refait après chacun : régulateur du Pico forcé en mode PWM · polarisation mieux filtrée · moyenne sur plus d'échantillons · ADC externe I2S ([`plan.md`](plan.md) §2.3) | le premier qui fait passer T3.1 est retenu, et noté au journal |
-| **T3.3** La vidéo n'a rien vu | Firmware fusionné. 30 min son actif, puis 30 min son coupé, dos à dos | compteurs d'erreur vidéo à 0 dans les deux cas ; cadence 59,727 img/s ; aller-retour min/moy/max équivalents |
-| **T3.4** Le son n'a rien perdu | Même séance | 0 bloc perdu, 0 débordement |
+| **T3.1** La radio s'entend-elle ? | Firmware de la phase 2, sur le Pico qui restera en place. Cinq enregistrements dos à dos sur une scène silencieuse : radio éteinte · point d'accès allumé, sans haut-parleur · le son imité pour un haut-parleur, 200 paquets/s · pour quatre, 800 paquets/s · pour quatre, et le sniffer qui émet l'image à côté, à sa place dans la console et **sur l'alimentation commune**, câblée en étoile avec le filtre d'entrée ([`plan.md`](plan.md) §2.2) | rien de nouveau au casque, volume au maximum ; à la mesure, un bruit de fond au plus 2 fois (6 dB) celui de T2.3. Si un bruit apparaît, sa hauteur dit d'où il vient : 200 Hz, le rythme des blocs de son ; 10 Hz, les balises du point d'accès ; 298,6 Hz, le rythme des paquets de l'image ; 59,7 Hz, celui des images |
+| **T3.2** Les remèdes, si T3.1 échoue | Un à la fois, T3.1 refait après chacun : régulateur du Pico forcé en mode PWM · polarisation mieux filtrée · moyenne sur plus d'échantillons · alimentation à part pour le Pico du son · ADC externe I2S ([`plan.md`](plan.md) §2.2) | le premier qui fait passer T3.1 est retenu, et noté au journal |
+| **T3.3** Le son n'a rien perdu | Même séance, trafic pour quatre | 0 bloc perdu, 0 débordement |
 
-**Décision :** un seul Pico si T3.1 (éventuellement après remède) et T3.3 passent. Si T3.1
-résiste à tout, c'est l'ADC externe ; un second Pico ne servirait que si T3.3 échouait.
+**Critère de sortie :** T3.1 tenu, au besoin après un remède. Si T3.1 résiste à tout, c'est
+l'ADC externe.
 
 ---
 
@@ -147,10 +147,10 @@ Récepteur de référence : `hautparleur_virtuel.py`, qui joue le flux et horoda
 
 | Test | Procédure | Critère |
 |---|---|---|
-| **T4.1** Un client en joint-il un autre ? | Sur le réseau de l'écran : deux PC, ou un PC et un Pico, se pinguent puis s'échangent un flux UDP | oui : le haut-parleur pourra être un simple client du réseau. Non : à trancher avant d'aller plus loin ([`plan.md`](plan.md) §5) |
-| **T4.2** Pertes et retards | 30 min, vidéo et son | pertes < 0,1 % ; retards d'arrivée relevés. **La réserve du haut-parleur se règle sur les plus longs retards mesurés**, le pire d'un paquet sur mille, pas sur une intuition |
+| **T4.1** Se signaler | Le PC rejoint le réseau `gb-son` ; `hautparleur_virtuel.py` envoie son battement, puis se tait 3 s, puis reprend | la source envoie le son dès le premier battement ; elle cesse 2 s après le dernier ; elle reprend avec lui ([`plan.md`](plan.md) §5.2) |
+| **T4.2** Pertes et retards | 30 min, le sniffer émettant l'image à côté | pertes < 0,1 % ; retards d'arrivée relevés. **La réserve du haut-parleur se règle sur les plus longs retards mesurés**, le pire d'un paquet sur mille, pas sur une intuition |
 | **T4.3** Sans coupure | 30 min avec la réserve retenue | aucune coupure audible ; les blocs manquants comptés, et masqués |
-| **T4.4** L'écran n'a rien vu | Rapport de la tête, son actif puis coupé, dos à dos | pertes et gels inchangés |
+| **T4.4** L'écran n'a rien vu | Le sniffer et la source côte à côte, chacun sur son réseau. Rapport de la tête, son actif puis coupé, dos à dos | pertes et gels de l'image inchangés. Le banc R1 du [réseau](../../reseau.md) l'aura vérifié en général ; ici, c'est avec le vrai sniffer |
 | **T4.5** Reprises | Récepteur redémarré ; source redémarrée ; coupure WiFi provoquée (commande `d`) | le son revient seul, en moins de 2 s |
 
 ---
@@ -164,10 +164,14 @@ Récepteur de référence : `hautparleur_virtuel.py`, qui joue le flux et horoda
 | **T5.3** De bout en bout | Console → haut-parleur | à l'écoute, identique au casque de la console |
 | **T5.4** Son et image | Au démarrage, filmer à ≥ 120 img/s l'écran LED et le haut-parleur : l'arrêt du logo contre le « ding ». Même film sur la console seule, pour la référence | retard du son sur l'image relevé. Repère : un son en retard devient perceptible vers 125 ms (UIT-R BT.1359) |
 | **T5.5** Endurance | 6 heures, une journée d'exposition | aucun décrochage durable ; compteurs relevés |
+| **T5.6** Plusieurs haut-parleurs, *facultatif* | Si tu en construis plusieurs : deux, puis jusqu'à quatre, dans la même pièce | chacun joue sans perte. L'écart entre eux, s'il s'entend comme un écho, est noté : il se traitera plus tard ([réseau](../../reseau.md) §8) |
 
 ---
 
 ## Phase 6 — intégration
 
-Boîtier du haut-parleur, alimentation définitive, câble audio rangé dans la console. Recette :
-T1.2, T3.3 et T5.3 refaits sur l'ensemble fermé.
+Boîtier du haut-parleur, alimentation définitive, câble audio rangé dans la console. Le volume,
+la marche et l'arrêt arrivent de l'injecteur du module manette, par le bus de la console
+([réseau](../../reseau.md) §5). Recette : T1.2, T3.1, T4.4 et T5.3 refaits sur l'ensemble
+fermé ; la molette de volume de la manette règle le haut-parleur ; console éteinte, il se
+tait.

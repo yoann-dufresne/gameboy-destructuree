@@ -1,25 +1,27 @@
 # Module SON — plan de réalisation
 
 *Sous-projet « son » de la Game Boy Pocket déstructurée.*
-Version 1 — 11/10/2026
+Version 2 — 11/10/2026 : le son a son propre Pico, qui émet le réseau des haut-parleurs.
 
 **Le « pourquoi » est ici.** Où souder : [`prise-son-mgb.md`](prise-son-mgb.md). Quoi
 mesurer et dans quel ordre : [`plan-de-tests.md`](plan-de-tests.md).
 
 ---
 
-## 0. Décisions proposées
+## 0. Décisions
 
-Aucune n'est encore éprouvée. La dernière colonne dit quel test la confirme ou la renverse.
+Les deux premières lignes sont tes décisions. Les autres sont des propositions, pas encore
+éprouvées : la dernière colonne dit quel test la confirme ou la renverse.
 
 | Sujet | Proposition | Tranchée par |
 |---|---|---|
+| **Contrôleur** | un Pico 2 W pour le son seul, dans la console, à côté de celui du sniffer : un microcontrôleur par type de périphérique ([réseau](../../reseau.md)) | toi, 11/10/2026 |
+| **Réseau** | la source émet le réseau `gb-son` ; jusqu'à 4 haut-parleurs s'y connectent en direct, un seul saut radio, une copie du son pour chacun | toi, 11/10/2026 ; canal : R1 du [réseau](../../reseau.md) |
 | **Ce qu'on capture** | le signal analogique des deux voies, à l'entrée du potentiomètre de volume | T0.1 à T0.4 |
 | **Conversion** | l'ADC du RP2350, deux voies à 192 kHz, décimées à 48 kHz | T2.3, T3.1 |
-| **Contrôleur** | le Pico du sniffer si la phase 3 le permet ; un Pico 2 W de banc d'ici là | T3.1, T3.3 |
 | **Format** | PCM 16 bits signé, stéréo, 48 kHz, blocs de 5 ms | — |
 | **Protocole** | `SON1` sur UDP, port 4243, un en-tête qui se suffit à lui-même | — |
-| **Destination** | une adresse fixe, celle du haut-parleur | T4.1 |
+| **Destinations** | les haut-parleurs qui se signalent, jusqu'à 4 | T4.1 |
 | **Restitution** | Pico 2 W, MAX98357A, haut-parleur de Game Boy | T5.1 |
 | **Horloges** | le récepteur rattrape la dérive en rééchantillonnant | T5.2 |
 
@@ -40,51 +42,53 @@ permet de savoir, à chaque panne, laquelle des deux moitiés accuser.
 
 ---
 
-## 2. Un seul Pico, ou deux ?
+## 2. Le Pico du son
 
-### 2.1 Ce que le sniffer a de libre
+### 2.1 Un Pico à lui — décision du 11/10/2026
 
-| Ressource | Prise par la vidéo | Demandée par le son | |
-|---|---|---|---|
-| Broches | GP0–GP5, GP20, GP21 | GP26 et GP27 (ADC0, ADC1), AGND, ADC_VREF | libres ✅ |
-| ADC | rien | 384 kS/s sur 500 | ✅ |
-| DMA | un canal, plus ceux du pilote WiFi | un canal | 16 sur le RP2350 ✅ |
-| Processeur | le cœur 0 : lwIP et l'émission ; **le cœur 1 est libre** | la décimation, ≈ 3 M multiplications/s ; 200 paquets/s | ✅ |
-| RAM | 11,5 ko d'images | ≈ 25 ko | sur 520 ✅ |
-| Débit | 2,79 Mbit/s, 299 paquets/s | 1,56 Mbit/s, 200 paquets/s | un Pico 2 W en a reçu 24,6 (module écran, phase 4) ✅ |
+La version 1 de ce plan visait un seul Pico pour l'image et le son : le sniffer avait assez de
+calcul, de broches et de débit pour les deux. **Tu as tranché autrement** : un microcontrôleur
+par type de périphérique sur la console, chacun point d'accès de son propre réseau
+([réseau](../../reseau.md)). La source de son a donc son Pico 2 W, à côté de celui du sniffer.
 
-**Pour le calcul et le débit, un Pico suffit, avec une marge large.** Comme pour l'image,
-l'échantillonnage ne demande pas de processeur : l'ADC convertit en continu à son propre
-rythme, le DMA range.
-
-La décimation irait sur le cœur 1. Ce n'est pas une question de charge, elle tiendrait sur
-le cœur 0 : c'est qu'elle ne pourra alors pas retarder les interruptions de la capture
-vidéo, dont la séquence VSYNC se joue à quelques microsecondes près. Le cœur 1 ne touchera
-ni au WiFi ni à lwIP : c'est `cyw43_arch_init` lancé depuis le cœur 1 qui avait bloqué le
-sniffer ([journal](../../capture/firmware/sniffer/JOURNAL.md), 26/09/2026).
-
-### 2.2 « Un second canal WiFi » : il n'y a qu'une radio
-
-Le CYW43439 du Pico 2 W a une radio, qui écoute un canal et rejoint un réseau. Le son sera
-**un second flux UDP sur la même association** : un autre port, une autre destination. Pas
-un second canal radio, et il n'en a pas besoin : son débit est la moitié de celui de
+Ce que ça règle : le firmware du sniffer, clos le 09/10/2026 après 108 233 images sans une
+erreur, n'est pas rouvert ; le module son ne dépend plus du module capture ; et les
+haut-parleurs ont un réseau à eux, avec ses 4 places, au lieu de se serrer sur celui de
 l'image.
 
-### 2.3 Le vrai inconnu : la radio dans l'ADC
+Ce que ça ne règle pas : le bruit de la radio dans l'ADC. Au contraire.
+
+### 2.2 Le vrai inconnu : la radio dans l'ADC
 
 Chaque émission WiFi tire une pointe de courant sur l'alimentation du Pico. Le régulateur la
-rattrape, mais une ondulation reste, et l'ADC la voit : sa référence vient du même 3,3 V. La
-vidéo émet 5 paquets par image : si l'ondulation passe, elle s'entendra comme un sifflement grave à
-298,6 Hz et ses harmoniques, surtout dans les silences. Aucun calcul ne dit si elle passe ;
-c'est la mesure T3.1.
+rattrape, mais une ondulation reste, et l'ADC la voit : sa référence vient du même 3,3 V. Or
+c'est maintenant le Pico du son qui émet : un bloc toutes les 5 ms, en autant de copies que de
+haut-parleurs, jusqu'à 6,2 Mbit/s pour quatre, plus les balises de son point d'accès dix fois
+par seconde. Si l'ondulation passe, elle s'entendra comme un sifflement à 200 Hz et ses
+harmoniques, ou un ronronnement à 10 Hz, surtout dans les silences. Le sniffer émet aussi, à
+quelques centimètres, sur son réseau à lui : son rythme, 298,6 Hz, pourrait passer par l'air,
+par le câble audio, ou par une alimentation commune. Aucun calcul ne dit si cela passe ; c'est
+la mesure T3.1.
 
 Ce qui est déjà acquis : l'ADC fait 12 bits, dont 9 à 9,5 effectifs (datasheet RP2350,
 §12.4 et tableau 1685). Le défaut de linéarité du RP2040 (errata E11) est corrigé. Pour la
 musique d'une Game Boy, c'est suffisant ; reste le bruit apporté par le montage.
 
-> 🔑 **Un second Pico 2 W ne lèverait pas cet inconnu.** Il aurait sa propre radio, à
-> quelques centimètres de son propre ADC, et émettrait ses 200 paquets de son par seconde.
-> Le remède à un ADC bruité est un ADC éloigné de la radio, pas un second Pico.
+> 🔑 **Avoir son propre Pico ne lève pas cet inconnu.** Sa radio est à quelques centimètres
+> de son ADC, et c'est elle qui émet le plus. Le remède à un ADC bruité est un ADC éloigné de
+> la radio, pas un Pico de plus.
+
+**Le chemin par l'alimentation commune.** Les Pico de la console seront alimentés par la même
+source. Chaque émission d'un voisin tire jusqu'à 250 mA en pointe : si ce courant passe par
+les mêmes fils que celui du Pico du son, la chute de tension qu'il crée arrive à son entrée.
+Deux précautions, dès le premier câblage, parce qu'elles ne coûtent presque rien :
+
+- **un câblage en étoile** : chaque Pico a ses deux fils à lui, qui partent de l'alimentation.
+  Le Pico du son n'est jamais branché à la suite d'un autre, et ses fils sont courts ;
+- **un filtre à l'entrée du Pico du son** : une perle de ferrite en série sur `VSYS`, puis un
+  condensateur de 100 µF et un de 10 µF vers la masse. La ferrite laisse passer le courant
+  continu et freine les pointes ; les condensateurs fournissent les pointes du Pico lui-même
+  sans les demander aux fils.
 
 Les remèdes, du moins cher au plus cher, chacun suivi d'une nouvelle mesure T3.1 :
 
@@ -93,36 +97,12 @@ Les remèdes, du moins cher au plus cher, chacun suivi d'une nouvelle mesure T3.
 2. **Améliorer la référence** : la même section propose une référence shunt de 3,0 V
    (LM4040) sur `ADC_VREF`.
 3. **Moyenner davantage** : suréchantillonner plus haut, au prix de la marge de l'ADC.
-4. **Un ADC externe I2S**, par exemple un module PCM1808 : la conversion se fait sur sa
+4. **Une alimentation à part pour le Pico du son**, un simple bloc USB : plus aucun courant
+   des voisins ne passe par ses fils. Les masses restent reliées par la console.
+5. **Un ADC externe I2S**, par exemple un module PCM1808 : la conversion se fait sur sa
    propre carte, avec sa propre alimentation analogique. Trois fils de données et une
    horloge, lus par un PIO. C'est le seul cas où il faudrait souder davantage, et ce serait
    côté Pico : rien ne change dans la console.
-
-### 2.4 Ce qui plaide encore pour un second Pico
-
-- **Ne pas rouvrir le firmware du sniffer**, déclaré clos le 09/10/2026 après 108 233
-  images sans une erreur. Y ajouter le son, c'est risquer une régression ; T3.3 la
-  chercherait, dos à dos.
-- **L'indépendance des modules** : si le son vit dans le sniffer, le module capture
-  embarque du code du module son, copié avec un `PROVENANCE.txt` comme l'est `pxl1.h`.
-
-Et contre :
-
-- une seconde alimentation, une seconde antenne contre la console, une seconde boucle de
-  masse avec le PC pendant la mise au point ;
-- **le réseau de l'écran n'accepte que 4 clients** (datasheet du Pico 2 W : « SoftAP, up
-  to 4 clients »). Sniffer, source son, haut-parleur et un PC de mise au point le
-  rempliraient.
-
-### 2.5 Recommandation
-
-**Viser un seul Pico, et laisser la phase 3 trancher.** Les phases 0 à 2 se font sur un
-Pico 2 W de banc, avec le même câble et le même étage d'entrée que la version définitive.
-T3.1 se passe sans toucher au sniffer : le firmware de banc imite le trafic de la vidéo.
-Rouvrir le sniffer n'est utile que si T3.1 passe, et reste ta décision.
-
-**La soudure dans la console est la même dans les deux cas.** Seul change le Pico au bout du
-câble audio.
 
 ---
 
@@ -176,30 +156,36 @@ un lien dégradé, que le nombre de paquets compte plus que le débit : 5 ms don
 
 ## 5. Le réseau
 
-### 5.1 Topologie
+### 5.1 Le réseau son
 
-La tête du module écran émet le réseau, sur le canal 11, en 192.168.4.1, et distribue par
-DHCP les adresses 192.168.4.16 à .23. Le sniffer en est client ; le haut-parleur le sera
-aussi. Le son ira donc d'un client à un autre, **relayé par la tête** : il passe deux fois
-sur l'antenne. Avec la vidéo, cela fait environ 6 Mbit/s, très en dessous de ce que le lien
-a montré.
+**La source émet son propre réseau**, `gb-son`, dont elle est le point d'accès. Les
+haut-parleurs s'y connectent en direct : le son ne traverse l'air qu'une fois, et ne passe
+plus par la tête de l'écran. La question des deux sauts, T4.1 de la version précédente, ne se
+pose plus.
 
-**Ce relais ne devrait pas passer par le firmware de la tête.** Le pilote `cyw43-driver`
-laisse le paramètre `ap_isolate` à sa valeur par défaut, qui, pour cette famille de puces
-Broadcom, autorise le relais entre clients dans la radio elle-même (d'après le pilote
-Linux `brcmfmac`). La pile lwIP de la tête, qui garde parfois son verrou 140 ms, ne verrait
-donc pas passer le son. Ce n'est confirmé par aucun document propre au CYW43439 : c'est le
-premier test de la phase 4, T4.1.
+| | |
+|---|---|
+| Source | 192.168.5.1 |
+| Haut-parleurs | 192.168.5.2 à .5, adresses fixes : le numéro du haut-parleur, de 1 à 4, réglé dans son firmware |
+| PC de mise au point | par DHCP, de .16 à .23 ; il prend l'une des 4 places |
+| Canal | 1, proposé ; le banc R1 du [réseau](../../reseau.md) le confirme |
 
-### 5.2 La destination
+Le reste, commun à tous les modules (canaux, adresses, bus de la console), est dans
+[`reseau.md`](../../reseau.md).
 
-Comme l'image vise la tête en 192.168.4.1, le son vise une adresse fixe : le haut-parleur se
-donne **192.168.4.2**, hors de la plage du DHCP. Le module écran n'a rien à changer.
+### 5.2 Les destinations
 
-Plusieurs haut-parleurs, plus tard : chacun s'annoncerait à la source, qui enverrait une
-copie à chacun. **La diffusion générale (broadcast) est écartée** : sur WiFi, elle part
-sans accusé ni répétition, au débit de base, et 1,6 Mbit/s y occuperaient l'antenne en
-perdant des paquets.
+**Chaque haut-parleur se signale** : un battement deux fois par seconde. La source tient une
+table de 4 haut-parleurs au plus, envoie **une copie de chaque bloc à chacun**, et oublie celui
+qu'elle n'entend plus depuis 2 s. Sans haut-parleur, elle n'envoie rien.
+
+**La diffusion générale (broadcast) est écartée** : sur WiFi, elle part sans accusé ni
+répétition, au débit de base, et 1,6 Mbit/s y occuperaient l'antenne en perdant des paquets.
+Quatre copies coûtent 6,2 Mbit/s, chacune fiable.
+
+**Volume, marche et arrêt** viennent de l'injecteur du module manette, par le bus filaire de
+la console ([réseau](../../reseau.md) §5). La source les transmet aux haut-parleurs dans
+`SON1`.
 
 ### 5.3 Le protocole `SON1` — proposition
 
@@ -208,10 +194,10 @@ Mêmes conventions que `PXL1` : champs en little-endian, nombre magique en tête
 | Octet | Taille | Champ |
 |---|---|---|
 | 0 | 4 | nombre magique `'S','O','N','1'` |
-| 4 | 1 | type : 0 = bloc audio, 1 = accusé, pour mesurer l'aller-retour comme `PXL1_TYPE_PING` |
+| 4 | 1 | type : 0 = bloc audio ; 1 = accusé, pour mesurer l'aller-retour comme `PXL1_TYPE_PING` ; 2 = battement, du haut-parleur vers la source ; 3 = veille, de la source vers les haut-parleurs, deux fois par seconde quand la console est éteinte : ils coupent leur amplificateur |
 | 5 | 1 | format : 0 = PCM 16 bits signé |
 | 6 | 1 | nombre de voies : 2 |
-| 7 | 1 | réservé |
+| 7 | 1 | volume, de 0 à 255, reçu de l'injecteur ; le haut-parleur l'applique |
 | 8 | 4 | fréquence d'échantillonnage, en Hz |
 | 12 | 4 | numéro du premier échantillon du bloc, roulant |
 | 16 | — | échantillons entrelacés G, D : 960 octets pour 5 ms |
@@ -249,7 +235,7 @@ L'horloge de la console n'intervient pas : on échantillonne un signal analogiqu
 |---|---|
 | Remplissage d'un bloc | 5 ms |
 | Décimation | < 0,5 ms |
-| Émission et deux traversées radio | quelques ms ; des pointes à plusieurs dizaines (aller-retour du sniffer : 3,5 ms en moyenne, 46,5 ms au pire) |
+| Émission et une traversée radio | quelques ms (aller-retour du sniffer en direct sur un point d'accès : 1,85 ms en moyenne) ; des pointes possibles à plusieurs dizaines |
 | Réserve du haut-parleur, qui absorbe les retards du WiFi | 20 à 50 ms, dimensionnée par T4.2 sur les pointes mesurées |
 | Sortie I2S | ≈ 2 ms |
 | **Total** | **≈ 30 à 60 ms** |
@@ -287,7 +273,7 @@ Le haut-parleur d'origine, lui, sonne sans retard. S'il reste audible dans la pi
 | Bloc | 5 ms : 240 échantillons par voie, 960 octets | + 16 octets d'en-tête |
 | Paquets | 200 par seconde | |
 | Débit | 1,56 Mbit/s | 976 × 200 × 8 |
-| Sur l'antenne | ≈ 3,1 Mbit/s de son, 2,8 d'image | le son passe deux fois, relayé par la tête |
+| Sur l'antenne de la source | 1,56 Mbit/s par haut-parleur, 6,2 pour quatre | une copie par haut-parleur ; l'image est sur un autre réseau |
 | Décimation | ≈ 3 M multiplications par seconde | 48 000 × 2 voies × 32 coefficients ; quelques % d'un cœur à 150 MHz |
 | RAM, source | ≈ 25 ko | anneau du DMA de 20 ms, file de 8 blocs |
 
@@ -306,7 +292,7 @@ son/
 ├── firmware/
 │   ├── mesure/                    ← le banc de la phase 0 : il mesure et rend compte ✅
 │   ├── commun/son1.h              ← le protocole, qui fait foi
-│   ├── source/                    ← capture et émission ; banc, puis peut-être fusionné au sniffer
+│   ├── source/                    ← capture, point d'accès du réseau son, émission
 │   └── hautparleur/               ← réception, rééchantillonnage, I2S
 └── tools/
     ├── mesure_son.py              ← le verdict du banc : force du son, Rb, côté, avant / après ✅
@@ -325,7 +311,7 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 
 | Réf | Désignation | Qté | Note |
 |---|---|---|---|
-| A1 | Raspberry Pi Pico 2 W | 2 | un pour le banc, puis peut-être la source définitive ; un pour le haut-parleur |
+| A1 | Raspberry Pi Pico 2 W | 2 | la source : le Pico du banc, qui reste en place ; un par haut-parleur, jusqu'à 4 |
 | A2 | Résistance 10 kΩ | 2 | Rs, dans la console |
 | A3 | Condensateur 1 µF, film | 4 | couplage : 2 pour le banc, 2 pour la version définitive |
 | A4 | Résistances 100 kΩ, 15 kΩ et 10 kΩ | 4, 2 et 4 | le pont de VBIAS, Rb selon T0.4, et le Rs et le Rb du banc |
@@ -341,7 +327,7 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 | T2 | Écouteurs ou casque | 1 | pour écouter la console ; rien d'autre ne se branche sur sa prise casque |
 | B1 | Module ADC I2S PCM1808 | 0 ou 1 | seulement si T3.1 résiste aux autres remèdes |
 | B2 | Amplificateur opérationnel MCP6002 | 0 ou 1 | seulement si le signal est trop faible (T0.4) |
-| B3 | Référence de tension LM4040, 3,0 V | 0 ou 1 | remède 2 du §2.3 |
+| B3 | Référence de tension LM4040, 3,0 V | 0 ou 1 | remède 2 du §2.2 |
 
 ---
 
@@ -349,15 +335,14 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 
 | Risque | Gravité | Parade |
 |---|---|---|
-| La radio s'entend dans le son | 🟡 plausible | T3.1, puis les remèdes du §2.3 dans l'ordre ; l'ADC externe en dernier recours |
+| La radio s'entend dans le son | 🟡 plausible | T3.1, puis les remèdes du §2.2 dans l'ordre ; l'ADC externe en dernier recours |
 | Une entrée de l'ADC portée au-delà de 3,3 V | 🔴 | couplage capacitif, diviseur, et Rs qui limite le courant ([`prise-son-mgb.md`](prise-son-mgb.md) §3) |
 | Le manchon du casque relié à une masse | 🔴 | on n'enregistre jamais la prise casque ; références prises aux points de prise |
 | Arracher une pastille, une patte | 🔴 | colle dès la sortie des fils, connecteur débrochable, fil souple |
 | Le son de la console change | 🟡 | Rs de 10 kΩ ; T0.5 avant soudure, T1.2 Pico alimenté et éteint |
 | La console bourdonne d'elle-même | 🟡 | T0.4 le mesure d'abord ; on le documente, on ne le corrige pas |
-| La vidéo se dégrade quand le son s'ajoute | 🟡 | T3.3 dos à dos ; repli sur un second Pico |
-| Les clients du réseau de l'écran ne se voient pas | 🟡 | T4.1 en tête de la phase 4 |
-| Le réseau de l'écran est plein | 🟢 | 4 clients au plus : un seul Pico côté console en libère une place |
+| Les radios de la console se gênent : le réseau son et le réseau image, à quelques centimètres | 🟡 | le banc R1 du [réseau](../../reseau.md) ; T4.4 dos à dos |
+| Plusieurs haut-parleurs dans une pièce font écho | 🟢 plus tard | [réseau](../../reseau.md) §8 |
 | Dérive des horloges : un craquement toutes les quelques minutes | 🟢 certaine, et connue | rééchantillonnage piloté par le tampon (§6), T5.2 |
 | Griller le haut-parleur de Game Boy | 🟡 | gain minimal, plafond logiciel, T5.1 |
 | L'horloge pixel couplée dans le câble audio | 🟡 | câble et connecteur séparés, masse dédiée, filtre anti-repliement |
@@ -372,6 +357,9 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 | 11/10/2026 | Capture du signal analogique, pas des écritures dans les registres du son | Les registres sont internes au processeur ; le signal analogique est le son réel |
 | 11/10/2026 | Prise proposée à l'entrée du potentiomètre de volume, d'après le schéma de Gekkio | En amont de la molette et de l'amplificateur, sans continu, processeur protégé derrière 1 µF et 510 Ω. À confirmer par la phase 0 |
 | 11/10/2026 | Pico de banc pour les phases 0 à 2 ; la phase 3 décide du Pico définitif | Le calcul et le débit tiennent sur un Pico ; le bruit de la radio ne se calcule pas, et un second Pico ne le lèverait pas |
+| 11/10/2026 | **Décision de Yoann** : `SON1` gagne un battement du haut-parleur (type 2), une veille de la source (type 3) et le volume (octet 7) | Les haut-parleurs se signalent à la source, coupent leur amplificateur console éteinte, et suivent la molette de la manette |
+| 11/10/2026 | **Décision de Yoann** : câblage en étoile et filtre d'entrée pour le Pico du son, vérifiés par T3.1 ; une alimentation à part en remède | Le bruit des radios voisines peut arriver par une alimentation commune |
+| 11/10/2026 | **Décision de Yoann** : un Pico pour le son seul, point d'accès de son propre réseau ; jusqu'à 4 haut-parleurs en direct | Un microcontrôleur par type de périphérique sur la console, des liaisons directes ([réseau](../../reseau.md)). Remplace la recommandation d'un seul Pico pour l'image et le son, et le relais par la tête de l'écran vers 192.168.4.2. Le bruit de la radio dans l'ADC reste à mesurer : T3.1 |
 | 11/10/2026 | Suréchantillonnage à 192 kHz, sortie à 48 kHz | Les harmoniques des ondes carrées se replieraient dans la bande audible à 48 kHz direct |
 | 11/10/2026 | **La phase 0 se mesure avec un Pico de banc**, pas avec une interface audio | Rien à acheter, aucune connaissance en mesure audio : le firmware `mesure` et le script `mesure_son.py` donnent le verdict en clair, et le même montage resert aux phases 1 à 3. Le banc a un gain de 0,5 : il lit jusqu'à 6,6 V crête-à-crête sans rien savoir de la console d'avance |
 | 11/10/2026 | **Gauche et droite : non bloquant**, le schéma fait foi d'ici là | Le haut-parleur de Game Boy est mono ; une inversion se corrige dans le firmware. Pokémon Rouge, vérifié dans son désassemblage, n'a pas de son d'un seul côté exploitable : le script `cotes` cherche ces moments en jouant |
