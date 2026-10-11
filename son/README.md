@@ -82,12 +82,37 @@ Puis, depuis ce dossier :
 l'un avant de lancer l'autre. `cat /dev/ttyACM0` ne suffit pas, car le firmware n'écrit que
 si le signal DTR est activé.
 
+## Sans matériel
+
+Le réseau et le traitement du son s'éprouvent sur un seul PC. Les outils demandent `numpy`
+(et `scipy` pour la conception du filtre) :
+
+```bash
+./tools/son_envoi.py --perte 1 --retard 20 --derive 300 &   # une fausse source, malmenée
+./tools/hautparleur_virtuel.py --source 127.0.0.1           # le haut-parleur de référence
+```
+
+Le haut-parleur virtuel joue le son sur le PC (`pw-play`, `aplay` ou `sounddevice`) et donne
+son verdict : pertes, retards, réserve conseillée, dérive des horloges. Face à la vraie source,
+il suffit de rejoindre le réseau `gb-son` et de lancer `hautparleur_virtuel.py` sans option.
+
+La décimation et la réserve du haut-parleur, en C++ portable, ont leurs tests :
+
+```bash
+cd firmware/commun/test
+g++ -std=c++20 -O2 -Wall -Wextra -I.. test_decimation.cpp -o /tmp/test_decimation && /tmp/test_decimation
+g++ -std=c++20 -O2 -Wall -Wextra -I.. test_rattrapage.cpp -o /tmp/test_rattrapage && /tmp/test_rattrapage
+```
+
+Le second simule plus de quatre heures d'écoute en une vingtaine de secondes.
+
 ## Contenu
 
 | Dossier | Contenu |
 |---|---|
 | [`firmware/mesure/`](firmware/mesure/README.md) | le banc de mesure de la phase 0 : brochage, commandes, conception |
-| `tools/` | [`mesure_son.py`](tools/mesure_son.py), le verdict du banc en clair ; `console.py` et `flash.sh` |
+| `firmware/commun/` | ce que partageront la source et le haut-parleur, éprouvé sur PC : [`son1.h`](firmware/commun/son1.h), le protocole, qui fait foi ; la décimation ; la réserve et le rattrapage de la dérive |
+| `tools/` | [`mesure_son.py`](tools/mesure_son.py), le verdict du banc en clair ; [`son_envoi.py`](tools/son_envoi.py) et [`hautparleur_virtuel.py`](tools/hautparleur_virtuel.py), une fausse source et un haut-parleur de référence ; [`decimation_conception.py`](tools/decimation_conception.py), le calcul du filtre ; `console.py` et `flash.sh` |
 | `docs/` | le plan, les tests et les points de prise, ci-dessous |
 
 | Document | Contenu |
@@ -106,6 +131,6 @@ Rien n'est encore soudé. Le module s'ouvre le 11/10/2026.
 | 1 · Soudure et étage d'entrée | à venir |
 | 2 · Capture seule, sans réseau | à venir |
 | 3 · La radio dans l'ADC | à venir |
-| 4 · Émission réseau, récepteur sur PC | à venir |
-| 5 · Haut-parleur | à venir |
+| 4 · Émission réseau, récepteur sur PC | récepteur de référence et fausse source prêts, éprouvés l'un contre l'autre |
+| 5 · Haut-parleur | réserve et rattrapage de la dérive écrits, éprouvés en simulation |
 | 6 · Intégration | à venir |

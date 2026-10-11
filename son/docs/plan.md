@@ -177,7 +177,8 @@ Le reste, commun à tous les modules (canaux, adresses, bus de la console), est 
 
 **Chaque haut-parleur se signale** : un battement deux fois par seconde. La source tient une
 table de 4 haut-parleurs au plus, envoie **une copie de chaque bloc à chacun**, et oublie celui
-qu'elle n'entend plus depuis 2 s. Sans haut-parleur, elle n'envoie rien.
+qu'elle n'entend plus depuis 2 s. Sans haut-parleur, elle n'envoie rien. Elle répond à l'adresse
+et au port d'où vient le battement.
 
 **La diffusion générale (broadcast) est écartée** : sur WiFi, elle part sans accusé ni
 répétition, au débit de base, et 1,6 Mbit/s y occuperaient l'antenne en perdant des paquets.
@@ -208,7 +209,7 @@ renvoyée toutes les 2 secondes, quand `PXL2` la porte dans chaque en-tête. **L
 d'échantillon** rend une perte visible, un trou dans la numérotation, et place chaque bloc
 dans le tampon même s'il arrive dans le désordre. Il fait le tour en 24,8 heures à 48 kHz.
 
-Le fichier `son1.h` fera foi, dans `firmware/commun/`.
+Le fichier [`firmware/commun/son1.h`](../firmware/commun/son1.h) fait foi.
 
 ---
 
@@ -224,6 +225,14 @@ continu un rapport de rééchantillonnage, par interpolation. Pour un Cortex-M33
 négligeable. Jeter ou doubler un échantillon de temps en temps serait plus simple, mais
 s'entendrait sur une note tenue. T5.2 mesure l'écart réel et vérifie que le tampon reste
 borné sur deux heures.
+
+**Écrit et éprouvé sur PC**, avant tout matériel :
+[`firmware/commun/rattrapage.hpp`](../firmware/commun/rattrapage.hpp) et son test. Une simulation
+fait vivre au haut-parleur des dérives de −500 à +500 ppm, une gigue du réseau de 0 à 20 ms,
+des pertes, une coupure et un redémarrage de la source. Sur deux heures simulées à +100 ppm, la
+réserve reste entre 23 et 52 ms pour une cible de 40 ; la dérive est estimée à 3 ppm près ;
+aucun claquement. Les trous sont masqués : le dernier son s'éteint en 4 ms, et le retour se fait
+par un fondu de 2 ms.
 
 L'horloge de la console n'intervient pas : on échantillonne un signal analogique.
 
@@ -274,7 +283,7 @@ Le haut-parleur d'origine, lui, sonne sans retard. S'il reste audible dans la pi
 | Paquets | 200 par seconde | |
 | Débit | 1,56 Mbit/s | 976 × 200 × 8 |
 | Sur l'antenne de la source | 1,56 Mbit/s par haut-parleur, 6,2 pour quatre | une copie par haut-parleur ; l'image est sur un autre réseau |
-| Décimation | ≈ 3 M multiplications par seconde | 48 000 × 2 voies × 32 coefficients ; quelques % d'un cœur à 150 MHz |
+| Décimation | 2,1 M multiplications par seconde | deux étages demi-bande, 22 multiplications par échantillon et par voie ; ce qui se replierait est atténué de 72 dB. Environ 20 % d'un cœur à 150 MHz, estimé sur le code compilé ([`decimation.hpp`](../firmware/commun/decimation.hpp)) |
 | RAM, source | ≈ 25 ko | anneau du DMA de 20 ms, file de 8 blocs |
 
 ---
@@ -291,7 +300,11 @@ son/
 │   └── releves/                   ← enregistrements, spectres, photos
 ├── firmware/
 │   ├── mesure/                    ← le banc de la phase 0 : il mesure et rend compte ✅
-│   ├── commun/son1.h              ← le protocole, qui fait foi
+│   ├── commun/                    ← partagé par la source, le haut-parleur et les tests sur PC ✅
+│   │   ├── son1.h                 ← le protocole, qui fait foi
+│   │   ├── decimation.hpp         ← 192 → 48 kHz, en virgule fixe
+│   │   ├── rattrapage.hpp         ← la réserve du haut-parleur, et la dérive des horloges
+│   │   └── test/                  ← leurs tests, sur PC
 │   ├── source/                    ← capture, point d'accès du réseau son, émission
 │   └── hautparleur/               ← réception, rééchantillonnage, I2S
 └── tools/
@@ -299,8 +312,9 @@ son/
     ├── console.py, flash.sh       ← dialogue avec les firmwares ✅
     ├── sondump.py                 ← l'enregistrement du Pico, en WAV (phase 2)
     ├── analyse_son.py             ← niveaux, bruit de fond, sifflements ; spectre d'un WAV
-    ├── hautparleur_virtuel.py     ← récepteur SON1 de référence, sur PC (phase 4)
-    └── son_envoi.py               ← émetteur SON1 de test : sinus, WAV, pertes simulées
+    ├── hautparleur_virtuel.py     ← récepteur SON1 de référence : pertes, retards, réserve conseillée, dérive ✅
+    ├── son_envoi.py               ← émetteur SON1 de test : sinus, balayage, WAV ; pertes, gigue, dérive simulées ✅
+    └── decimation_conception.py   ← le calcul et la justification du filtre de décimation ✅
 ```
 
 Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la phase qui en a besoin.

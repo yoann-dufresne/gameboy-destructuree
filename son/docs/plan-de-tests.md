@@ -147,7 +147,7 @@ Récepteur de référence : `hautparleur_virtuel.py`, qui joue le flux et horoda
 
 | Test | Procédure | Critère |
 |---|---|---|
-| **T4.1** Se signaler | Le PC rejoint le réseau `gb-son` ; `hautparleur_virtuel.py` envoie son battement, puis se tait 3 s, puis reprend | la source envoie le son dès le premier battement ; elle cesse 2 s après le dernier ; elle reprend avec lui ([`plan.md`](plan.md) §5.2) |
+| **T4.1** Se signaler | Le PC rejoint le réseau `gb-son` ; `hautparleur_virtuel.py --taire 10,3` envoie son battement, se tait 3 s à t = 10 s, puis reprend | la source envoie le son dès le premier battement ; elle cesse 2 s après le dernier ; elle reprend avec lui ([`plan.md`](plan.md) §5.2) |
 | **T4.2** Pertes et retards | 30 min, le sniffer émettant l'image à côté | pertes < 0,1 % ; retards d'arrivée relevés. **La réserve du haut-parleur se règle sur les plus longs retards mesurés**, le pire d'un paquet sur mille, pas sur une intuition |
 | **T4.3** Sans coupure | 30 min avec la réserve retenue | aucune coupure audible ; les blocs manquants comptés, et masqués |
 | **T4.4** L'écran n'a rien vu | Le sniffer et la source côte à côte, chacun sur son réseau. Rapport de la tête, son actif puis coupé, dos à dos | pertes et gels de l'image inchangés. Le banc R1 du [réseau](../../reseau.md) l'aura vérifié en général ; ici, c'est avec le vrai sniffer |
