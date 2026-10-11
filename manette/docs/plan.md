@@ -413,7 +413,7 @@ l'arrêt.
 qui s'effondrent pendant une émission. Si c'est l'interrupteur qui a réveillé la manette, il
 donne, dans le premier paquet, le temps de connexion.
 
-Le fichier `man1.h` fera foi, dans `firmware/commun/`.
+Le fichier [`firmware/commun/man1.h`](../firmware/commun/man1.h) fait foi.
 
 ---
 
@@ -435,7 +435,9 @@ réseau. **L'injecteur émet le réseau des manettes**, `gb-manettes` :
 
 - **un seul saut radio** : la manette est cliente directe de l'injecteur ;
 - **jusqu'à 4 manettes**, la limite d'un Pico 2 W en point d'accès. Qui gagne quand deux
-  joueurs appuient en même temps se décidera plus tard ;
+  joueurs appuient en même temps se décidera plus tard. D'ici là, une règle provisoire, isolée
+  dans [`firmware/commun/fusion.hpp`](../firmware/commun/fusion.hpp) : un OU des boutons, la
+  console allumée tant qu'une manette la veut, les molettes de la dernière entendue ;
 - **des adresses fixes**, qui raccourcissent le réveil (§4.1) : l'injecteur en 192.168.6.1, les
   manettes de .2 à .5 selon leur numéro, réglé dans leur firmware ;
 - le canal proposé est le 6, partagé avec le réseau de la cartouche, peu chargé. Le banc de
@@ -493,20 +495,25 @@ manette/
 │   ├── etapes.md                  ← le pas à pas, ses tests ; la fiche de la phase 0
 │   └── releves/                   ← scans, photos, captures de l'analyseur
 ├── firmware/
-│   ├── commun/man1.h              ← le protocole, qui fait foi
+│   ├── commun/                    ← partagé par la manette, l'injecteur et les tests sur PC ✅
+│   │   ├── man1.h                 ← le protocole, qui fait foi
+│   │   ├── manette.hpp            ← l'automate de la manette ; anti-rebond, molettes
+│   │   ├── injecteur.hpp          ← l'automate de l'injecteur
+│   │   ├── fusion.hpp             ← PROVISOIRE : comment se combinent plusieurs manettes
+│   │   └── test/                  ← leurs tests, sur PC
 │   ├── manette/                   ← la console distante : lecture, émission, sommeil et réveil
 │   └── injecteur/                 ← la console principale : réception, photoMOS, alimentation
 ├── materiel/
 │   ├── carte-manette/             ← KiCad : la carte qui remplace l'originale
 │   └── injecteur/                 ← plaquette des photoMOS et du régulateur 3,0 V
 └── tools/
-    ├── manette_ecoute.py          ← l'état reçu, en direct ; accusés, pertes, trous, piles, autonomie
-    ├── manette_envoi.py           ← une fausse manette : tour des boutons, appuis au hasard, marche, arrêt, silence
+    ├── manette_ecoute.py          ← un faux injecteur : l'état reçu, en direct ; pertes, trous, relâches, réveil, piles ✅
+    ├── manette_envoi.py           ← une fausse manette : tour des boutons, appuis au hasard, marche, arrêt, silence ✅
     ├── latence.py                 ← le verdict de l'analyseur : bouton → photoMOS
     └── console.py, flash.sh       ← copiés du module son
 ```
 
-Rien n'est encore écrit : chaque élément naîtra avec la phase qui en a besoin.
+Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la phase qui en a besoin.
 
 ---
 

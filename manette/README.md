@@ -52,7 +52,38 @@ molettes au reste de la console, par un bus filaire ; voir le [document réseau]
 
 Nomenclature complète : [§11 du plan](docs/plan.md).
 
+## Sans matériel
+
+La logique de la manette et de l'injecteur, et le protocole, s'éprouvent sur un seul PC :
+
+```bash
+./tools/manette_ecoute.py --extinction 30 &               # un faux injecteur
+./tools/manette_envoi.py tour --cible 127.0.0.1           # une fausse manette
+./tools/manette_envoi.py maintenir A --cible 127.0.0.1    # A enfoncé, puis plus rien
+```
+
+L'écoute applique les règles de l'injecteur et donne son verdict : pertes, plus long silence,
+relâches de sécurité, rien sans marche, temps de réveil. Plusieurs fausses manettes se
+distinguent par leur adresse : `--depuis 127.0.0.2`, `127.0.0.3`… Face à la vraie manette, le PC
+lance l'écoute seule.
+
+Les automates de la manette et de l'injecteur, en C++ portable, ont leurs tests :
+
+```bash
+cd firmware/commun/test
+g++ -std=c++20 -O2 -Wall -Wextra -I.. test_manette.cpp -o /tmp/test_manette && /tmp/test_manette
+g++ -std=c++20 -O2 -Wall -Wextra -I.. test_injecteur.cpp -o /tmp/test_injecteur && /tmp/test_injecteur
+```
+
+Le premier fait aussi jouer la manette contre l'injecteur, dix minutes durant, à travers un
+réseau simulé qui perd 5 % des paquets dans chaque sens : aucun bouton ne reste coincé.
+
 ## Contenu
+
+| Dossier | Contenu |
+|---|---|
+| `firmware/commun/` | ce que partageront la manette et l'injecteur, éprouvé sur PC : [`man1.h`](firmware/commun/man1.h), le protocole, qui fait foi ; les deux automates ; [`fusion.hpp`](firmware/commun/fusion.hpp), la règle provisoire à plusieurs manettes |
+| `tools/` | [`manette_envoi.py`](tools/manette_envoi.py), une fausse manette ; [`manette_ecoute.py`](tools/manette_ecoute.py), un faux injecteur qui donne son verdict |
 
 | Document | Contenu |
 |---|---|
@@ -61,7 +92,8 @@ Nomenclature complète : [§11 du plan](docs/plan.md).
 
 ## État
 
-Rien n'est construit. Le module s'ouvre le 11/10/2026.
+Rien n'est construit. Le module s'ouvre le 11/10/2026. Le protocole, les automates et les
+outils du PC sont écrits et éprouvés sur PC, sans matériel.
 
 | Phase | État |
 |---|---|

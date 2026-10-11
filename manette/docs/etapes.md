@@ -163,9 +163,9 @@ son adresse comme destination.
 
 | Test | Ce que tu fais | Ce que tu dois trouver |
 |---|---|---|
-| **T3.1** Chaque bouton à sa place | `manette_envoi.py --tour` : la fausse manette appuie sur chaque bouton tour à tour. L'analyseur sur P10 à P13. Puis échanger les cavaliers | P14 à la masse, seuls Droite, Gauche, Haut et Bas font descendre leur ligne ; P15 à la masse, seuls A, B, Select et Start |
+| **T3.1** Chaque bouton à sa place | `manette_envoi.py tour` : la fausse manette appuie sur chaque bouton tour à tour. L'analyseur sur P10 à P13. Puis échanger les cavaliers | P14 à la masse, seuls Droite, Gauche, Haut et Bas font descendre leur ligne ; P15 à la masse, seuls A, B, Select et Start |
 | **T3.2** L'isolation | Pico débranché. Multimètre en ohms entre la masse du Pico et chaque borne côté console. Puis entre chaque paire de bornes d'un même photoMOS | « circuit ouvert » partout : rien ne relie le Pico à la console, et un injecteur éteint n'appuie sur rien |
-| **T3.3** La sécurité | `manette_envoi.py` maintient A, puis se tait. Recommencer avec la vraie manette : maintenir A, et l'éteindre | A relâché moins de 250 ms après le dernier paquet, mesuré à l'analyseur |
+| **T3.3** La sécurité | `manette_envoi.py maintenir A` : A enfoncé, puis le silence. Recommencer avec la vraie manette : maintenir A, et l'éteindre | A relâché moins de 250 ms après le dernier paquet, mesuré à l'analyseur |
 | **T3.4** 🔬 Latence de la manette à l'injecteur | La vraie manette sur piles, en mode banc : GP15 appuie sur Droite à intervalles aléatoires, par un fil de GP15 à GP2 à travers 1 kΩ. L'analyseur : voie 0 sur GP2 de la manette, voie 1 sur P10 de la fausse console. 10 minutes. `latence.py capture.sr` | médiane ≤ 10 ms, 99 % des appuis ≤ 30 ms, le pire noté ; autant d'appuis et de relâchements arrivés que d'envoyés. Recommencer dans le mode d'économie choisi en T2.4 |
 
 | **T3.5** Marche et arrêt | Avec la vraie manette : marche, arrêt, 10 fois. Puis marche, et retirer une pile de la manette. Puis marche, arrêt et marche en moins d'une demi-seconde | la LED « console » suit l'interrupteur. Pile retirée : les boutons sont relâchés, la LED « console » **reste allumée** ; au bout de 2 s, l'injecteur signale l'absence sur sa console USB ; au bout de la durée d'absence, réglée à 30 s pour le test, la LED « console » s'éteint. Remettre la pile avant : tout reprend, sans extinction. Aller-retour rapide : la LED « console » reste éteinte une seconde au moins |
@@ -188,7 +188,7 @@ la console sur marche, les piles retirées.
 |---|---|---|
 | **T4.1** La console ne remarque rien | Jouer, câble débranché ; puis câble branché, injecteur éteint | le jeu et les boutons d'origine marchent comme avant |
 | **T4.2** 🔬 Pas d'appui fantôme | L'analyseur comme en T0.7, injecteur branché, allumé, au repos. Comparer à la capture de T0.7, dos à dos | aucune descente nouvelle sur P10 à P13. Sinon : le plan B, [plan](plan.md) §3.3 |
-| **T4.3** Chaque bouton dans un jeu | `manette_envoi.py --tour` dans un menu ; puis A + B + Select + Start depuis la vraie manette | chaque bouton agit ; la combinaison redémarre le jeu, ce qui éprouve les huit à la fois |
+| **T4.3** Chaque bouton dans un jeu | `manette_envoi.py tour` dans un menu ; puis A + B + Select + Start depuis la vraie manette | chaque bouton agit ; la combinaison redémarre le jeu, ce qui éprouve les huit à la fois |
 | **T4.4** Les deux ensemble | A maintenu sur la console principale, Droite sur la manette | les deux comptent |
 | **T4.5** 🔬 Latence jusqu'à la console | Comme T3.4, voie 1 sur P10 de la vraie console : on mesure jusqu'à la première lecture du jeu | la latence de T3.4, plus 0 à 16,7 ms d'attente de la lecture |
 | **T4.6** Endurance | 30 minutes de jeu à la manette | aucun bouton coincé ni manqué ; le rapport de l'injecteur ne compte aucune relâche de sécurité |
