@@ -1,7 +1,24 @@
-# Chaîne vidéo — Sniffer LCD MGB → matrice LED 64×64
+# Chaîne vidéo — Sniffer LCD MGB → matrice LED
 
 *Sous-projet du « Game Boy Pocket déstructurée ». Module SOURCE (capture) + module ÉCRAN (matrice LED), reliés en WiFi.*
-Version 1 — 28/08/2026
+Version 1 — 28/08/2026 ; mise à jour de l'intention le 11/10/2026.
+
+> **Ce qui a changé depuis.** Ce document est celui du départ de la chaîne vidéo. Le détail
+> technique vit désormais dans les modules [capture](capture/) et [ecran](ecran/), qui font
+> foi : leurs mesures ont corrigé plusieurs points d'ici. L'intention, elle, a évolué ainsi :
+>
+> - **le sniffer n'est plus une source parmi d'autres, c'est la source** : la console réelle a
+>   remplacé l'émulateur comme cerveau du projet ([intention v2](Spec_Gameboy_Pocket_Destructuree.md)) ;
+> - **l'écran fait 3 × 3 dalles, 192 × 192 pixels** : l'image 160 × 144 s'y affiche à
+>   l'échelle 1:1, sans réduction (§2) ;
+> - **le protocole est `PXL1`**, défini par le module écran, plus le `FRAME` de la v1 ;
+> - **le réseau** : le sniffer émettra le réseau « image », que rejoignent jusqu'à 4 écrans
+>   ([`reseau.md`](reseau.md)) (§8.1) ;
+> - **la console n'est plus complète** : boutons, son et cartouche en sortent aussi, par les
+>   modules manette, son et cartouche (§0).
+>
+> Les renvois « Spec v1 » désignent la version 1 de la spécification principale, que la v2 a
+> remplacée : elle reste dans l'historique du dépôt (`git show dac9dbd:Spec_Gameboy_Pocket_Destructuree.md`).
 
 ---
 
@@ -25,7 +42,7 @@ les deux et basculer de l'un à l'autre.
 | Origine de l'image | Émulateur headless sur Pi | PPU de la vraie console |
 | Console physique | Pas nécessaire | Indispensable, et modifiée (soudures fines) |
 | Latence ajoutée | ~0 (l'émulateur choisit) | ≤ 16,7 ms (on subit la cadence du PPU) |
-| Boutons / son | Passent par le réseau | **Restent sur la console** (elle est complète) |
+| Boutons / son | Passent par le réseau | **Restent sur la console** (elle est complète). *Depuis le 11/10/2026 : ils en sortent aussi, voir l'intention v2* |
 | Difficulté | Logicielle (émulateur) | Matérielle (soudure 🔴 + rétro-ingénierie signaux) |
 
 ---
@@ -514,9 +531,10 @@ Pour ce sous-projet, en autonomie (avant intégration à la Spec v1) :
 - **Module source = client**, envoie ses datagrammes UDP vers `192.168.4.1:5000`.
 - **Un seul saut, aucun routeur, aucun autre trafic.** C'est ce qui rend la latence tenable.
 
-Pour l'intégration à la Spec v1 : les deux Pico deviennent clients du **SoftAP du Pi Zero 2 W**,
-et l'adresse de destination devient celle du module écran sur ce réseau. Aucun changement de
-protocole.
+~~Pour l'intégration à la Spec v1 : les deux Pico deviennent clients du SoftAP du Pi Zero 2 W.~~
+*Décision du 11/10/2026 : dans l'installation, les rôles s'inversent. Le sniffer émet le réseau
+« image », et jusqu'à 4 écrans le rejoignent, toujours en un seul saut. Utilisé seul, l'écran
+garde son propre réseau. Voir [`reseau.md`](reseau.md).*
 
 ### 8.2 Choix de transport
 
@@ -627,10 +645,10 @@ alimentations, faire cohabiter la source « sniffer » et la source « émulateu
 
 ## 11. Ce qu'il reste à décider
 
-1. **Un panneau ou neuf ?** Le 3×3 (192×192) donne du 160×144 pixel-perfect avec bordure.
+1. ✅ *Tranché : neuf, 192 × 192 (module écran).* **Un panneau ou neuf ?** Le 3×3 (192×192) donne du 160×144 pixel-perfect avec bordure.
    Ça change le budget, l'alim (~15 A), la mécanique et le poids — mais pas le firmware, qui
    est paramétrable dès le départ si on le prévoit maintenant. **À trancher avant l'étape 3.**
-2. **Sniffer ou émulateur, à terme ?** Les deux peuvent coexister avec un sélecteur de source.
+2. ✅ *Tranché : le sniffer, sur une vraie console ; un émulateur reste une source de secours possible (intention v2, §9).* **Sniffer ou émulateur, à terme ?** Les deux peuvent coexister avec un sélecteur de source.
    Le sniffer est plus « vrai » ; l'émulateur est plus fiable en exposition. Une pièce d'art
    qui tourne 6 h par jour a intérêt à avoir les deux.
 3. **Mod batterie USB-C sur la console d'abord ?** Ça stabilise le rail 3,3 V et rend les
