@@ -132,6 +132,15 @@
 #define PXL1_CIBLE_IP    "192.168.4.1"    /* ← la tête du module écran */
 #define PXL1_NODE_ID     0                /* un seul récepteur */
 
+/* Option POINT_ACCES (banc R2 de reseau.md, désactivée par défaut) : le
+ * sniffer émet lui-même le réseau image, et PXL1_CIBLE_IP ne sert plus. Le
+ * nom et le mot de passe vont dans secrets.h : IMAGE_SSID, IMAGE_MOT_DE_PASSE. */
+#if POINT_ACCES
+#define IMAGE_CANAL_WIFI  11   /* reseau.md §3 : l'image seule sur le 11 */
+#define IMAGE_ECRANS_MAX   4   /* un Pico 2 W en point d'accès n'en accepte pas plus */
+#define IMAGE_OUBLI_MS  2000   /* un écran muet depuis 2 s est oublié (reseau.md §2.3) */
+#endif
+
 /* Palette envoyée en CTRL, en B,G,R — les 4 teintes de la Game Boy.
  * 🔬 Polarité mesurée en phase 0 : l'indice 0 est le plus CLAIR.
  * Teintes DMG d'origine. */

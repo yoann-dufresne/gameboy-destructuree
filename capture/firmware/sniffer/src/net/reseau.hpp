@@ -94,4 +94,10 @@ const char *adresse_ip();
 const Stats &stats();
 void reinitialiser();
 
+#if POINT_ACCES
+/* Option POINT_ACCES (banc R2) : les lignes `BNC role=sniffer…` que lit
+ * banc-reseau/tools/banc.py, état de la capture et de chaque écran. */
+void bilan_banc();
+#endif
+
 } // namespace reseau

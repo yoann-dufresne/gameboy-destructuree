@@ -48,3 +48,17 @@ pico_enable_stdio_usb(sniffer 1)
 pico_enable_stdio_uart(sniffer 0)
 
 pico_add_extra_outputs(sniffer)
+
+# ─── Banc R2 du réseau (reseau.md §7, banc-reseau/) ─────────────────────────
+# Le sniffer émet lui-même le réseau image, en 192.168.4.1, et envoie une copie
+# de chaque tranche à chaque écran, quatre au plus. DÉSACTIVÉ par défaut : le
+# module est clos, et ce mode ne sert qu'au banc. Désactivé, rien ne change :
+# ni les sources compilées, ni leurs options. Le serveur DHCP est celui que le
+# module écran vendorise (reseau.md §4).
+option(POINT_ACCES "Le sniffer emet le reseau image (banc R2)" OFF)
+if(POINT_ACCES)
+    set(DHCP ${CMAKE_CURRENT_LIST_DIR}/../../../ecran/firmware/vendor/dhcpserver)
+    target_sources(sniffer PRIVATE ${DHCP}/dhcpserver.c)
+    target_include_directories(sniffer PRIVATE ${DHCP})
+    target_compile_definitions(sniffer PRIVATE POINT_ACCES=1)
+endif()

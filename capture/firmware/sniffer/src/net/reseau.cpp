@@ -31,6 +31,20 @@
 #include "pxl1.h"
 #include "secrets.h"
 
+#if POINT_ACCES
+#include "lwip/netif.h"
+/* Serveur DHCP vendorisé par le module écran, écrit en C sans garde extern "C". */
+extern "C" {
+#include "dhcpserver.h"
+}
+#ifndef IMAGE_SSID
+#define IMAGE_SSID "gb-image"
+#endif
+#ifndef IMAGE_MOT_DE_PASSE
+#error "POINT_ACCES : definir IMAGE_MOT_DE_PASSE dans include/secrets.h (voir secrets.h.example)"
+#endif
+#endif
+
 namespace reseau {
 namespace {
 
@@ -56,6 +70,159 @@ void noter(Mesure &m, uint32_t us) {
  * trame. Sert à mesurer l'aller-retour sur NOTRE horloge, sans supposer la
  * moindre synchronisation avec le récepteur. */
 uint32_t t_emission_us[256];
+
+#if POINT_ACCES
+/* ─────────────────────── point d'accès du réseau image (banc R2, reseau.md)
+ *
+ * Le sniffer émet le réseau, et chaque tranche part en une copie par écran.
+ * Un écran est une destination tant que :
+ *   - il est associé au réseau et a reçu un bail DHCP : c'est ainsi qu'on
+ *     trouve la vraie tête, qui n'accuse une image qu'après l'avoir reçue ;
+ *   - ou il s'est fait entendre depuis moins de 2 s : un accusé, ou un PING
+ *     marqué PXL1_FLAG_SIGNAL, que les écrans à adresse fixe envoient chaque
+ *     seconde (reseau.md §2.3).
+ * Quatre au plus, la limite d'un Pico 2 W en point d'accès. */
+
+/* Extension de banc du 11/10/2026 : un PING ainsi marqué dit « je suis là »,
+ * ce n'est pas un accusé. À reporter dans ecran/firmware/commun/pxl1.h si la
+ * règle est gardée pour l'image. */
+#define PXL1_FLAG_SIGNAL 0x80
+
+struct Ecran {
+    bool actif;
+    bool par_bail;   /* associé, avec un bail : gardé même muet */
+    ip_addr_t ip;
+    uint32_t vu_ms;  /* dernier paquet reçu de lui */
+    uint32_t accuses;
+    Mesure aller_retour;
+};
+Ecran ecrans[IMAGE_ECRANS_MAX];
+uint32_t ecrans_refuses = 0;   /* un cinquième écran s'est signalé */
+uint32_t t_ecrans_ms = 0;
+dhcp_server_t serveur_dhcp;
+
+uint32_t ms_maintenant() { return to_ms_since_boot(get_absolute_time()); }
+
+/* L'écran d'adresse `ip`, ajouté s'il est nouveau et qu'il reste une place. */
+Ecran *ecran(const ip_addr_t &ip) {
+    Ecran *libre = nullptr;
+    for (auto &e : ecrans) {
+        if (e.actif && ip_addr_cmp(&e.ip, &ip))
+            return &e;
+        if (!e.actif && libre == nullptr)
+            libre = &e;
+    }
+    if (libre == nullptr) {
+        ecrans_refuses++;
+        return nullptr;
+    }
+    *libre = Ecran{};
+    libre->actif = true;
+    ip_addr_copy(libre->ip, ip);
+    libre->vu_ms = ms_maintenant();
+    return libre;
+}
+
+/* Rappel lwIP en point d'accès : accusés et signaux des écrans. L'horodatage
+ * d'émission n'est PAS remis à zéro après un accusé, contrairement au mode
+ * station : les autres copies de la même image en ont encore besoin. */
+void sur_paquet_ecran(void *, udp_pcb *, pbuf *p, const ip_addr_t *source, u16_t) {
+    if (p == nullptr)
+        return;
+    if (p->tot_len >= PXL1_ENTETE) {
+        pxl1_entete e;
+        pbuf_copy_partial(p, &e, PXL1_ENTETE, 0);
+        if (e.magic == PXL1_MAGIC && e.type == PXL1_TYPE_PING) {
+            Ecran *ec = ecran(*source);
+            if (ec != nullptr) {
+                ec->vu_ms = ms_maintenant();
+                if (!(e.flags & PXL1_FLAG_SIGNAL)) {
+                    ec->accuses++;
+                    compteurs.accuses++;
+                    const uint32_t t0 = t_emission_us[e.frame_id & 0xFF];
+                    const uint32_t dt = (uint32_t)time_us_32() - t0;
+                    if (t0 != 0 && dt < 500000u) {
+                        noter(ec->aller_retour, dt);
+                        noter(compteurs.aller_retour, dt);
+                        compteurs.aller_retour_us = dt;
+                        const uint32_t seau = dt / 1000u;
+                        compteurs.histo[seau < RESEAU_HISTO_SEAUX - 1
+                                            ? seau
+                                            : RESEAU_HISTO_SEAUX - 1]++;
+                    } else {
+                        compteurs.aller_retour_ecartes++;
+                    }
+                }
+            }
+        }
+    }
+    pbuf_free(p);
+}
+
+/* Toutes les 500 ms : les stations associées qui ont un bail deviennent des
+ * écrans ; les écrans muets depuis 2 s sans bail sont oubliés. */
+void tenir_ecrans() {
+    const uint32_t maintenant = ms_maintenant();
+    if (maintenant - t_ecrans_ms < 500u)
+        return;
+    t_ecrans_ms = maintenant;
+
+    /* ⚠️ Avec un tableau d'adresses nul, le pilote rend le nombre MAXIMAL de
+     * stations, pas celui des connectées (module écran, 29/09/2026). */
+    uint8_t macs[6 * 8];
+    int n = 8;
+    cyw43_arch_lwip_begin();
+    cyw43_wifi_ap_get_stas(&cyw43_state, &n, macs);
+    for (auto &e : ecrans)
+        e.par_bail = false;
+    for (int s = 0; s < n; ++s)
+        for (int i = 0; i < DHCPS_MAX_IP; ++i) {
+            if (serveur_dhcp.lease[i].expiry == 0 ||
+                std::memcmp(serveur_dhcp.lease[i].mac, macs + 6 * s, 6) != 0)
+                continue;
+            ip_addr_t ip;
+            IP4_ADDR(ip_2_ip4(&ip), 192, 168, 4, DHCPS_BASE_IP + i);
+            Ecran *ec = ecran(ip);
+            if (ec != nullptr)
+                ec->par_bail = true;
+        }
+    for (auto &e : ecrans)
+        if (e.actif && !e.par_bail && maintenant - e.vu_ms > IMAGE_OUBLI_MS)
+            e.actif = false;
+    cyw43_arch_lwip_end();
+}
+
+/* Émet le réseau image : le point d'accès est en 192.168.4.1, l'adresse par
+ * défaut du pilote, celle que visait jusqu'ici le sniffer. */
+bool emettre_reseau() {
+    printf("  cyw43 : initialisation...\n");
+    if (cyw43_arch_init_with_country(WIFI_PAYS)) {
+        printf("  cyw43_arch_init : ECHEC\n");
+        return false;
+    }
+    cyw43_wifi_ap_set_channel(&cyw43_state, IMAGE_CANAL_WIFI);
+    cyw43_arch_enable_ap_mode(IMAGE_SSID, IMAGE_MOT_DE_PASSE, CYW43_AUTH_WPA2_AES_PSK);
+
+    ip_addr_t passerelle, masque;
+    IP4_ADDR(ip_2_ip4(&passerelle), 192, 168, 4, 1);
+    IP4_ADDR(ip_2_ip4(&masque), 255, 255, 255, 0);
+    cyw43_arch_lwip_begin();
+    dhcp_server_init(&serveur_dhcp, &cyw43_state.netif[CYW43_ITF_AP], &passerelle, &masque);
+    pcb = udp_new();
+    const bool lie = pcb != nullptr && udp_bind(pcb, IP_ANY_TYPE, PXL1_PORT) == ERR_OK;
+    if (lie)
+        udp_recv(pcb, sur_paquet_ecran, nullptr);
+    cyw43_arch_lwip_end();
+    if (!lie) {
+        printf("  udp_new / udp_bind sur %d : ECHEC\n", PXL1_PORT);
+        return false;
+    }
+    std::snprintf(ip_texte, sizeof(ip_texte), "192.168.4.1");
+    printf("  reseau « %s » emis sur le canal %d, une copie par ecran (%d au plus)\n",
+           IMAGE_SSID, IMAGE_CANAL_WIFI, IMAGE_ECRANS_MAX);
+    return true;
+}
+#endif
 
 /* ─────────────────────────────────────────────────────── accusés reçus */
 
@@ -96,6 +263,35 @@ void sur_accuse(void *, udp_pcb *, pbuf *p, const ip_addr_t *, u16_t) {
 
 bool envoyer(const void *entete, uint16_t n_entete,
              const void *charge, uint16_t n_charge) {
+#if POINT_ACCES
+    /* Une copie par écran, chacune dans son pbuf. */
+    bool tout = true;
+    cyw43_arch_lwip_begin();
+    for (const auto &ec : ecrans) {
+        if (!ec.actif)
+            continue;
+        pbuf *q = pbuf_alloc(PBUF_TRANSPORT, (u16_t)(n_entete + n_charge), PBUF_RAM);
+        if (q == nullptr) {
+            compteurs.echecs++;
+            tout = false;
+            continue;
+        }
+        std::memcpy(q->payload, entete, n_entete);
+        if (n_charge)
+            std::memcpy((uint8_t *)q->payload + n_entete, charge, n_charge);
+        const err_t r = udp_sendto(pcb, q, &ec.ip, PXL1_PORT);
+        pbuf_free(q);
+        if (r != ERR_OK) {
+            compteurs.echecs++;
+            tout = false;
+            continue;
+        }
+        compteurs.paquets++;
+        compteurs.octets += n_charge;
+    }
+    cyw43_arch_lwip_end();
+    return tout;
+#else
     pbuf *p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)(n_entete + n_charge), PBUF_RAM);
     if (p == nullptr) {
         compteurs.echecs++;
@@ -117,6 +313,7 @@ bool envoyer(const void *entete, uint16_t n_entete,
     compteurs.paquets++;
     compteurs.octets += n_charge;
     return true;
+#endif
 }
 
 void envoyer_trame(const uint8_t *trame, uint16_t frame_id) {
@@ -201,6 +398,9 @@ void noter_ip() {
  * démarrage. La capture, elle, continue quoi qu'il arrive : PIO, DMA et
  * interruptions ne dépendent pas de cette boucle. */
 void surveiller_lien() {
+#if POINT_ACCES
+    tenir_ecrans();
+#else
     const uint32_t maintenant = to_ms_since_boot(get_absolute_time());
     if (maintenant - t_surveillance_ms < 1000u)
         return;
@@ -237,6 +437,7 @@ void surveiller_lien() {
     association_en_cours = false;
     cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD,
                                   CYW43_AUTH_WPA2_AES_PSK);
+#endif
 }
 
 bool associer() {
@@ -298,7 +499,11 @@ bool associer() {
 
 bool init() {
     std::memset(t_emission_us, 0, sizeof(t_emission_us));
+#if POINT_ACCES
+    associe = emettre_reseau();
+#else
     associe = associer();
+#endif
     return associe;
 }
 
@@ -353,6 +558,10 @@ void servir() {
 bool pret() { return associe; }
 
 void rompre_pour_essai() {
+#if POINT_ACCES
+    printf("\n  point d'acces : pas d'association a rompre\n");
+    return;
+#endif
     printf("\n  rupture VOLONTAIRE de l'association (essai de reconnexion)\n");
     cyw43_arch_lwip_begin();
     cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
@@ -360,6 +569,14 @@ void rompre_pour_essai() {
 }
 
 const char *etat_lien() {
+#if POINT_ACCES
+    static char texte[48];
+    int n = 0;
+    for (const auto &e : ecrans)
+        n += e.actif;
+    std::snprintf(texte, sizeof(texte), "POINT D'ACCES (%d ecran(s))", n);
+    return texte;
+#endif
     cyw43_arch_lwip_begin();
     const int e = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
     cyw43_arch_lwip_end();
@@ -377,6 +594,38 @@ const char *etat_lien() {
 const char *adresse_ip() { return ip_texte; }
 const Stats &stats() { return compteurs; }
 
+#if POINT_ACCES
+/* Les lignes que lit banc-reseau/tools/banc.py pour le banc R2. */
+void bilan_banc() {
+    const capture::Stats &c = capture::stats();
+    int n = 0;
+    for (const auto &e : ecrans)
+        n += e.actif;
+    printf("BNC role=sniffer res=image t=%lu ecrans=%d refuses=%lu trames=%lu paquets=%lu "
+           "echecs=%lu acc=%lu emission_max_us=%lu attente_max_us=%lu capture_trames=%lu "
+           "douteuses=%lu incompletes=%lu rejetees=%lu debordements=%lu perdues=%lu "
+           "tranches_perdues=%lu\n",
+           (unsigned long)ms_maintenant(), n, (unsigned long)ecrans_refuses,
+           (unsigned long)compteurs.trames, (unsigned long)compteurs.paquets,
+           (unsigned long)compteurs.echecs, (unsigned long)compteurs.accuses,
+           (unsigned long)compteurs.emission.max_us, (unsigned long)compteurs.attente.max_us,
+           (unsigned long)c.trames, (unsigned long)c.trames_douteuses,
+           (unsigned long)c.trames_incompletes, (unsigned long)c.rejetees,
+           (unsigned long)c.debordements, (unsigned long)c.perdues,
+           (unsigned long)c.tranches_perdues);
+    for (const auto &e : ecrans) {
+        if (!e.actif)
+            continue;
+        const Mesure &m = e.aller_retour;
+        printf("BNC role=sniffer_ecran res=image t=%lu ip=%s bail=%d acc=%lu rtt_n=%lu "
+               "rtt_moy_us=%lu rtt_max_us=%lu\n",
+               (unsigned long)ms_maintenant(), ipaddr_ntoa(&e.ip), e.par_bail ? 1 : 0,
+               (unsigned long)e.accuses, (unsigned long)m.n,
+               (unsigned long)(m.n ? m.somme_us / m.n : 0), (unsigned long)m.max_us);
+    }
+}
+#endif
+
 void reinitialiser() {
     /* Tout, y compris la latence : conserver une moyenne à travers une remise
      * à zéro mélange deux régimes et produit un chiffre que rien ne recoupe.
@@ -384,6 +633,13 @@ void reinitialiser() {
      * 26/09/2026. */
     compteurs = Stats{};
     std::memset(t_emission_us, 0, sizeof(t_emission_us));
+#if POINT_ACCES
+    for (auto &e : ecrans) {
+        e.accuses = 0;
+        e.aller_retour = Mesure{};
+    }
+    ecrans_refuses = 0;
+#endif
 }
 
 } // namespace reseau

@@ -154,8 +154,13 @@ void afficher_reseau() {
                reseau::etat_lien());
         return;
     }
+#if POINT_ACCES
+    printf("\n  reseau           %s, %s:%d — une copie par ecran\n",
+           reseau::etat_lien(), reseau::adresse_ip(), PXL1_PORT);
+#else
     printf("\n  reseau           %s  ->  %s:%d\n",
            reseau::adresse_ip(), PXL1_CIBLE_IP, PXL1_PORT);
+#endif
     printf("  trames emises    %6lu\n", (unsigned long)r.trames);
     printf("  paquets          %6lu        (%d par trame)\n",
            (unsigned long)r.paquets,
@@ -351,6 +356,9 @@ int main() {
             t_stats = time_us_64();
             afficher_stats();
             afficher_reseau();
+#if POINT_ACCES
+            reseau::bilan_banc();
+#endif
         }
     }
 }

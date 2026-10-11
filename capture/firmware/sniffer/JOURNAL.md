@@ -495,3 +495,28 @@ diagnostic par vidages ne dit donc rien de la fluidité de l'écran.
 
 **Bilan, 60 s sans vidage :** 3 585 images, 0 relance tardive, 0 image rejetée, 0 tranche
 perdue ; 100 % des images acquittées par l'écran.
+
+## L'option `POINT_ACCES`, pour le banc R2 — 11/10/2026
+
+Le plan réseau du 11/10/2026 ([`reseau.md`](../../../reseau.md)) fait du sniffer le point
+d'accès du réseau image, avec une copie par écran. Avant de le décider pour de bon, le banc
+R2 doit montrer que la capture tient en émettant quatre copies. L'option `POINT_ACCES`
+existe pour ce banc seulement ; le module reste clos.
+
+**Le défaut ne bouge pas.** Tout le code ajouté est sous `#if POINT_ACCES`, et l'option
+CMake n'ajoute rien à la compilation quand elle est désactivée. Vérifié : construit avant et
+après la modification, `sniffer.bin` est identique octet pour octet (même empreinte MD5).
+
+**Ce que fait l'option, compilée sans avertissement, jamais flashée :**
+- point d'accès WPA2 sur le canal 11, en 192.168.4.1 ; serveur DHCP du module écran ;
+- une copie de chaque tranche, de chaque palette et de chaque géométrie par écran, chacune
+  dans son pbuf ;
+- un écran est une destination tant qu'il est associé avec un bail, ou qu'il a parlé depuis
+  moins de 2 s. L'horodatage d'émission n'est plus effacé au premier accusé : les autres
+  copies de la même image en ont besoin pour leur aller-retour ;
+- des lignes `BNC role=sniffer…` toutes les 5 s, que lit `banc-reseau/tools/banc.py`.
+
+**À mesurer au banc R2** : le temps d'émettre une tranche et ses quatre copies. Estimé à
+1,6 ms : 0,39 ms par paquet mesurées en phase 4 D, fois quatre. Il doit rester sous les
+3,8 ms qui séparent deux tranches, sinon la file déborde et des tranches se perdent.
+

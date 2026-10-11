@@ -24,9 +24,30 @@ alors le réseau du PC, et `PXL1_CIBLE_IP` son adresse.
 **À venir, décision du 11/10/2026** ([`reseau.md`](../../../reseau.md)) : dans l'installation,
 le sniffer **émettra lui-même** le réseau « image », en 192.168.4.1, et enverra une copie de
 chaque paquet à chaque écran connecté, quatre au plus. Il recevra la marche, l'arrêt, la
-luminosité et le message « aucune manette » par le bus I²C de la console. Rien n'est changé
-dans le code avant le banc R2 : le sniffer en point d'accès, quatre copies, pendant la
-capture.
+luminosité et le message « aucune manette » par le bus I²C de la console. D'ici là, le
+sniffer par défaut ne change pas : seule une option de compilation, pour le banc R2, émet
+déjà le réseau image.
+
+### Option `POINT_ACCES` — le banc R2
+
+**Compilée, jamais flashée** (11/10/2026). Désactivée par défaut : sans elle, le binaire est
+identique octet pour octet à celui d'avant son ajout.
+
+```sh
+cmake -S . -B build-ap -DPICO_SDK_PATH=~/pico/pico-sdk -DPOINT_ACCES=ON
+cmake --build build-ap -j8
+```
+
+Avec elle, le sniffer émet le réseau `IMAGE_SSID` (`gb-image` par défaut), avec
+`IMAGE_MOT_DE_PASSE`, tous deux dans `secrets.h`, sur le canal 11, en 192.168.4.1, et
+distribue les adresses .16 à .23 avec le serveur DHCP vendorisé du module écran.
+`PXL1_CIBLE_IP` ne sert plus : chaque tranche part en une copie par écran, quatre au plus.
+Un écran est une destination tant qu'il est associé avec un bail DHCP, comme la tête en mode
+station, ou qu'il s'est fait entendre depuis moins de 2 s : un accusé, ou un PING marqué
+`0x80` dans `flags`, que les écrans à adresse fixe envoient chaque seconde. Les compteurs
+restent ceux d'aujourd'hui, comptés sur toutes les copies ; s'y ajoutent, toutes les 5 s,
+des lignes `BNC role=sniffer…` pour l'outil du banc. Le banc et son déroulé :
+[`banc-reseau/`](../../../banc-reseau/README.md).
 
 ## Brochage
 
