@@ -12,12 +12,15 @@ documentation, et il sert à quelque chose en dehors de la Game Boy.
 |---|---|
 | [`capture/`](capture/) | Espionne le bus LCD d'une vraie Game Boy Pocket et diffuse son image en UDP, sans perturber la console. |
 | [`ecran/`](ecran/) | Afficheur réseau sur matrices LED, 192×192 pixels visés. Il affiche toute image qu'on lui envoie en UDP, quelle qu'en soit la source. |
+| [`son/`](son/) | Prend le son d'une Game Boy Pocket avant son bouton de volume et le diffuse en UDP ; un haut-parleur réseau le joue. Phase 0 prête : banc de mesure, plan, tests et points de prise. |
 
-Les modules ne partagent qu'un protocole réseau, `PXL1` sur UDP. Chacun s'éprouve seul :
-`capture` avec un écran virtuel sur PC, `ecran` avec un émetteur de test.
+Les modules ne partagent que des protocoles réseau sur UDP : `PXL1` pour l'image, `SON1`,
+proposé, pour le son. Chacun s'éprouve seul : `capture` avec un écran virtuel sur PC,
+`ecran` avec un émetteur de test, `son` avec un haut-parleur virtuel et un émetteur de
+test.
 
-La spécification initiale décrit aussi des modules boutons, son et cartouche. Aucun
-n'est commencé.
+La spécification initiale décrit aussi des modules boutons et cartouche. Aucun n'est
+commencé.
 
 ## Documents de conception
 
