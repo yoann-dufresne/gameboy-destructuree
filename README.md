@@ -14,13 +14,13 @@ documentation, et il sert à quelque chose en dehors de la Game Boy.
 | [`ecran/`](ecran/) | Afficheur réseau sur matrices LED, 192×192 pixels visés. Il affiche toute image qu'on lui envoie en UDP, quelle qu'en soit la source. |
 | [`son/`](son/) | Prend le son d'une Game Boy Pocket avant son bouton de volume et le diffuse en UDP ; un haut-parleur réseau le joue. Phase 0 prête : banc de mesure, plan, tests et points de prise. |
 | [`manette/`](manette/) | Une seconde Game Boy Pocket devenue manette WiFi : ses boutons, ses molettes et son interrupteur partent en UDP vers la console principale, où un injecteur appuie sur les boutons et l'allume ou l'éteint. Plan écrit, rien de construit. |
+| [`cartouche/`](cartouche/) | La cartouche dans une fente à part : un lecteur la lit à l'insertion et en envoie la copie en WiFi à une doublure branchée sur la console principale, qui tient le rôle de la cartouche. Les sauvegardes reviennent à la vraie cartouche. Plan écrit, rien de construit. |
 
 Les modules ne partagent que des protocoles réseau sur UDP : `PXL1` pour l'image ; `SON1`
-pour le son et `MAN1` pour la manette, proposés. Chacun s'éprouve seul : `capture` avec un
-écran virtuel sur PC, `ecran` avec un émetteur de test, `son` avec un haut-parleur virtuel et
-un émetteur de test, `manette` avec un récepteur et une fausse manette sur PC.
-
-La spécification initiale décrit aussi un module cartouche. Il n'est pas commencé.
+pour le son, `MAN1` pour la manette et `CAR1` pour la cartouche, proposés. Chacun s'éprouve
+seul : `capture` avec un écran virtuel sur PC, `ecran` avec un émetteur de test, `son` avec un
+haut-parleur virtuel et un émetteur de test, `manette` avec un récepteur et une fausse manette
+sur PC, `cartouche` avec un PC qui lit le lecteur ou envoie une ROM à la doublure.
 
 ## Documents de conception
 
