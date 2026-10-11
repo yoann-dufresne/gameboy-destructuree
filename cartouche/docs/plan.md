@@ -312,6 +312,11 @@ réponse peut arriver trop tard, et le jeu plante. Parades, dans l'ordre :
 
 T3.5 tranche : une heure de jeu sous un trafic WiFi forcé.
 
+Un indice, depuis : la Croco Cartridge, passée au RP2350B dans sa version 2, ne sert plus la
+ROM depuis la flash mais depuis une HyperRAM lue par un PIO ([étude de la Croco](etude-croco.md)).
+Personne n'a encore montré la flash d'un RP2350 assez rapide pour le bus ; la première parade
+ci-dessus reste à éprouver.
+
 Écrire 1 Mo de flash prend quelques secondes. La doublure reconnaît une cartouche déjà vue à sa
 signature (titre, sommes de contrôle, CRC de la ROM entière) et ne réécrit pas la flash : seule
 la sauvegarde voyage.
@@ -417,7 +422,8 @@ celui de la copie servie, ou qui dit la fente vide, fige la console (§5.6). Une
 destinée à une insertion précédente n'est jamais appliquée directement : le lecteur la parque
 si aucune autre cartouche n'est passée depuis, l'oublie sinon (§3.4).
 
-Le format octet par octet sera fixé avec le code, dans `firmware/commun/car1.h`, qui fera foi.
+Le format octet par octet est proposé dans [`firmware/commun/car1.h`](../firmware/commun/car1.h),
+qui fera foi.
 
 ---
 
@@ -479,10 +485,17 @@ cartouche/
 ├── docs/
 │   ├── plan.md                    ← ce document
 │   ├── etapes.md                  ← le pas à pas, ses tests ; la fiche de la phase 0
+│   ├── fenetre-du-bus.md          ← ce que disent les sources du cycle de lecture ✅
+│   ├── brochage.md                ← la doublure et le lecteur sur la Waveshare ✅
+│   ├── etude-croco.md             ← ce qu'on reprend de la Croco Cartridge ✅
 │   └── releves/                   ← captures de l'analyseur, photos
 ├── firmware/
-│   ├── commun/car1.h              ← le protocole, qui fait foi
-│   ├── commun/mbc/                ← les contrôleurs de banques : lus par le lecteur, imités par la doublure
+│   ├── commun/                    ← testé sur PC, sans carte ✅
+│   │   ├── car1.h                 ← le protocole, qui fait foi
+│   │   ├── entete.hpp, mbc.hpp    ← l'en-tête ; les contrôleurs : lus par le lecteur, imités par la doublure
+│   │   ├── imitation.hpp          ← la cartouche imitée
+│   │   ├── lecteur.hpp, doublure.hpp ← les deux automates de la sauvegarde
+│   │   └── test/                  ← tests unitaires et simulation de bout en bout
 │   ├── lecteur/                   ← la fente : présence, lecture, journal appliqué
 │   └── doublure/                  ← la console : PIO et DMA du bus, copie en flash, journal
 ├── materiel/
@@ -494,7 +507,8 @@ cartouche/
     └── console.py, flash.sh       ← copiés du module son
 ```
 
-Rien n'est encore écrit : chaque élément naîtra avec la phase qui en a besoin.
+Seuls les éléments marqués ✅ sont écrits, sans matériel : le reste naîtra avec la phase qui
+en a besoin.
 
 ---
 
@@ -557,3 +571,8 @@ le PC** (phase 1).
 | 11/10/2026 | **Décision de Yoann** : une sauvegarde pas encore écrite quand on arrache la cartouche est parquée dans le lecteur ; écrite si la même cartouche revient inchangée, oubliée si une autre arrive | Rattraper la seconde de retard du journal, sans jamais écrire sur la mauvaise cartouche |
 | 11/10/2026 | **Décision de Yoann** : un journal non remis est écrit dans la flash de la doublure quand la console s'éteint | Ne pas dépendre du WiFi ni de l'alimentation de la doublure pour garder une partie. Pas avant : écrire la flash, console allumée, ferait planter le jeu |
 | 11/10/2026 | **Décision de Yoann** : la doublure émet le réseau de la cartouche, le lecteur s'y connecte en direct | La topologie de tout le projet : un microcontrôleur par type de périphérique sur la console ([réseau](../../reseau.md)) |
+| 11/10/2026 | Proposition : le format octet par octet de `CAR1`, dans `firmware/commun/car1.h` ; écritures numérotées par session de la doublure, avec le plus vieux numéro non accusé dans chaque paquet | Un compteur unique faisait prendre, après un redémarrage de la doublure, une écriture neuve pour un doublon ([simulation](../firmware/commun/README.md)) |
+| 11/10/2026 | Proposition, **à trancher par Yoann** : la règle stricte de comparaison à la réinsertion. Les pages parquées sont comparées aussi : intactes si aucune écriture ne les a touchées, « début du contenu tenté sur la fin de l'ancien » si l'écriture a été interrompue | La règle du plan (§3.4) laisse écrire la sauvegarde parquée sur une cartouche jouée ailleurs dont le jeu n'a réécrit que les pages parquées, ou sur un autre exemplaire du même jeu quand les pages parquées couvrent toute la sauvegarde ([simulation](../firmware/commun/README.md)) |
+| 11/10/2026 | Proposition : le lecteur annonce la cartouche dès que le microrupteur se ferme, avant de la lire | Sinon, une console allumée dans les 300 ms qui suivent l'insertion démarre sur un rectangle noir |
+| 11/10/2026 | Proposition : la doublure ne prépare une nouvelle copie qu'une fois son journal vide ; le lecteur garde en flash son contexte de sauvegarde (CRC des pages, pages parquées et en cours d'écriture, sessions) | La copie reflète toutes les écritures d'avant ; un redémarrage du lecteur ne perd rien |
+| 11/10/2026 | Proposition : la doublure sur la Waveshare dans la fenêtre basse des GPIO, A0–A15 sur 0 à 15, D0–D7 sur 24 à 31 ([brochage](brochage.md)) | Le RM2 occupe 36 à 39 : la fenêtre haute, celle de la Croco V2, n'a pas assez de broches libres |

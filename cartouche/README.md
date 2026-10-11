@@ -57,10 +57,16 @@ Nomenclature complète : [§11 du plan](docs/plan.md).
 |---|---|
 | [`docs/plan.md`](docs/plan.md) | l'analyse et les décisions : le bus de la cartouche, ce qui remonte à la vraie cartouche, le lecteur, la doublure, les situations d'insertion et de retrait, le protocole `CAR1`, le réseau, les durées, les risques |
 | [`docs/etapes.md`](docs/etapes.md) | les phases pas à pas, leurs tests et leurs critères de sortie ; la fiche de la phase 0, à remplir |
+| [`docs/fenetre-du-bus.md`](docs/fenetre-du-bus.md) | ce que disent les sources du cycle de lecture de la cartouche, et le temps qu'il laisse à la doublure |
+| [`docs/brochage.md`](docs/brochage.md) | la doublure et le lecteur sur la carte RP2350B, broche par broche |
+| [`docs/etude-croco.md`](docs/etude-croco.md) | comment la Croco Cartridge sert le bus, et ce qu'on en reprend |
+| [`firmware/commun/`](firmware/commun/README.md) | le code que partagent les deux moitiés : contrôleurs, protocole `CAR1`, automates de la sauvegarde ; testé sur PC |
 
 ## État
 
-Rien n'est construit. Le module s'ouvre le 11/10/2026.
+Rien n'est construit. Le module s'ouvre le 11/10/2026. Sans matériel, le cœur logique est
+écrit et éprouvé sur PC : les contrôleurs de banques, le protocole, et les règles de la
+sauvegarde sous les pannes ([`firmware/commun/`](firmware/commun/README.md)).
 
 | Phase | État |
 |---|---|
