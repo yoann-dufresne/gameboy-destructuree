@@ -148,6 +148,10 @@ tête devient point d'accès WPA2 sur le canal 11, en 192.168.4.1, avec un petit
 (plan §2.7). Le chemin par la box n'était de toute façon pas celui de l'usage final : la Game
 Boy portera le sniffer, pas un PC.
 
+> **11/10/2026** : dans l'installation, les rôles s'inverseront. Le sniffer émettra le réseau
+> « image » et la tête le rejoindra en station, toujours en direct ; décision de Yoann, décrite
+> dans [`reseau.md`](../../../reseau.md). Rien n'est changé avant le banc de coexistence.
+
 Un piège rencontré en route : `cyw43_wifi_ap_get_stas(…, macs = NULL)` rend le nombre
 **maximal** de stations, pas celui des stations connectées. Il faut lui donner un tableau.
 

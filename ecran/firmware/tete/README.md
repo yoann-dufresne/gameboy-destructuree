@@ -13,7 +13,10 @@ l'architecture est décrit dans le [README du module](../../README.md#architectu
 - **phase 5b éprouvée au banc le 29/09/2026** : une liaison, un nœud, une dalle ; 60 images
   publiées par seconde, 0 erreur de CRC en 10 minutes. Reste la latence à l'analyseur ;
 - **réseau émis par l'écran depuis le 29/09/2026** : débit de la phase 5a à remesurer dans ce
-  mode.
+  mode ;
+- **à venir, décision du 11/10/2026** : dans l'installation, la tête rejoindra en station le
+  réseau « image » émis par le sniffer ([`reseau.md`](../../../reseau.md)). Rien n'est changé
+  avant le banc de coexistence.
 
 ## Construire et utiliser
 
@@ -31,7 +34,7 @@ Trois options CMake :
 
 | Option | Effet |
 |---|---|
-| `-DWIFI_STATION=ON` | l'ancien mode : la tête rejoint la box (`WIFI_SSID`, `WIFI_PASSWORD`) au lieu d'émettre son réseau. Gardé pour comparer |
+| `-DWIFI_STATION=ON` | la tête rejoint le réseau nommé dans `secrets.h` (`WIFI_SSID`, `WIFI_PASSWORD`) au lieu d'émettre le sien : un seul jeu d'identifiants, `gb-image` dans l'installation, la box pour une comparaison |
 | `-DBANC_UNE_DALLE=ON` | canevas réduit à une dalle (64 × 64) et une seule liaison : l'image entière est visible sur le banc de la phase 5b |
 | `-DLIEN_HORLOGE_KHZ=1000` | horloge de la liaison, 16 000 kHz par défaut. La baisser pour une première mise en route. Une liaison transporte 2 bits par coup d'horloge et doit suivre le débit de sa rangée : 6 Mbit/s en IDX8 192 × 192 à 60 images/s, 2 Mbit/s pour une image 64 × 64 en IDX8 au banc |
 

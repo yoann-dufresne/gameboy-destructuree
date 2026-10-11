@@ -5,7 +5,10 @@ qu'on lui envoie par WiFi. N'importe quelle source peut l'alimenter : un PC qui 
 vidéo, une horloge, une mire, ou une console de jeu.
 
 Dans la [Game Boy Pocket déstructurée](../README.md), c'est l'écran de la console, alimenté
-par le module [capture](../capture/README.md).
+par le module [capture](../capture/README.md). Là, l'écran rejoindra le réseau « image » que le
+sniffer émet, jusqu'à quatre écrans à la fois, au lieu d'émettre le sien : c'est la décision du
+11/10/2026, à venir après le banc de coexistence, décrite dans [`reseau.md`](../reseau.md).
+Utilisé seul, il garde son propre réseau.
 
 ## Ce qu'il fait
 

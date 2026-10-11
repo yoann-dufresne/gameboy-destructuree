@@ -15,7 +15,7 @@ Version 1 — 16/09/2026
 | **Découpage** | **3 chaînes de 3 dalles**, une par rangée horizontale | oui, en phase 5 |
 | **Contrôleurs** | **1 tête** Pico 2 W (WiFi) + **3 nœuds d'affichage** Pico 2, un par rangée, reliés en filaire | — (révisé le 29/09/2026) |
 | **Interface publique** | **une adresse, un canevas 192×192** : la source envoie son image entière, à sa taille ; l'écran la place et la répartit | non |
-| **Réseau** | **l'écran émet son propre WiFi** (point d'accès, canal 11, tête en 192.168.4.1) ; les sources s'y connectent en direct, sans box | — (29/09/2026, §2.7) |
+| **Réseau** | **l'écran émet son propre WiFi** (point d'accès, canal 11, tête en 192.168.4.1) ; les sources s'y connectent en direct, sans box. **À venir dans l'installation** : la tête rejoint le réseau « image » émis par le sniffer, toujours en direct ; elle garde le point d'accès pour être utilisée seule | 29/09/2026 ; 11/10/2026 (§2.7, [`reseau.md`](../../reseau.md)) |
 | **Protocole** | **PXL2** ; PXL1 + `CTRL_GEOMETRIE` accepté en compatibilité | non |
 | **Langage** | **C99**, et **C++20** à partir de la phase 1 | non |
 | **Couche basse** | **pico-sdk 2.x, bare-metal**, PIO + DMA, 2 cœurs | non |
@@ -441,6 +441,30 @@ sniffer les reprend dans le sien, et vise 192.168.4.1.
 
 **À refaire dans ce mode :** le débit de la phase 5a. Il a été mesuré en station, via la box ;
 le point d'accès du CYW43439 n'a pas de raison d'être plus lent, mais c'est à vérifier.
+
+**Décision du 11/10/2026 : dans l'installation, les rôles s'inversent.** Un microcontrôleur par
+type de périphérique sur la console émet son propre réseau ; pour l'image, c'est le sniffer.
+La tête en devient cliente, comme jusqu'à trois autres écrans qui montrent la même partie, et
+le sniffer envoie une copie de chaque paquet à chacun. Le but du 29/09 tient : **un seul saut
+radio**, sans box. Le détail, canaux, adresses et banc de coexistence, est dans
+[`reseau.md`](../../reseau.md).
+
+```
+29/09   sniffer ──WiFi──► tête (point d'accès, 192.168.4.1)
+À VENIR sniffer (point d'accès, 192.168.4.1) ──WiFi──► 1 à 4 têtes (192.168.4.2 à .5)
+```
+
+Ce que ça demandera à la tête, **pas avant que le banc de [`reseau.md`](../../reseau.md) §7
+soit passé** :
+- le mode station (`WIFI_STATION`, qui existe déjà) vise le réseau « image », avec une adresse
+  fixe de .2 à .5. **Un seul jeu d'identifiants** dans `secrets.h` : le réseau que la tête
+  rejoint en station, `gb-image` dans l'installation, la box pour refaire une comparaison
+  (décision de Yoann du 11/10/2026) ;
+- le mode point d'accès reste celui de l'écran utilisé seul, depuis un PC : le module garde son
+  autonomie ;
+- le débit en station sur un point d'accès Pico, et l'aller-retour, sont à remesurer.
+
+D'ici là, la tête reste le point d'accès, en 192.168.4.1.
 
 ---
 
@@ -1017,6 +1041,7 @@ ecran/
 
 | Date | Décision | Raison |
 |---|---|---|
+| 11/10/2026 | **Décision de Yoann** : dans l'installation, le sniffer émet le réseau « image » et la tête le rejoint en station ; jusqu'à 4 écrans, une copie par écran ; la tête garde le point d'accès pour être utilisée seule (§2.7, [`reseau.md`](../../reseau.md)) | Un microcontrôleur par type de périphérique sur la console, chacun point d'accès de son réseau : un seul saut radio partout, et plusieurs écrans pour une même partie. À appliquer après le banc de coexistence |
 | 16/09/2026 | Afficheur réseau générique d'abord, Game Boy ensuite | L'écran n'est pas lié à une console ; la GB devient un client du protocole |
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |
 | 16/09/2026 | C bare-metal, pas de FreeRTOS, pas de Rust en v1 | Timing dur déjà en PIO/DMA ; deux activités, un cœur chacune ; pas de driver HUB75 64×64 en Rust |
