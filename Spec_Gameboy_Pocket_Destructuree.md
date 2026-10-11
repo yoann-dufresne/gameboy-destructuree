@@ -1,273 +1,167 @@
-# Game Boy Pocket déstructurée — Spécifications techniques
+# Game Boy Pocket déstructurée — l'intention
 
-*Projet artistique — 4 modules indépendants communiquant en WiFi.*
-Version 1 — 23/07/2026
+*Projet artistique : une Game Boy Pocket éclatée en objets indépendants qui se parlent en WiFi.*
+Version 2 — 11/10/2026 : une vraie console au centre, cinq modules, un réseau par type de
+périphérique. La version 1, du 23/07/2026, plaçait un émulateur dans la cartouche ; ce qui a
+changé depuis est au §8, et la v1 reste dans l'historique du dépôt.
 
----
-
-## 0. Décisions de départ
-
-| Sujet | Choix retenu | Conséquence principale |
-|---|---|---|
-| Pièces | **Mix** : vraies pièces GB visibles (boutons, HP, connecteur, coques) + écran moderne | Authenticité côté toucher/son, écran simple à piloter |
-| Objectif | **Réellement jouable** en main | Latence serrée : réseau dédié, UDP, buffers courts |
-| Cerveau (émulateur) | **Dans le module cartouche** | Reste à 4 modules ; la ROM ne traverse jamais le WiFi |
+Ce document dit **ce qu'on veut et pourquoi**. Le comment est dans chaque module, qui fait foi
+pour ce qui le concerne ; le réseau commun est dans [`reseau.md`](reseau.md).
 
 ---
 
-## 1. Principe d'architecture (le point clé)
+## 0. Les décisions qui structurent tout
 
-Une Game Boy n'est **pas** un ensemble de modules qui « communiquent ». C'est un système
-synchrone unique autour d'un CPU (~4 MHz) et d'un bus mémoire : la cartouche est lue en
-**nanosecondes**, l'écran piloté au cycle près, les boutons sont un registre mémoire.
-Le WiFi, lui, a une latence de l'ordre de la **milliseconde** et variable — soit ~1000× trop lent.
+| Sujet | Décision |
+|---|---|
+| **Le cerveau** | une **vraie Game Boy Pocket**, qui exécute le vrai jeu sur la vraie cartouche. Pas d'émulateur |
+| **Les pièces** | les vraies pièces de Game Boy là où on les touche et les entend : boutons, molettes, interrupteur, cartouches, haut-parleur. Un écran moderne, en dalles LED |
+| **L'objectif** | **réellement jouable** : la console répond aux boutons comme une Game Boy |
+| **Éclater sans trahir** | chaque morceau sort de la console par le moyen le plus fidèle possible : on espionne l'image, on prend le son, on double les boutons, on imite la cartouche. La console ne sait pas qu'elle est éclatée |
+| **Chaque module est un projet** | il a son matériel, son firmware, sa documentation, et il sert à quelque chose hors de la Game Boy |
+| **Qui parle à qui** | les périphériques ne parlent qu'à la console ; la console parle à chacun |
+| **Le réseau** | des liaisons directes. Sur la console, un microcontrôleur par type de périphérique, chacun point d'accès de son propre réseau : jusqu'à 4 écrans, 4 haut-parleurs, 4 manettes |
+| **Marche et arrêt** | l'interrupteur de la manette allume et éteint la console, qui allume et éteint le reste |
 
-> **Donc on ne distribue pas les puces internes sur le WiFi.**
-> On fait tourner un **émulateur Game Boy** sur un cerveau central, et on distribue autour
-> de lui les **périphériques d'entrée/sortie**. Le WiFi transporte alors des messages
-> **haut niveau** (image écran, état des boutons, audio) dont les échelles de temps sont
-> compatibles avec le réseau.
+---
 
-Comme le cerveau vit **dans le module cartouche**, la lecture de la cartouche réelle est une
-opération **locale** (le Pi lit la ROM par ses propres broches). La ROM ne passe donc jamais
-par le WiFi : le réseau ne porte que 3 flux (écran, boutons, son).
+## 1. Le principe : couper là où le temps le permet
+
+Une Game Boy n'est pas un ensemble de modules qui communiquent. C'est un système synchrone
+autour d'un processeur à 4 MHz et d'un bus mémoire : la cartouche répond en **nanosecondes**,
+l'écran est piloté au cycle près. Le WiFi met des **millisecondes**, et pas toujours les mêmes.
+On ne peut donc pas éclater les puces de la console sur le réseau.
+
+La v1 en concluait qu'il fallait un émulateur, autour duquel on distribuerait les
+périphériques. La v2 garde la console entière, et la coupe **seulement aux endroits où ce qui
+passe change assez lentement pour le WiFi** :
+
+| Ce qui sort | Où on le prend | Échelle de temps de ce qui passe | Module |
+|---|---|---|---|
+| **L'image** | sur les fils entre le processeur et l'écran, en écoute | une image toutes les 16,7 ms | [capture](capture/) → [ecran](ecran/) |
+| **Le son** | à la sortie du processeur, avant le bouton de volume, en écoute | un flux continu ; quelques dizaines de ms de tampon ne se remarquent pas | [son](son/) |
+| **Les boutons** | en parallèle des boutons de la console | le jeu lit ses boutons une fois par image | [manette](manette/) |
+| **La cartouche** | sur la fente de la console | la nanoseconde : **le seul endroit où le réseau est trop lent**. On y met une copie de la cartouche, et le WiFi ne porte que la copie, à l'insertion, et les sauvegardes | [cartouche](cartouche/) |
+
+Partout, la console reste une vraie console, intacte dans son fonctionnement : ses propres
+boutons marchent encore, son écran d'origine aussi.
 
 ---
 
 ## 2. Vue d'ensemble
 
-```mermaid
-flowchart LR
-    subgraph CART["Module CARTOUCHE (= CERVEAU)"]
-        SLOT["Connecteur cartouche reelle\n(lecture ROM/RAM via GPIO + level shift)"]
-        PI["Raspberry Pi Zero 2 W\nEmulateur GB headless + Point d'acces WiFi"]
-        SLOT --> PI
-    end
-    PI -- "Framebuffer 160x144 2bpp (UDP)" --> SCR["Module ECRAN\nESP32 + IPS SPI"]
-    BTN["Module BOUTONS\nESP32 + membrane GB"] -- "Etat 8 boutons (UDP)" --> PI
-    PI -- "Audio PCM (UDP)" --> SND["Module SON\nESP32 + I2S DAC + HP GB"]
 ```
-
-Schéma en clair :
-
-```
-                 [ CARTOUCHE réelle ]
-                         | (bus local, 5V<->3.3V)
-                         v
-   +-----------------------------------------------+
-   |  MODULE CARTOUCHE  =  CERVEAU                  |
-   |  Raspberry Pi Zero 2 W                         |
-   |  - émule la Game Boy                           |
-   |  - lit la ROM/RAM de la cartouche localement   |
-   |  - point d'accès WiFi dédié (SoftAP)           |
-   +-----------------------------------------------+
-        |  ^                                  |
- frame  |  | boutons                     audio|
- (UDP)  v  |  (UDP)                      (UDP) v
-   [ ÉCRAN ]  [ BOUTONS ]                  [ SON ]
-   ESP32      ESP32                        ESP32
-   +IPS SPI   +membrane GB                 +DAC+HP GB
+                              GAME BOY POCKET PRINCIPALE
+                              (exécute le vrai jeu)
+   ┌──────────────────────────────────────────────────────────────────────┐
+   │   bus LCD          sortie son        boutons, prise DC   fente        │
+   │      │                 │                  │               │           │
+   │   sniffer          source de son      injecteur        doublure      │
+   │  (capture)            (son)           (manette)       (cartouche)    │
+   │      └─────────────────┴──── bus I²C ─────┴───────────────┘           │
+   └──────┼─────────────────┼──────────────────┼───────────────┼───────────┘
+          │ réseau image    │ réseau son       │ réseau        │ réseau
+          │                 │                  │ manettes      │ cartouche
+          ▼                 ▼                  ▲               ▲
+    1 à 4 écrans LED   1 à 4 haut-parleurs  1 à 4 manettes    le lecteur,
+    192 × 192          avec HP de Game Boy  (des Game Boy     sa fente et
+                                             Pocket vidées)   la vraie cartouche
 ```
 
 ---
 
-## 3. Le cerveau
+## 3. Les modules
 
-**Rôle** : émuler la Game Boy, lire la cartouche physique, héberger le réseau WiFi, et
-router les E/S vers/depuis les 3 autres modules.
-
-**Matériel recommandé : Raspberry Pi Zero 2 W.**
-Pourquoi le Pi plutôt qu'un ESP32-S3 : l'objectif « jouable » cumule sur le cerveau
-l'émulation **plein régime**, la lecture cartouche, le rôle de point d'accès WiFi et
-l'encodage/streaming écran+son. Le Pi (4 cœurs, Linux) absorbe ça sans stress. L'ESP32-S3
-reste possible en version « puriste tout-ESP32 » mais au prix de compromis (30 fps, jeux
-simples) et d'un logiciel plus tendu.
-
-**Logiciel — le vrai travail de dev** : partir d'un cœur d'émulation GB léger et fidèle
-(type Gambatte / SameBoy compilé *headless*), puis **remplacer ses backends d'E/S** :
-- backend **vidéo** → au lieu d'afficher, encoder le framebuffer et l'envoyer en UDP à l'écran ;
-- backend **entrée** → au lieu de lire un clavier, lire l'état reçu du module boutons ;
-- backend **audio** → au lieu de jouer en local, streamer le PCM en UDP au module son ;
-- backend **cartouche** → lire la ROM/RAM depuis le connecteur physique (GPIO).
-
-C'est le point d'intégration central : ~4 « prises » à rediriger vers le réseau.
-
----
-
-## 4. Spécifications par module
-
-### 4.1 Module cartouche (contient le cerveau)
-
-- **Rôle** : accueillir une **vraie cartouche GB**, lire sa ROM (et sa RAM de sauvegarde via
-  le MBC), et héberger l'émulateur + le WiFi.
-- **Pièce authentique** : connecteur de cartouche récupéré sur une console + coque/volet.
-- **Interface cartouche** : 16 lignes d'adresse, 8 de données, contrôle (/RD, /WR, /CS, clk,
-  reset). Le Pi n'a pas assez de GPIO « propres » pour tout : utiliser des **expanseurs**
-  (74HC595 pour les adresses en sortie, 74HC165 pour les données en entrée, ou MCP23017 I²C).
-- **⚠️ Niveau logique** : une cartouche GB fonctionne en **5 V**, le Pi en **3,3 V**.
-  Prévoir des **level shifters** bidirectionnels sur le bus de données (ex. 74LVC245 avec
-  contrôle de direction, ou TXB0108). À ne pas négliger.
-- **MBC** : le lecteur doit gérer le banking pour lire les ROM > 32 Ko et lire/écrire la
-  save RAM. Les schémas de dumpers GB open-source couvrent ce point.
-- **Bonus fort (interactif)** : **hot-swap** — détecter l'insertion/retrait et recharger le
-  jeu à chaud. Geste parfait pour une pièce d'art.
-- **Alim** : LiPo + boost 5 V (le Pi Zero 2 W tire un courant non négligeable), ou power bank.
-
-### 4.2 Module écran
-
-- **Rôle** : recevoir le framebuffer par WiFi et l'afficher.
-- **Écran** : **IPS/TFT moderne SPI** (ex. 2,0–2,4", ILI9341 240×320). On reçoit du 2 bits/px
-  (4 niveaux), on mappe vers la palette voulue (gris « DMG », vert d'origine, etc.) et on
-  met à l'échelle 160×144 → panneau.
-- **MCU** : ESP32 (ou ESP32-S3 si upscaling/SPI rapide souhaité).
-- **LCD d'origine** : réutiliser le vrai LCD GBP est **difficile** (il faut régénérer les
-  signaux LCD que produisait le PPU). Gardé hors périmètre v1 ; écran moderne = plan sûr.
-- **Alim** : LiPo + TP4056 + régulateur.
-
-### 4.3 Module boutons
-
-- **Rôle** : lire 8 contacts (D-pad Haut/Bas/Gauche/Droite + A/B/Start/Select) et envoyer
-  les changements d'état.
-- **Pièce authentique** : **membrane caoutchouc + PCB/contacts** récupérés sur une vraie GB.
-- **MCU** : ESP32, 8 GPIO en entrée avec pull-ups, anti-rebond logiciel (~5 ms).
-- **Chemin le plus sensible à la latence** : envoi immédiat à chaque changement + petit
-  « heartbeat » périodique (~toutes les 15 ms) pour couvrir les pertes UDP.
-- **Alim** : LiPo + TP4056.
-
-### 4.4 Module son
-
-- **Rôle** : restituer l'audio.
-- **Pièce authentique** : **haut-parleur de GB** (et éventuellement molette de volume).
-- **MCU + audio** : ESP32 + **DAC/ampli I²S** (ex. MAX98357A, DAC+ampli mono en un composant) → HP.
-- **Approche v1 (simple)** : le cerveau envoie du **PCM** (ex. 32 kHz, 8 bits, mono
-  ≈ 256 kbit/s) en UDP, joué avec un buffer court.
-- **Approche « puriste » (v2)** : le cerveau n'envoie que les **écritures registres APU**, et
-  le module **resynthétise localement** les 4 canaux GB (2 carrés, 1 wave, 1 bruit). Débit
-  minuscule, latence potentiellement plus basse, et le module devient un vrai synthé — très
-  raccord avec l'idée « déstructurée ». Coût : réimplémenter l'APU.
-- **Alim** : LiPo + TP4056.
-
----
-
-## 5. Réseau
-
-### 5.1 Topologie
-Le **cerveau (Pi) est le point d'accès WiFi** (SoftAP, `hostapd`) ; les 3 modules ESP32 s'y
-connectent en clients. Réseau **autonome et dédié** (aucun autre trafic), **1 seul saut**
-module↔cerveau → latence minimale.
-*Repli si le mode AP du Pi est capricieux* : un petit **routeur de voyage dédié**, tous les
-appareils en clients (2 sauts, mais très robuste).
-
-### 5.2 Transport
-**UDP**, jamais TCP : on veut de la **fraîcheur**, pas des retransmissions qui accumulent du
-retard. On gère soi-même un numéro de séquence et on **jette les paquets en retard**.
-
-### 5.3 Format des messages
-
-| Message | Sens | Contenu | Cadence |
+| Module | Côté console | Ailleurs | Seul, il sert à… |
 |---|---|---|---|
-| `INPUT` | boutons → cerveau | seq (2o) + bitfield 8 boutons (1o) | à chaque changement + heartbeat ~15 ms |
-| `FRAME` | cerveau → écran | seq + n° image + n° ligne + données 2 bpp (RLE possible) | 30–60 img/s, fragmenté en ~5 paquets/image |
-| `AUDIO` | cerveau → son | seq + bloc PCM (~5–10 ms) *(ou événements APU en v2)* | flux continu |
-| `HELLO`/`STAT` | module ↔ cerveau | présence, RTT mesuré | ~1 s |
+| [capture](capture/) | le **sniffer** : un Pico 2 W soudé dans la console lit l'image sur le bus LCD | — | diffuser l'image de n'importe quelle Game Boy Pocket |
+| [ecran](ecran/) | — | un **afficheur LED** de 3 × 3 dalles, 192 × 192 pixels : l'image 160 × 144 à l'échelle 1:1 | afficher toute image qu'on lui envoie |
+| [son](son/) | la **source** : un Pico 2 W lit le son avant le bouton de volume | un **haut-parleur réseau**, avec le haut-parleur d'une Game Boy | jouer tout flux qu'on lui envoie ; diffuser le son d'une Pocket |
+| [manette](manette/) | l'**injecteur** : des photoMOS appuient sur les boutons, un régulateur alimente la console par sa prise DC | une **seconde Game Boy Pocket** devenue manette : boutons, molettes, interrupteur, sur piles | piloter n'importe quelle Game Boy Pocket, ou un émulateur |
+| [cartouche](cartouche/) | la **doublure** : elle tient le rôle de la cartouche sur le bus, depuis une copie | le **lecteur** : une fente de cartouche à part, qui lit la cartouche à l'insertion et reçoit ses sauvegardes | lire et sauvegarder ses cartouches ; jouer n'importe quelle ROM sur n'importe quelle Game Boy |
 
-Notes de débit :
-- **Image** : 160×144×2 bits = **5 760 o/image**. À 60 img/s ≈ **2,76 Mbit/s** (brut) ;
-  fortement compressible en RLE (grandes zones plates). MTU ~1 400 o ⇒ ~5 paquets/image.
-- **Audio** PCM ≈ **0,25 Mbit/s**. **Boutons** : négligeable.
-- Total ≈ **1–3 Mbit/s**, très en dessous de ce qu'encaisse un WiFi 2,4 GHz local dédié.
+L'état de chaque module est dans le [README racine](README.md) et dans le sien.
 
 ---
 
-## 6. Budget de latence (jouabilité)
+## 4. Le réseau, en bref
 
-Cible : **< ~50–80 ms** du bouton à l'image, pour un ressenti « jouable » (comparable à un
-bon écran LCD moderne en mode jeu).
+Le détail est dans [`reseau.md`](reseau.md). L'essentiel :
 
-| Étape | Latence typique |
-|---|---|
-| Détection bouton (poll + anti-rebond) | 1–5 ms |
-| Bouton → cerveau (UDP, 1 saut) | 3–15 ms |
-| Intégration à la frame émulée | ≤ 16,7 ms |
-| Rendu + envoi image (UDP) | 5–10 ms |
-| Réception + tracé SPI + panneau | 5–20 ms |
-| **Total « photon »** | **~30–55 ms** ✔ jouable |
+- **un seul saut radio**, toujours. Deux sauts ont été mesurés : l'image gelait ;
+- **un réseau par type de périphérique**, émis par son microcontrôleur dans la console. Un
+  Pico en point d'accès n'accepte que 4 clients : chaque type a ses 4 places ;
+- **UDP, jamais TCP** : une image en retard est une image inutile. Chaque flux gère ses
+  numéros, ses accusés et ses pertes ;
+- dans la console, les microcontrôleurs se parlent par un **bus filaire**, l'injecteur en
+  maître.
 
-- **Audio** : garder un buffer **court** (~30–60 ms) pour éviter les coupures. C'est le point
-  le plus « en retard » du système ; acceptable, et l'approche APU (v2) permet de le réduire.
-- **Cadence** : démarrer à **30 img/s** (stable, marge réseau) puis pousser à **60** si la
-  liaison tient.
-
----
-
-## 7. Nomenclature (types de composants)
-
-*Modèles indicatifs — à confirmer/sourcer au moment de l'achat.*
-
-**Cartouche / cerveau**
-- Raspberry Pi Zero 2 W + carte microSD
-- Connecteur de cartouche GB (récupéré) + coque
-- Level shifters 5 V↔3,3 V (74LVC245 / TXB0108) + expanseurs (74HC595, 74HC165 ou MCP23017)
-- Alim : LiPo + module boost 5 V (ou power bank)
-
-**Écran**
-- ESP32 (ou ESP32-S3)
-- Écran IPS/TFT SPI 2,0–2,4" (ex. ILI9341)
-- LiPo + TP4056 + régulateur
-
-**Boutons**
-- ESP32
-- Membrane + contacts boutons récupérés d'une vraie GB
-- LiPo + TP4056
-
-**Son**
-- ESP32
-- MAX98357A (DAC+ampli I²S) + haut-parleur GB récupéré
-- LiPo + TP4056
-
-**Réseau**
-- Aucun (Pi en point d'accès) — ou petit routeur de voyage dédié en repli
+| Protocole | Port | Flux |
+|---|---|---|
+| `PXL1`, `PXL2` | 4242 | l'image, vers les écrans |
+| `SON1` | 4243 | le son, vers les haut-parleurs |
+| `MAN1` | 4244 | les manettes, vers la console |
+| `CAR1` | 4245 | la copie de la cartouche, et les sauvegardes qui lui reviennent |
 
 ---
 
-## 8. Plan de prototypage incrémental
+## 5. Allumer, éteindre, alimenter
 
-On commence **tout câblé**, puis on « coupe les fils » un par un pour isoler chaque risque :
-
-1. **Émulateur + E/S locales** sur le Pi (écran, boutons, son branchés directement) →
-   valider qu'un jeu tourne et se joue.
-2. **Déporter les boutons** en WiFi/UDP → **mesurer** la latence réelle en jeu.
-3. **Déporter l'écran** en UDP → régler débit / fragmentation / cadence (30→60 img/s).
-4. **Déporter le son** (PCM d'abord) → régler la taille de buffer.
-5. **Lecture cartouche réelle** sur le Pi (dump ROM + save) puis **hot-swap**.
-6. **Fignolage** : son en resynthèse APU (v2), habillage des 4 modules, alimentations.
-
-Chaque étape est démontrable seule — pratique pour une pièce en cours de construction.
+- **L'interrupteur de la manette** allume et éteint la console : l'injecteur établit ou coupe
+  son alimentation. La console prévient le reste par le bus filaire, et le sniffer et la
+  source de son préviennent les écrans et les haut-parleurs.
+- **Les microcontrôleurs de la console, des écrans, des haut-parleurs et du lecteur ne
+  s'éteignent jamais.** Seule la manette, sur piles, dort quand on la pose.
+- L'installation vit donc **sur secteur**. Les dalles LED, à elles seules, demandent une
+  alimentation de plusieurs ampères. Seule la manette est autonome.
 
 ---
 
-## 9. Risques & parades
+## 6. Jouable : les retards
 
-| Risque | Parade |
-|---|---|
-| Niveau 5 V cartouche vs 3,3 V Pi | Level shifters bidirectionnels sur le bus |
-| Mode point d'accès du Pi instable | Repli sur petit routeur de voyage dédié |
-| Latence audio perceptible | Buffer court ; passer à la resynthèse APU (v2) |
-| Cadence 60 img/s difficile | Démarrer à 30 img/s + compression RLE |
-| Congestion / pertes WiFi | Réseau dédié, canal fixe peu encombré, UDP + drop des retards |
-| Charge du cerveau | Pi Zero 2 W (marge) plutôt qu'ESP32-S3 |
+| Chemin | Retard | D'où vient le chiffre |
+|---|---|---|
+| Un pixel, de la console à l'écran | quelques ms ; 4,1 ms en moyenne jusqu'au PC | mesuré, module capture |
+| Le son, de la console au haut-parleur | 30 à 60 ms | estimé, module son ; sous le seuil où l'image et le son semblent décalés |
+| Du pouce à la lumière | 30 à 65 ms | estimé, module manette ; la v1 visait moins de 50 à 80 ms |
+| La cartouche | aucun en jeu : la copie est dans la console | par construction |
 
 ---
 
-## 10. Extensions possibles
+## 7. La démarche
 
-- **Détection de hot-swap** avec animation de changement de jeu.
-- **Module son = synthé APU** exposé (LED par canal, etc.).
-- **5e module « cerveau » visible** si tu veux au contraire *montrer* le calcul plutôt que le
-  cacher dans la cartouche.
-- **LCD d'origine** piloté pour l'authenticité maximale (chantier avancé).
+Elle est commune à tous les modules :
+
+- **chaque phase isole un seul risque**, et ne commence pas tant que la précédente n'a pas
+  rempli son critère de sortie ;
+- **les critères sont écrits avant la mesure** ;
+- **l'irréversible le plus tard possible** : soudures dans la console, commandes de cartes ;
+- **chaque module s'éprouve seul** avant de rejoindre les autres, avec un PC dans le rôle de
+  l'autre moitié ;
+- **des outils qui donnent le verdict en clair**, plutôt que des courbes à interpréter.
 
 ---
 
-*Question ouverte pour affiner : autonomie visée (installation sur secteur vs portable sur
-batterie) — ça change le dimensionnement des alims et le choix Pi vs ESP32-S3.*
+## 8. Ce qui a changé depuis la v1
+
+| Sujet | v1, 23/07/2026 | v2, 11/10/2026 |
+|---|---|---|
+| Le cerveau | un émulateur sur Raspberry Pi Zero 2 W, dans le module cartouche | la vraie console. L'étape vidéo du 28/08 a montré qu'on pouvait en prendre l'image ([spécification vidéo](Spec_Video_Sniffer_et_Matrice_LED.md)) |
+| L'écran | un écran IPS SPI de 2 pouces | des dalles LED : 3 × 3 dalles de 64 × 64, 192 × 192 pixels |
+| Les boutons | une membrane de Game Boy lue par un ESP32 | une seconde Game Boy Pocket entière, et un injecteur qui appuie sur les boutons de la console |
+| Le son | le PCM de l'émulateur, vers un ESP32 | le vrai son de la console, pris avant le bouton de volume |
+| La cartouche | lue par le Pi, pour l'émulateur | une fente à part ; la console joue sur une copie, les sauvegardes reviennent à la cartouche |
+| Les microcontrôleurs | ESP32 et Pi Zero 2 W | Pico 2 W partout, RP2350B pour la cartouche |
+| Le réseau | le Pi en point d'accès, 3 clients | un réseau par type de périphérique, émis par la console, 4 clients chacun |
+| L'alimentation | des LiPo dans chaque module | le secteur, sauf la manette sur piles |
+| Les modules | 4 | 5 : capture et écran séparent la prise de l'image et son affichage |
+
+---
+
+## 9. Pour plus tard
+
+- **Plusieurs manettes** : qui gagne quand deux joueurs appuient en même temps.
+- **Plusieurs haut-parleurs** dans une même pièce : les garder en phase.
+- **Plusieurs lecteurs de cartouche** : ce que la console en ferait.
+- **Une source d'image de secours** : les écrans affichent toute source qui parle `PXL`. Une
+  pièce exposée des heures durant pourrait basculer sur un émulateur si la console flanche.
