@@ -238,14 +238,14 @@ plus une Game Boy sans eux.
 
 **Objectif :** la manette dans l'installation.
 
-**Il faut :** la topologie du réseau décidée pour tout le projet ([plan](plan.md) §7.2), et
-avec elle le Pico où vit l'injecteur : un Pico à part, ou un Pico de la console qu'il partage.
+**Il faut :** le banc de coexistence du [document réseau](../../reseau.md) passé (R1 à R3).
 
-1. **L'injecteur à sa place définitive**, et la destination de la manette réglée en
-   conséquence.
-2. **La console prévient l'écran et le son** : marche, arrêt, luminosité, volume ; et le
-   sniffer incruste le message « aucune manette ». Ce sont des changements dans ces modules et
-   dans la console, pas dans la manette, qui a tout envoyé à la console dès la phase 2.
+1. **L'injecteur à sa place définitive**, point d'accès du réseau des manettes ; la manette
+   réglée sur ce réseau et son adresse fixe ([plan](plan.md) §7.2).
+2. **La console prévient l'écran et le son** : l'injecteur envoie marche, arrêt, luminosité,
+   volume et le message « aucune manette » sur le bus filaire de la console ; le sniffer
+   incruste le message. Ce sont des changements dans ces modules et dans l'injecteur, pas dans
+   la manette, qui a tout envoyé à la console dès la phase 2.
 
 | Test | Ce que tu fais | Ce que tu dois trouver |
 |---|---|---|

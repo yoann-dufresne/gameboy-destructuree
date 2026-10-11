@@ -11,12 +11,13 @@ avant qu'on bascule l'interrupteur.
 
 ## 0. Décisions
 
-Les six premières lignes sont tes décisions. Les autres sont des propositions : la dernière
+Les sept premières lignes sont tes décisions. Les autres sont des propositions : la dernière
 colonne dit quel test les confirme ou les renverse.
 
 | Sujet | Décision ou proposition | Tranchée par |
 |---|---|---|
-| **Qui parle à qui** | la manette ne parle qu'à la console ; la console parle à l'écran et au son. La topologie physique du réseau n'est pas décidée | toi, 11/10/2026 |
+| **Qui parle à qui** | la manette ne parle qu'à la console ; la console parle à l'écran et au son | toi, 11/10/2026 |
+| **Le réseau** | l'injecteur émet le réseau des manettes, dont il est le point d'accès : jusqu'à 4 manettes, en liaison directe. Il prévient le reste de la console par un bus filaire, dont il est le maître ([réseau](../../reseau.md)) | toi, 11/10/2026 ; banc R1 |
 | **Marche et arrêt** | l'interrupteur de la manette allume et éteint la console ; la console allume et éteint l'écran et le son. Les Pico de la console, de l'écran et du son ne s'éteignent jamais ; seul celui de la manette s'éteint | toi, 11/10/2026 |
 | **Molettes** | le volume règle le son, le contraste devient la luminosité de l'écran, par l'intermédiaire de la console | toi, 11/10/2026 |
 | **Rien sans marche** | interrupteur sur arrêt, la manette ne transmet rien : ni boutons, ni molettes. Seul l'ordre « arrêt » part, au moment où on bascule | toi, 11/10/2026 |
@@ -52,8 +53,8 @@ colonne dit quel test les confirme ou les renverse.
   console.
 
 **Ce qu'on ne construit pas :** l'image, le son, la cartouche, et la façon dont la console
-prévient l'écran et le son. Cette dernière dépend de la topologie du réseau, qui se décidera
-avec la cartouche distante. La console principale reste une vraie console qui exécute le
+prévient l'écran et le son : elle passe par le bus filaire de la console, décrit dans le
+[document réseau](../../reseau.md). La console principale reste une vraie console qui exécute le
 vrai jeu, et ses propres boutons continuent de marcher.
 
 **Chaque moitié s'éprouve seule** : la manette avec un récepteur sur PC, l'injecteur avec une
@@ -424,21 +425,21 @@ Le fichier `man1.h` fera foi, dans `firmware/commun/`.
 |---|---|---|
 | manette | console | `MAN1` : boutons, molettes, interrupteur, piles |
 | console | manette | accusés : l'état de la console |
-| console | écran | image, avec le message « aucune manette » incrusté par le sniffer ; luminosité, marche et arrêt — hors de ce module |
-| console | son | son, volume, marche et arrêt — hors de ce module |
+| injecteur | sniffer, source de son, doublure | par le bus filaire de la console : marche, arrêt, luminosité, volume, le message « aucune manette » ; le sniffer et la source les transmettent à l'écran et au son |
 
-### 7.2 La topologie n'est pas décidée
+### 7.2 Le réseau des manettes
 
-Qui émet le réseau, quelles adresses, combien d'appareils : cela se décidera pour tout le
-projet, avec la cartouche distante. Ce que la manette en attend :
+Décision du 11/10/2026, pour tout le projet ([document réseau](../../reseau.md)) : sur la
+console, un microcontrôleur par type de périphérique, chacun point d'accès de son propre
+réseau. **L'injecteur émet le réseau des manettes**, `gb-manettes` :
 
-- **une seule destination**, la console, à une adresse connue ;
-- **un seul saut radio, de préférence.** Si la console émet le réseau, la manette est son
-  client direct. Sinon, le paquet passe d'un client à l'autre par le point d'accès, et la
-  question T4.1 du module son se pose aussi ici ;
-- **une adresse fixe pour la manette**, qui raccourcit le réveil (§4.1).
-
-À garder en tête : un Pico 2 W en point d'accès n'accepte que **4 clients** (datasheet §3.8).
+- **un seul saut radio** : la manette est cliente directe de l'injecteur ;
+- **jusqu'à 4 manettes**, la limite d'un Pico 2 W en point d'accès. Qui gagne quand deux
+  joueurs appuient en même temps se décidera plus tard ;
+- **des adresses fixes**, qui raccourcissent le réveil (§4.1) : l'injecteur en 192.168.6.1, les
+  manettes de .2 à .5 selon leur numéro, réglé dans leur firmware ;
+- le canal proposé est le 6, partagé avec le réseau de la cartouche, peu chargé. Le banc de
+  coexistence R1 du document réseau confirme le plan de canaux.
 
 ### 7.3 Au banc
 
@@ -584,4 +585,5 @@ Rien n'est encore écrit : chaque élément naîtra avec la phase qui en a besoi
 | 11/10/2026 | Dormir hors tension : le maintien coupe le Pico, un ADXL362 le rallume | La consommation de la carte Pico 2 W en sommeil n'est pas publiée ; hors tension, elle est nulle. L'accéléromètre compte lui-même la minute d'immobilité |
 | 11/10/2026 | Console alimentée par sa prise DC, en 3,0 V commutés ; son interrupteur reste sur marche | La prise est en amont de l'interrupteur : rien à souder. Un photoMOS en parallèle de l'interrupteur ferait chauffer R4 |
 | 11/10/2026 | Une manette perdue relâche les boutons, sans éteindre aussitôt la console | On change les piles sans perdre la partie |
+| 11/10/2026 | **Décision de Yoann** : l'injecteur émet le réseau des manettes, jusqu'à 4 manettes en liaison directe ; il prévient le reste de la console par un bus filaire | La topologie de tout le projet : un microcontrôleur par type de périphérique sur la console ([réseau](../../reseau.md)) |
 | 11/10/2026 | **Décision de Yoann** : après un temps d'absence de la manette, la console s'éteint ; un message par-dessus l'image du jeu dit qu'aucune manette n'est connectée | Ne pas laisser tourner une console abandonnée, et dire au joueur pourquoi ses boutons ne répondent plus. 15 minutes ; le sniffer incruste le message |

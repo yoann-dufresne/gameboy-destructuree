@@ -38,8 +38,9 @@ démarre alors aussitôt. Interrupteur sur arrêt et immobile depuis une minute,
 Sa LED, une LED RGB à la place de l'originale, est rouge quand elle est en marche et appairée à
 la console, bleue et pulsée tant que la console ne répond pas, éteinte sur arrêt.
 
-La manette ne parle qu'à la console. C'est la console qui transmet la marche, l'arrêt et les
-molettes à l'écran et au son ; la topologie du réseau n'est pas encore décidée.
+La manette ne parle qu'à la console : l'injecteur émet le réseau des manettes, et jusqu'à
+quatre manettes peuvent s'y joindre. C'est l'injecteur qui transmet la marche, l'arrêt et les
+molettes au reste de la console, par un bus filaire ; voir le [document réseau](../reseau.md).
 
 ## Matériel
 
