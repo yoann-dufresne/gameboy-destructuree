@@ -165,21 +165,37 @@ void heure_qui_fait_le_tour() {
 }
 
 void plusieurs_manettes() {
-    /* PROVISOIRE : les règles de fusion.hpp, que Yoann tranchera. */
+    /* Les règles de fusion.hpp ; le OU des boutons reste provisoire. */
     Injecteur inj;
     FausseManette m0{10}, m1{11};
     inj.recevoir(0, m0.etat(true, MAN1_A, 10, 20), 0, nullptr);
-    inj.recevoir(1, m1.etat(true, MAN1_B, 200, 30), 5, nullptr);
+    inj.recevoir(1, m1.etat(true, MAN1_B, 200, 31), 5, nullptr);
     VERIFIER(inj.sorties().boutons == (MAN1_A | MAN1_B), "boutons des deux manettes : %02x",
              inj.sorties().boutons);
-    VERIFIER(inj.sorties().volume == 200, "molettes : pas celles de la dernière entendue");
+    VERIFIER(inj.sorties().volume == 105 && inj.sorties().contraste == 26,
+             "molettes : pas la moyenne, volume %u, contraste %u", inj.sorties().volume,
+             inj.sorties().contraste);
     inj.recevoir(0, m0.etat(false, 0), 10, nullptr);
     VERIFIER(inj.sorties().console, "une manette sur arrêt éteint la console de l'autre");
     VERIFIER(inj.sorties().boutons == MAN1_B, "la manette arrêtée appuie encore");
+    VERIFIER(inj.sorties().volume == 200, "les molettes d'une manette sur arrêt comptent encore");
     inj.recevoir(1, m1.etat(false, 0), 20, nullptr);
     VERIFIER(!inj.sorties().console, "les deux sur arrêt, console allumée");
+    VERIFIER(inj.sorties().volume == 200, "molettes changées sans manette en marche");
     VERIFIER(!inj.recevoir(4, m0.etat(true, 0), 30, nullptr), "une cinquième manette acceptée");
-    std::printf("  plusieurs manettes (règles provisoires de fusion.hpp) : vérifiées\n");
+    std::printf("  plusieurs manettes : OU des boutons, moyenne des molettes : vérifiés\n");
+}
+
+void retour_apres_extinction() {
+    /* Éteinte faute de manette : celle qui revient sur marche la rallume. */
+    Injecteur inj(30000);
+    FausseManette m{12};
+    inj.recevoir(0, m.etat(true, 0), 0, nullptr);
+    VERIFIER(!inj.avancer(30000).console, "pas éteinte après l'absence");
+    inj.recevoir(0, m.etat(true, MAN1_A), 60000, nullptr);
+    VERIFIER(inj.sorties().console, "la manette revenue ne rallume pas la console");
+    VERIFIER(inj.sorties().boutons == MAN1_A, "A non posé au retour");
+    std::printf("  retour d'une manette après l'extinction : console rallumée\n");
 }
 
 } // namespace
@@ -194,6 +210,7 @@ int main() {
     numerotation();
     heure_qui_fait_le_tour();
     plusieurs_manettes();
+    retour_apres_extinction();
     if (echecs) {
         std::printf("ÉCHEC : %d vérification(s)\n", echecs);
         return 1;

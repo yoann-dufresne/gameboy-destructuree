@@ -11,8 +11,8 @@ avant qu'on bascule l'interrupteur.
 
 ## 0. Décisions
 
-Les sept premières lignes sont tes décisions. Les autres sont des propositions : la dernière
-colonne dit quel test les confirme ou les renverse.
+Les sept premières lignes et les deux dernières sont tes décisions. Les autres sont des
+propositions : la dernière colonne dit quel test les confirme ou les renverse.
 
 | Sujet | Décision ou proposition | Tranchée par |
 |---|---|---|
@@ -31,6 +31,7 @@ colonne dit quel test les confirme ou les renverse.
 | **Boutons de la console** | 8 photoMOS de faible capacité, chacun avec sa diode, en parallèle des boutons ; 6 fils soudés | T0.7, T4.2 |
 | **Alimentation de la console** | par sa prise DC, en 3,0 V, que l'injecteur établit et coupe ; l'interrupteur de la console reste sur marche | T0.8, T4.7 |
 | **Manette perdue** | les boutons sont relâchés après 200 ms ; un message par-dessus l'image du jeu dit qu'aucune manette n'est connectée ; le sniffer l'ajoute ; la console s'éteint après 15 minutes d'absence | toi, 11/10/2026 |
+| **Plusieurs manettes** | le volume et la luminosité sont la moyenne des molettes des manettes en marche. Une manette qui revient sur marche rallume une console éteinte faute de manette | toi, 11/10/2026 |
 
 ---
 
@@ -434,10 +435,14 @@ console, un microcontrôleur par type de périphérique, chacun point d'accès d
 réseau. **L'injecteur émet le réseau des manettes**, `gb-manettes` :
 
 - **un seul saut radio** : la manette est cliente directe de l'injecteur ;
-- **jusqu'à 4 manettes**, la limite d'un Pico 2 W en point d'accès. Qui gagne quand deux
-  joueurs appuient en même temps se décidera plus tard. D'ici là, une règle provisoire, isolée
-  dans [`firmware/commun/fusion.hpp`](../firmware/commun/fusion.hpp) : un OU des boutons, la
-  console allumée tant qu'une manette la veut, les molettes de la dernière entendue ;
+- **jusqu'à 4 manettes**, la limite d'un Pico 2 W en point d'accès. Leurs règles sont isolées
+  dans [`firmware/commun/fusion.hpp`](../firmware/commun/fusion.hpp) :
+  - **la console** reste allumée tant qu'une manette la veut. Éteinte faute de manette, celle
+    qui revient sur marche la rallume (décision du 11/10/2026) ;
+  - **les molettes** : le volume et la luminosité sont la moyenne de ceux des manettes en
+    marche (décision du 11/10/2026) ;
+  - **les boutons** : un OU, provisoire. Qui gagne quand deux joueurs appuient en même temps
+    se décidera plus tard ;
 - **des adresses fixes**, qui raccourcissent le réveil (§4.1) : l'injecteur en 192.168.6.1, les
   manettes de .2 à .5 selon leur numéro, réglé dans leur firmware ;
 - le canal proposé est le 6, partagé avec le réseau de la cartouche, peu chargé. Le banc de
@@ -499,7 +504,7 @@ manette/
 │   │   ├── man1.h                 ← le protocole, qui fait foi
 │   │   ├── manette.hpp            ← l'automate de la manette ; anti-rebond, molettes
 │   │   ├── injecteur.hpp          ← l'automate de l'injecteur
-│   │   ├── fusion.hpp             ← PROVISOIRE : comment se combinent plusieurs manettes
+│   │   ├── fusion.hpp             ← comment se combinent plusieurs manettes
 │   │   └── test/                  ← leurs tests, sur PC
 │   ├── manette/                   ← la console distante : lecture, émission, sommeil et réveil
 │   └── injecteur/                 ← la console principale : réception, photoMOS, alimentation
@@ -594,3 +599,5 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 | 11/10/2026 | Une manette perdue relâche les boutons, sans éteindre aussitôt la console | On change les piles sans perdre la partie |
 | 11/10/2026 | **Décision de Yoann** : l'injecteur émet le réseau des manettes, jusqu'à 4 manettes en liaison directe ; il prévient le reste de la console par un bus filaire | La topologie de tout le projet : un microcontrôleur par type de périphérique sur la console ([réseau](../../reseau.md)) |
 | 11/10/2026 | **Décision de Yoann** : après un temps d'absence de la manette, la console s'éteint ; un message par-dessus l'image du jeu dit qu'aucune manette n'est connectée | Ne pas laisser tourner une console abandonnée, et dire au joueur pourquoi ses boutons ne répondent plus. 15 minutes ; le sniffer incruste le message |
+| 11/10/2026 | **Décision de Yoann** : à plusieurs manettes, le volume et la luminosité sont la moyenne des molettes des manettes en marche | Remplace la règle provisoire « les molettes de la dernière manette entendue » |
+| 11/10/2026 | **Décision de Yoann** : une manette qui revient sur marche rallume une console éteinte faute de manette | La console reste allumée tant qu'une manette la veut ; qui gagne quand deux joueurs appuient en même temps reste à décider |

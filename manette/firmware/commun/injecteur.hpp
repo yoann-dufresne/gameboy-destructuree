@@ -18,7 +18,7 @@
  *     « arrêt » l'éteint ; une seconde d'arrêt au moins entre deux, quoi que
  *     demande la manette (§4.3) ;
  *   - **jusqu'à 4 manettes**, une par adresse, .2 à .5 ; leur combinaison est
- *     isolée, provisoire, dans fusion.hpp.
+ *     isolée dans fusion.hpp.
  *
  * Les heures sont en ms, sur 32 bits, et peuvent faire le tour.
  */
@@ -129,7 +129,7 @@ public:
             const bool veut = m.connue && m.marche && depuis < extinction_ms_;
             if (m.connue && m.marche && !veut && voulait_[i]) ++compteurs_.extinctions;
             voulait_[i] = veut;
-            vues[i] = {fraiche, veut, m.marche, m.vu_ms, m.boutons, m.volume, m.contraste};
+            vues[i] = {fraiche, veut, m.marche, m.boutons, m.volume, m.contraste};
             if (veut) {
                 une_veut = true;
                 if (depuis < absence) absence = depuis;
@@ -151,11 +151,7 @@ public:
         }
 
         s.boutons = s.console ? fusion::boutons(vues, MAN1_MANETTES_MAX) : 0;
-        const int j = fusion::molettes(vues, MAN1_MANETTES_MAX);
-        if (j >= 0) {
-            s.volume = vues[j].volume;
-            s.contraste = vues[j].contraste;
-        }
+        fusion::molettes(vues, MAN1_MANETTES_MAX, &s.volume, &s.contraste);
         s.message = s.console && une_veut && absence >= MAN1_MESSAGE_MS;
         s.absence_ms = s.message ? absence : 0;
         s.extinction_dans_ms = s.message ? extinction_ms_ - absence : 0;

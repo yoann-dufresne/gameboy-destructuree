@@ -82,7 +82,7 @@ réseau simulé qui perd 5 % des paquets dans chaque sens : aucun bouton ne rest
 
 | Dossier | Contenu |
 |---|---|
-| `firmware/commun/` | ce que partageront la manette et l'injecteur, éprouvé sur PC : [`man1.h`](firmware/commun/man1.h), le protocole, qui fait foi ; les deux automates ; [`fusion.hpp`](firmware/commun/fusion.hpp), la règle provisoire à plusieurs manettes |
+| `firmware/commun/` | ce que partageront la manette et l'injecteur, éprouvé sur PC : [`man1.h`](firmware/commun/man1.h), le protocole, qui fait foi ; les deux automates ; [`fusion.hpp`](firmware/commun/fusion.hpp), les règles à plusieurs manettes |
 | `tools/` | [`manette_envoi.py`](tools/manette_envoi.py), une fausse manette ; [`manette_ecoute.py`](tools/manette_ecoute.py), un faux injecteur qui donne son verdict |
 
 | Document | Contenu |

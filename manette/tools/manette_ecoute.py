@@ -22,7 +22,7 @@ en clair :
 - avec `--journal`, la tension des piles au fil du temps (T2.5).
 
 Jusqu'à 4 manettes, reconnues à leur adresse IP, comme le fera l'injecteur. Les règles à plusieurs sont
-provisoires, comme dans firmware/commun/fusion.hpp : un OU des boutons.
+celles de firmware/commun/fusion.hpp : un OU des boutons, provisoire.
 
 Le format fait foi dans firmware/commun/man1.h.
 """

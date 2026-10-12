@@ -1,20 +1,20 @@
 /**
- * PROVISOIRE — comment l'injecteur combine plusieurs manettes.
+ * Comment l'injecteur combine plusieurs manettes.
  *
  * Jusqu'à 4 manettes peuvent rejoindre le réseau des manettes (décision de
- * Yoann, 11/10/2026, reseau.md §8). Qui gagne quand deux joueurs appuient en
- * même temps, et qui allume ou éteint la console, n'est PAS décidé : ce
- * fichier isole ce choix, pour qu'il se change ici et nulle part ailleurs.
- *
- * Avec une seule manette, ces règles redonnent exactement celles du plan
- * (§4) ; avec plusieurs, elles ne sont qu'un point de départ :
+ * Yoann, 11/10/2026, reseau.md §8). Ce fichier isole les règles qui les
+ * combinent, pour qu'elles se changent ici et nulle part ailleurs. Avec une
+ * seule manette, elles redonnent exactement celles du plan (§4) :
  *
  *   - les boutons : un OU. Un bouton est enfoncé si une manette au moins
- *     l'enfonce ;
+ *     l'enfonce. PROVISOIRE : qui gagne quand deux joueurs appuient en même
+ *     temps se décidera plus tard ;
  *   - la console : allumée tant qu'une manette au moins la veut, c'est-à-dire
  *     a son interrupteur sur marche et n'est pas absente depuis la durée
- *     d'extinction ;
- *   - les molettes : celles de la manette en marche entendue en dernier.
+ *     d'extinction. Une manette qui revient, interrupteur sur marche, rallume
+ *     une console éteinte faute de manette (décision de Yoann, 11/10/2026) ;
+ *   - les molettes : la moyenne de celles des manettes qui veulent la console
+ *     (décision de Yoann, 11/10/2026).
  */
 #pragma once
 
@@ -26,7 +26,6 @@ struct Vue {
     bool fraiche;   /* entendue depuis moins de 200 ms */
     bool veut;      /* interrupteur sur marche, pas absente trop longtemps */
     bool marche;    /* interrupteur sur marche, d'après son dernier état */
-    uint32_t vu_ms; /* quand elle a été entendue */
     uint8_t boutons, volume, contraste;
 };
 
@@ -43,13 +42,20 @@ inline bool console_voulue(const Vue *v, unsigned n) {
     return false;
 }
 
-/* Rend l'indice de la manette dont on prend les molettes, ou -1. */
-inline int molettes(const Vue *v, unsigned n) {
-    int choisie = -1;
+/* La moyenne des molettes, arrondie. Rend faux si aucune manette ne veut la
+ * console : les dernières valeurs restent alors en place. */
+inline bool molettes(const Vue *v, unsigned n, uint8_t *volume, uint8_t *contraste) {
+    unsigned k = 0, vol = 0, con = 0;
     for (unsigned i = 0; i < n; ++i)
-        if (v[i].veut && (choisie < 0 || (int32_t)(v[i].vu_ms - v[choisie].vu_ms) > 0))
-            choisie = (int)i;
-    return choisie;
+        if (v[i].veut) {
+            ++k;
+            vol += v[i].volume;
+            con += v[i].contraste;
+        }
+    if (!k) return false;
+    *volume = (uint8_t)((vol + k / 2) / k);
+    *contraste = (uint8_t)((con + k / 2) / k);
+    return true;
 }
 
 } // namespace manette::fusion

@@ -207,8 +207,9 @@ topologie ; d'ici là, chacun garde son réseau de banc.
 
 ## 8. Pour plus tard
 
-- **Plusieurs manettes** : qui gagne quand deux joueurs appuient en même temps, et qui allume ou
-  éteint la console.
+- **Plusieurs manettes** : qui gagne quand deux joueurs appuient en même temps. La console
+  reste allumée tant qu'une manette la veut, et les molettes font la moyenne (décisions du
+  11/10/2026, [module manette](manette/docs/plan.md) §7.2).
 - **Plusieurs haut-parleurs** dans une même pièce reçoivent le son à quelques millisecondes
   d'écart, et leurs horloges dérivent : cela peut s'entendre comme un écho.
 - **Plusieurs écrans** : chacun sa luminosité, ou la même pour tous.
