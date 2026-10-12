@@ -48,7 +48,8 @@ banc, les faux écrans de R2.
 |---|---|---|---|---|
 | ☐ | Raspberry Pi Pico 2 W | 8, moins ceux que tu as en rechange | revendeur officiel (Kubii, Mouser) : pas de copie | 7 € pièce |
 | ☐ | Câble micro-USB **de données** | 8 | [AliExpress](https://fr.aliexpress.com/w/wholesale-micro-usb-data-cable-short.html) | 1 € pièce |
-| ☐ | Hub USB alimenté, 7 à 10 ports | 1 | [AliExpress](https://fr.aliexpress.com/w/wholesale-powered-usb-hub-10-port.html), ou un magasin | 15–25 € |
+| ☐ | Hub USB alimenté, 7 à 10 ports, **2 A au moins** : un Pico qui émet tire jusqu'à 250 mA | 1 | [AliExpress](https://fr.aliexpress.com/w/wholesale-powered-usb-hub-10-port.html), ou un magasin | 15–25 € |
+| ☐ | Chargeur USB 5 V, pour les quatre clients posés à 3 m du hub. Ceux des téléphones font l'affaire | 4 | déjà là, sans doute | — |
 | ☐ | Fils Dupont femelle-femelle | 1 lot | [AliExpress](https://fr.aliexpress.com/w/wholesale-dupont-wire-female-female.html) | 2 € |
 
 ---
