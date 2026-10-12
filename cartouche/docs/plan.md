@@ -10,7 +10,7 @@ Version 1 — 11/10/2026 : la cartouche est lue à l'insertion, la console joue 
 
 ## 0. Décisions
 
-Les huit premières lignes sont tes décisions. Les autres sont des propositions : la dernière
+Les dix premières lignes sont tes décisions. Les autres sont des propositions : la dernière
 colonne dit quel test les confirme ou les renverse, ou s'il te revient de trancher.
 
 | Sujet | Décision ou proposition | Tranchée par |
@@ -23,6 +23,8 @@ colonne dit quel test les confirme ou les renverse, ou s'il te revient de tranch
 | **La sauvegarde parquée** | une sauvegarde pas encore arrivée dans la cartouche quand on l'arrache est gardée par le lecteur. Si la même cartouche revient, telle qu'on l'avait laissée, le lecteur l'y écrit avant d'envoyer la copie. Si une autre cartouche arrive, elle est oubliée | toi, 11/10/2026 ; T4.7 |
 | **Le journal ne se perd pas** | un journal que le WiFi n'a pas pu remettre au lecteur est écrit dans la flash de la doublure dès que la console s'éteint, et part au retour du WiFi | toi, 11/10/2026 ; T4.8 |
 | **Le réseau** | la doublure émet le réseau de la cartouche, dont elle est le point d'accès ; le lecteur s'y connecte en direct (§8.2) | toi, 11/10/2026 ; banc R1 du [document réseau](../../reseau.md) |
+| **La même cartouche ?** | la règle stricte : même ROM, et toute la sauvegarde telle que le lecteur l'avait laissée, pages parquées comprises (§3.4) | toi, 11/10/2026 ; T4.7 |
+| **Le lecteur redémarre** | la console se fige, même si la cartouche n'a pas bougé : la nouvelle lecture compte comme une nouvelle insertion. Rien ne se perd (§7) | toi, 11/10/2026 |
 | **Les deux moitiés** | le **lecteur**, qui porte la fente ; la **doublure**, le microcontrôleur de la console qui tient le rôle de la cartouche | — |
 | **Ce qui remonte à la vraie cartouche** | la sauvegarde, l'horloge des jeux qui en ont une, le vibreur. Pas les changements de banque : personne ne lit la vraie cartouche pendant la partie (§3) | T4.3 |
 | **Microcontrôleur** | une carte au format du Pico 2 W, mais avec un RP2350B : 41 broches au lieu de 26, 16 Mo de flash, le même WiFi (Waveshare RP2350B-Plus-W). La même des deux côtés | T2.2 |
@@ -165,12 +167,22 @@ dans cette seconde n'a pas sa dernière sauvegarde, alors qu'une Pocket d'origin
    son journal. Le lecteur ne peut plus l'écrire : il le parque, dans sa flash, avec la
    signature de la cartouche partie.
 2. **À l'insertion suivante**, le lecteur lit la cartouche (§4.3) et la compare à ce qu'elle
-   était à son départ : même ROM, et même sauvegarde **hors des pages parquées**, celles que
-   le lecteur va réécrire de toute façon.
+   était à son départ : même ROM, et **toute la sauvegarde telle qu'il l'avait laissée, pages
+   parquées comprises**. C'est la règle stricte, ci-dessous.
 3. **Même cartouche, inchangée** : le lecteur écrit les pages parquées, relit, puis envoie la
    copie. La partie est celle que le joueur avait sauvegardée, comme sur l'original.
 4. **Autre cartouche, ou même cartouche modifiée entre-temps**, jouée sur une autre console
    par exemple : la sauvegarde parquée est oubliée. La cartouche fait foi.
+
+**La règle stricte** (décision du 11/10/2026). Une page parquée qu'aucune écriture n'a
+touchée doit être restée telle quelle. Une page dont l'écriture a été interrompue par
+l'arrachage ne peut porter qu'un début du contenu tenté sur la fin de l'ancien : le lecteur
+écrit une page du premier octet au dernier, et reprend toujours du début. Ne comparer que les
+pages hors parquage, comme le proposait la première version de ce plan, laissait passer une
+cartouche jouée ailleurs dont le jeu n'avait réécrit que son emplacement de sauvegarde,
+c'est-à-dire justement les pages parquées : la sauvegarde parquée aurait écrasé cette partie.
+La simulation l'a montré dans 88 tirages sur 10 000 ; la règle stricte, dans aucun
+([simulation](../firmware/commun/README.md)).
 
 Une seule sauvegarde parquée à la fois : la première cartouche insérée décide. Pour comparer,
 le lecteur garde un **miroir** de la sauvegarde de la cartouche en place, lu à l'insertion et
@@ -418,7 +430,9 @@ celles qu'il a déjà appliquées ; la doublure renvoie tant qu'elle n'a pas son
 
 **Le numéro d'insertion** change à chaque insertion ; tiré au hasard au démarrage du lecteur,
 puis incrémenté, il ne resservira pas après un redémarrage. Une annonce qui porte un autre numéro que
-celui de la copie servie, ou qui dit la fente vide, fige la console (§5.6). Une écriture
+celui de la copie servie, ou qui dit la fente vide, fige la console (§5.6). Un redémarrage du
+lecteur fige donc la console, même cartouche en place (décision du 11/10/2026) : le dire
+« même insertion » ferait passer inaperçu un retrait suivi d'une réinsertion rapide. Une écriture
 destinée à une insertion précédente n'est jamais appliquée directement : le lecteur la parque
 si aucune autre cartouche n'est passée depuis, l'oublie sinon (§3.4).
 
@@ -544,7 +558,7 @@ le PC** (phase 1).
 | La fenêtre du bus plus étroite que prévu | 🟡 | T0.2 la mesure avant toute commande ; T3.4 mesure la marge réelle |
 | Une sauvegarde perdue : cartouche retirée moins d'une seconde après | 🟢 | la sauvegarde parquée (§3.4) ; T4.7 |
 | Le journal perdu par un redémarrage de la doublure, WiFi coupé | 🟢 | écrit en flash dès que la console s'éteint (§3.5) ; T4.8 |
-| Une sauvegarde parquée écrite sur la mauvaise cartouche | 🔴 | ROM identique et sauvegarde identique hors des pages parquées ; une seule sauvegarde parquée, oubliée dès qu'une autre cartouche passe (§3.4) ; T4.7 |
+| Une sauvegarde parquée écrite sur la mauvaise cartouche | 🔴 | ROM identique et toute la sauvegarde identique, pages parquées comprises (la règle stricte) ; une seule sauvegarde parquée, oubliée dès qu'une autre cartouche passe (§3.4) ; T4.7 |
 | Une cartouche retirée pendant une écriture | 🟡 | microrupteur qui s'ouvre avant les contacts ; écritures groupées et courtes (§3.1) ; T1.6 |
 | Les deux horloges dérivent | 🟢 | la cartouche fait foi à chaque insertion (§3.2) |
 | Un jeu qui écrit sa RAM sans arrêt | 🟢 | le journal part au plus une fois par seconde ; T4.3 |
@@ -572,7 +586,8 @@ le PC** (phase 1).
 | 11/10/2026 | **Décision de Yoann** : un journal non remis est écrit dans la flash de la doublure quand la console s'éteint | Ne pas dépendre du WiFi ni de l'alimentation de la doublure pour garder une partie. Pas avant : écrire la flash, console allumée, ferait planter le jeu |
 | 11/10/2026 | **Décision de Yoann** : la doublure émet le réseau de la cartouche, le lecteur s'y connecte en direct | La topologie de tout le projet : un microcontrôleur par type de périphérique sur la console ([réseau](../../reseau.md)) |
 | 11/10/2026 | Proposition : le format octet par octet de `CAR1`, dans `firmware/commun/car1.h` ; écritures numérotées par session de la doublure, avec le plus vieux numéro non accusé dans chaque paquet | Un compteur unique faisait prendre, après un redémarrage de la doublure, une écriture neuve pour un doublon ([simulation](../firmware/commun/README.md)) |
-| 11/10/2026 | Proposition, **à trancher par Yoann** : la règle stricte de comparaison à la réinsertion. Les pages parquées sont comparées aussi : intactes si aucune écriture ne les a touchées, « début du contenu tenté sur la fin de l'ancien » si l'écriture a été interrompue | La règle du plan (§3.4) laisse écrire la sauvegarde parquée sur une cartouche jouée ailleurs dont le jeu n'a réécrit que les pages parquées, ou sur un autre exemplaire du même jeu quand les pages parquées couvrent toute la sauvegarde ([simulation](../firmware/commun/README.md)) |
+| 11/10/2026 | **Décision de Yoann** : la règle stricte de comparaison à la réinsertion. Les pages parquées sont comparées aussi : intactes si aucune écriture ne les a touchées, « début du contenu tenté sur la fin de l'ancien » si l'écriture a été interrompue | La règle du plan (§3.4) laisse écrire la sauvegarde parquée sur une cartouche jouée ailleurs dont le jeu n'a réécrit que les pages parquées, ou sur un autre exemplaire du même jeu quand les pages parquées couvrent toute la sauvegarde ([simulation](../firmware/commun/README.md)) |
+| 11/10/2026 | **Décision de Yoann** : un redémarrage du lecteur fige la console, même cartouche en place ; on ne l'évite pas pour le moment | Rien ne se perd. L'éviter demanderait une annonce « même insertion », qui ferait passer inaperçu un retrait suivi d'une réinsertion rapide |
 | 11/10/2026 | Proposition : le lecteur annonce la cartouche dès que le microrupteur se ferme, avant de la lire | Sinon, une console allumée dans les 300 ms qui suivent l'insertion démarre sur un rectangle noir |
 | 11/10/2026 | Proposition : la doublure ne prépare une nouvelle copie qu'une fois son journal vide ; le lecteur garde en flash son contexte de sauvegarde (CRC des pages, pages parquées et en cours d'écriture, sessions) | La copie reflète toutes les écritures d'avant ; un redémarrage du lecteur ne perd rien |
 | 11/10/2026 | Proposition : la doublure sur la Waveshare dans la fenêtre basse des GPIO, A0–A15 sur 0 à 15, D0–D7 sur 24 à 31 ([brochage](brochage.md)) | Le RM2 occupe 36 à 39 : la fenêtre haute, celle de la Croco V2, n'a pas assez de broches libres |

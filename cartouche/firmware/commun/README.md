@@ -33,8 +33,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -I.. simulation.cpp -o /tmp/simulation && /tmp/
 ```
 
 `/tmp/simulation --tirages 10000` multiplie les tirages aléatoires ; `--verbeux` raconte
-chaque scénario écrit ; `--graine N` rejoue un tirage avec son récit, `--plan` à la règle du
-plan.
+chaque scénario écrit ; `--graine N` rejoue un tirage avec son récit.
 
 **La simulation** fait vivre des cartouches (ROM, RAM sur pile, contrôleur), la fente, le
 lecteur et la doublure tels qu'ils tourneront, un réseau qui perd, double et retarde, une
@@ -53,16 +52,17 @@ Elle vérifie :
 - **R3, rien de perdu** hors des cas que le plan admet ;
 - **R4, rien de bloqué** : le journal finit par se vider.
 
-**Résultats au 11/10/2026** : `test_mbc`, 1 364 vérifications justes ; `test_car1`, 11 ;
-la simulation, 14 scénarios écrits et 10 000 tirages aléatoires par règle (chiffres
-ci-dessous).
+**Résultats au 12/10/2026** : `test_mbc`, 1 364 vérifications justes ; `test_car1`, 11 ;
+la simulation, 14 scénarios écrits et 10 000 tirages aléatoires, tous sans constat, en six
+minutes et demie.
 
 ## Ce que la simulation a montré
 
-### Un trou dans la règle du plan — à trancher par Yoann
+### Un trou dans la première règle, d'où la règle stricte
 
-Le plan §3.4 écrit la sauvegarde parquée si la cartouche revient avec « même ROM, même
-sauvegarde **hors des pages parquées** ». Scénario qui la met en défaut :
+La première version du plan (§3.4) écrivait la sauvegarde parquée si la cartouche revenait
+avec « même ROM, même sauvegarde **hors des pages parquées** ». Scénario qui la met en
+défaut :
 1. le jeu sauvegarde ;
 2. on arrache la cartouche dans la seconde : la sauvegarde est parquée ;
 3. on joue la cartouche sur une autre console, et ce jeu réécrit son emplacement de
@@ -74,13 +74,13 @@ Cas extrême : quand les pages parquées couvrent toute la sauvegarde, la règle
 rien. C'est le cas d'un MBC2, dont les 512 demi-octets tiennent en deux pages, ou d'un jeu
 qui réécrit toute sa sauvegarde. Elle accepte alors n'importe quel exemplaire du même jeu.
 
-Sur 10 000 tirages aléatoires, **la règle du plan échoue dans 88** : des pages écrites dans
-une cartouche jouée ailleurs, ou dans un autre exemplaire du même jeu, qui y perd sa propre
-partie. **La règle stricte, dans aucun.** Les 14 scénarios écrits passent aux deux règles :
-celui du trou, à la règle du plan, réussit en le montrant.
+Sur 10 000 tirages aléatoires, **cette première règle échouait dans 88** : des pages écrites
+dans une cartouche jouée ailleurs, ou dans un autre exemplaire du même jeu, qui y perdait sa
+propre partie. **La règle stricte, dans aucun.** Yoann l'a adoptée le 11/10/2026 ; c'est la
+seule que le code connaît désormais, et le scénario « jouée ailleurs, dans les pages parquées
+seulement » vérifie qu'elle ferme le trou.
 
-**La règle stricte proposée** (`Regle::Stricte` dans `lecteur.hpp`) compare aussi les pages
-parquées :
+**La règle stricte** (`compatible()` dans `lecteur.hpp`) compare aussi les pages parquées :
 - une page parquée qu'aucune écriture n'a touchée doit être restée telle que le lecteur la
   savait ;
 - une page dont l'écriture a été interrompue doit porter **un début du contenu tenté sur la
@@ -117,7 +117,7 @@ contrôle : sans portée pratique.
   lecture porte un nouveau numéro d'insertion (plan §7). Rien n'est perdu. Pour l'éviter,
   l'annonce pourrait dire « cette insertion continue la précédente » ; mais alors un
   retrait-réinsertion rapide dont l'annonce « fente vide » se serait perdue passerait
-  inaperçu. À trancher.
+  inaperçu. Décision de Yoann, 11/10/2026 : on ne l'évite pas pour le moment.
 - **Deux exemplaires du même jeu, aux sauvegardes identiques, sont indiscernables** : la
   sauvegarde parquée de l'un va dans l'autre. Sans dommage, puisque l'autre portait
   exactement la même partie.
