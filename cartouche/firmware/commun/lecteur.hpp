@@ -96,20 +96,8 @@ struct ObservateurLecteur {
     virtual void contexte_remplace(bool avait_des_pages_parquees) = 0;
 };
 
-/* ---- La règle de comparaison à la réinsertion ----------------------------
- *
- * Plan : même ROM, même sauvegarde hors des pages parquées (plan §3.4).
- * Stricte : proposée à Yoann. Les pages parquées sont comparées aussi : celles
- * qu'aucune écriture n'a touchées doivent être restées telles quelles ; celles
- * dont une écriture a été interrompue ne doivent porter, octet par octet, que
- * l'ancien contenu ou un contenu tenté. Elle refuse une cartouche jouée
- * ailleurs dont le jeu n'a réécrit que les pages parquées — un cas que la
- * règle du plan laisse passer (voir README.md, « Ce que la simulation a montré »). */
-enum class Regle : uint8_t { Plan, Stricte };
-
 struct ParametresLecteur {
     uint32_t appairage = 0;
-    Regle regle = Regle::Plan;
     uint32_t delai_insertion_ms = 300;  /* plan §4.3 : la cartouche s'enfonce */
     uint32_t periode_annonce_ms = 250;
     size_t flux_max = 8;
@@ -248,7 +236,13 @@ class Lecteur {
         annoncer();
     }
 
-    /* La cartouche lue correspond-elle au contexte, telle qu'on l'avait laissée ? */
+    /* La cartouche lue correspond-elle au contexte, telle qu'on l'avait laissée ?
+     * La règle stricte (plan §3.4, décision de Yoann du 11/10/2026) : même ROM,
+     * et chaque page de la sauvegarde telle que le lecteur la savait, pages
+     * parquées comprises. Une page dont l'écriture a été interrompue ne doit
+     * porter, octet par octet, que l'ancien contenu ou un contenu tenté. Comparer
+     * aussi les pages parquées refuse une cartouche jouée ailleurs dont le jeu
+     * n'a réécrit que celles-là (README.md, « Ce que la simulation a montré »). */
     bool compatible() const {
         const Contexte &ctx = m_.ctx;
         for (uint32_t p = 0; p < ctx.crc_pages.size(); ++p) {
@@ -257,7 +251,6 @@ class Lecteur {
                 if (crc_page_miroir((uint16_t)p) != ctx.crc_pages[p]) return false;
                 continue;
             }
-            if (p_.regle == Regle::Plan) continue; /* « hors des pages parquées » */
             if (!pp->tentee) {
                 if (crc_page_miroir((uint16_t)p) != ctx.crc_pages[p]) return false;
                 continue;

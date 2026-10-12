@@ -4,6 +4,7 @@
  *     g++ -std=c++20 -O2 -Wall -Wextra -I.. simulation.cpp -o /tmp/simulation && /tmp/simulation
  *     /tmp/simulation --tirages 5000    # plus de tirages aléatoires
  *     /tmp/simulation --verbeux         # le récit de chaque scénario écrit
+ *     /tmp/simulation --graine N        # rejouer un tirage, avec son récit
  *
  * Le monde simulé : des cartouches (ROM, RAM avec pile, contrôleur), la fente
  * du lecteur, le lecteur et la doublure tels qu'ils tourneront dans les
@@ -25,8 +26,8 @@
  * S'y ajoute une cohérence interne : le miroir du lecteur est la RAM de la
  * cartouche en place.
  *
- * Deux règles de comparaison à la réinsertion sont éprouvées (lecteur.hpp) :
- * celle du plan, et la règle stricte proposée.
+ * Le lecteur compare la cartouche qui revient avec la règle stricte
+ * (lecteur.hpp, compatible()), décidée par Yoann le 11/10/2026.
  */
 
 #include "doublure.hpp"
@@ -108,7 +109,6 @@ struct Verite {
 };
 
 struct Monde : ObservateurLecteur {
-    Regle regle;
     bool verbeux = false;
     std::mt19937 h;
     uint32_t t = 1000;
@@ -278,7 +278,7 @@ struct Monde : ObservateurLecteur {
     /* ---- Le jeu ---- */
     std::deque<std::pair<uint32_t, uint8_t>> a_ecrire;
 
-    explicit Monde(Regle r, uint32_t graine, bool v = false) : regle(r), verbeux(v), h(graine) {
+    explicit Monde(uint32_t graine, bool v = false) : verbeux(v), h(graine) {
         fente.w = this;
         vers_doublure.w = this;
         es_doublure.w = this;
@@ -303,7 +303,6 @@ struct Monde : ObservateurLecteur {
     void demarrer_lecteur() {
         ParametresLecteur p;
         p.appairage = APPAIRAGE;
-        p.regle = regle;
         lecteur = std::make_unique<Lecteur>(fente, vers_doublure, stock_lecteur, p);
         lecteur->observateur = this;
         lecteur->demarrer(t, (uint32_t)h());
@@ -816,8 +815,9 @@ std::string sc_jouee_ailleurs_hors(Monde &w, Jeux &j) {
     return attendre_violations(w, 0, "aucun constat attendu");
 }
 
-/* Jouée ailleurs, et le jeu n'a réécrit que les pages parquées : la règle du
- * plan les compare pas, et écrase la partie jouée ailleurs. Le trou. */
+/* Jouée ailleurs, et le jeu n'a réécrit que les pages parquées : une règle qui
+ * ne les comparerait pas écraserait la partie jouée ailleurs. Le trou qui a
+ * fait choisir la règle stricte. */
 std::string sc_jouee_ailleurs_dans_le_parquage(Monde &w, Jeux &j) {
     Cart *a = w.ajouter_cart(fabriquer_cart(1, "A", j.rom_a, w.h));
     w.sauvegardes_auto = false;
@@ -833,12 +833,7 @@ std::string sc_jouee_ailleurs_dans_le_parquage(Monde &w, Jeux &j) {
     const std::vector<uint8_t> ailleurs = a->ram;
     w.inserer(a);
     w.attendre(2000);
-    const bool ecrasee = a->ram != ailleurs;
-    if (w.regle == Regle::Plan) {
-        if (!ecrasee) return "le trou attendu ne s'est pas montré";
-        return w.pages_mauvaise_cartouche > 0 ? "" : "écrasée sans que R2 le voie";
-    }
-    if (ecrasee) return "la règle stricte a laissé écraser la partie jouée ailleurs";
+    if (a->ram != ailleurs) return "la sauvegarde parquée a écrasé la partie jouée ailleurs";
     w.conclure();
     return attendre_violations(w, 0, "aucun constat attendu");
 }
@@ -1008,8 +1003,8 @@ struct Bilan {
     std::vector<std::string> exemples;
 };
 
-void tirage(Regle regle, uint32_t graine, Jeux &jeux, Bilan &b, bool verbeux = false) {
-    Monde w(regle, graine, verbeux);
+void tirage(uint32_t graine, Jeux &jeux, Bilan &b, bool verbeux = false) {
+    Monde w(graine, verbeux);
     std::mt19937 &h = w.h;
     const int n_carts = 2 + (int)(h() % 3);
     const std::vector<uint8_t> *roms[4] = {&jeux.rom_a, &jeux.rom_b, &jeux.rom_c, &jeux.rom_d};
@@ -1079,18 +1074,16 @@ int main(int argc, char **argv) {
     int tirages = 1000;
     bool verbeux = false;
     long graine_seule = -1;
-    Regle regle_seule = Regle::Stricte;
     for (int i = 1; i < argc; ++i) {
         if (!std::strcmp(argv[i], "--tirages") && i + 1 < argc) tirages = std::atoi(argv[++i]);
         else if (!std::strcmp(argv[i], "--verbeux")) verbeux = true;
         else if (!std::strcmp(argv[i], "--graine") && i + 1 < argc) graine_seule = std::atol(argv[++i]);
-        else if (!std::strcmp(argv[i], "--plan")) regle_seule = Regle::Plan;
     }
     if (graine_seule >= 0) { /* rejouer un tirage, avec son récit */
         std::mt19937 hj(42);
         Jeux jeux(hj);
         Bilan b;
-        tirage(regle_seule, (uint32_t)graine_seule, jeux, b, true);
+        tirage((uint32_t)graine_seule, jeux, b, true);
         return b.reussis == b.tirages ? 0 : 1;
     }
 
@@ -1112,32 +1105,29 @@ int main(int argc, char **argv) {
     };
 
     int echecs = 0;
-    for (Regle regle : {Regle::Plan, Regle::Stricte}) {
-        std::printf("\n=== Règle %s ===\n", regle == Regle::Plan ? "du plan" : "stricte (proposée)");
-        int n = 0;
-        for (const auto &[nom, sc] : scenarios) {
-            std::mt19937 hj(42);
-            Jeux jeux(hj);
-            Monde w(regle, 1000 + (uint32_t)n++, verbeux);
-            const std::string r = sc(w, jeux);
-            std::printf("  %s  %s\n", r.empty() ? "ok  " : "ÉCHEC", nom.c_str());
-            if (!r.empty()) {
-                ++echecs;
-                std::printf("      %s\n", r.c_str());
-            }
-            if (verbeux)
-                for (const auto &l : w.recit) std::printf("        %s\n", l.c_str());
-        }
-
+    int n = 0;
+    for (const auto &[nom, sc] : scenarios) {
         std::mt19937 hj(42);
         Jeux jeux(hj);
-        Bilan b;
-        for (int i = 0; i < tirages; ++i) tirage(regle, 50000 + (uint32_t)i, jeux, b);
-        std::printf("  tirages aléatoires : %d, sans aucun constat : %d\n", b.tirages, b.reussis);
-        for (const auto &[k, v] : b.par_regle) std::printf("      constats %s : %d\n", k.c_str(), v);
-        for (const auto &e : b.exemples) std::printf("      ex. %s\n", e.c_str());
-        if (regle == Regle::Stricte && b.reussis != b.tirages) ++echecs;
+        Monde w(1000 + (uint32_t)n++, verbeux);
+        const std::string r = sc(w, jeux);
+        std::printf("  %s  %s\n", r.empty() ? "ok  " : "ÉCHEC", nom.c_str());
+        if (!r.empty()) {
+            ++echecs;
+            std::printf("      %s\n", r.c_str());
+        }
+        if (verbeux)
+            for (const auto &l : w.recit) std::printf("        %s\n", l.c_str());
     }
+
+    std::mt19937 hj(42);
+    Jeux jeux(hj);
+    Bilan b;
+    for (int i = 0; i < tirages; ++i) tirage(50000 + (uint32_t)i, jeux, b);
+    std::printf("  tirages aléatoires : %d, sans aucun constat : %d\n", b.tirages, b.reussis);
+    for (const auto &[k, v] : b.par_regle) std::printf("      constats %s : %d\n", k.c_str(), v);
+    for (const auto &e : b.exemples) std::printf("      ex. %s\n", e.c_str());
+    if (b.reussis != b.tirages) ++echecs;
     std::printf("\n%s\n", echecs ? "simulation : des attentes ne sont pas tenues" : "simulation : toutes les attentes tenues");
     return echecs ? 1 : 0;
 }
