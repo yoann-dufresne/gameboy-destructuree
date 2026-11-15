@@ -1,0 +1,49 @@
+| Catégorie | Qté | Valeur | Référence fabricant / note | LCSC | Repères |
+|---|---|---|---|---|---|
+| CMS (assemblé par JLCPCB) | 1 | SMBJ5.0A | SMBJ5.0A (Littelfuse, unidirectionnelle) | C83333 | D1 |
+| CMS (assemblé par JLCPCB) | 1 | 1k5 | 0603WAF1501T5E | C22843 | R1 |
+| CMS (assemblé par JLCPCB) | 1 | vert | XL-1608PGC-06 (XINGLIGHT, vert émeraude) | C7371905 | LED1 |
+| CMS (assemblé par JLCPCB) | 20 | 10k | 0603WAF1002T5E | C25804 | R2, R3, R33, R34, R35, R40, R42, R43, R44, R45, R50, R52, R53, R54, R55, R60, R62, R63, R64, R65 |
+| CMS (assemblé par JLCPCB) | 7 | 100n | CC0603KRX7R9BB104 | C14663 | C3, C20, C21, C22, C23, C24, C25 |
+| CMS (assemblé par JLCPCB) | 12 | 1k | 0603WAF1001T5E | C21190 | R11, R12, R13, R14, R15, R16, R17, R18, R19, R41, R51, R61 |
+| CMS (assemblé par JLCPCB) | 9 | rouge | KT-0603R | C2286 | LED11, LED12, LED13, LED14, LED15, LED16, LED17, LED18, LED19 |
+| CMS (assemblé par JLCPCB) | 1 | 0,75 A | 1812L075/33DR (Littelfuse, 0,75 A maintien, 1,5 A déclenchement) | C151170 | F10 |
+| CMS (assemblé par JLCPCB) | 1 | 220 Ω 2 A | BLM21PG221SN1D (220 Ω à 100 MHz, 2 A) | C85840 | FB1 |
+| CMS (assemblé par JLCPCB) | 1 | 100µ 35V | CK1V101M-CRE77 (100 µF 35 V, 6,3×7,7) | C19184138 | C4 |
+| CMS (assemblé par JLCPCB) | 5 | 10u | CL21A106KAYNNNE | C15850 | C5, C6, C7, C8, C9 |
+| CMS (assemblé par JLCPCB) | 4 | SS14 | SS14 | C2480 | D2, D3, D4, D5 |
+| CMS (assemblé par JLCPCB) | 15 | 4×33 | 4D03WGJ0330T5E | C25508 | RN1, RN2, RN3, RN4, RN5, RN6, RN7, RN8, RN9, RN10, RN11, RN12, RN13, RN14, RN15 |
+| CMS (assemblé par JLCPCB) | 6 | 33 | 0603WAF330JT5E | C23140 | R30, R31, R32, R46, R56, R66 |
+| CMS (assemblé par JLCPCB) | 6 | 74AHCT541 | SN74AHCT541PWR | C50989 | U5, U6, U7, U8, U9, U10 |
+| CMS (assemblé par JLCPCB) | 3 | 2N7002 | 2N7002 | C8545 | Q1, Q2, Q3 |
+| traversant (soudé à la main) | 1 | Entrée 5 V 30 A | Phoenix MKDS 3/4-5,08 (1712805), 24 A par pôle |  | J1 |
+| traversant (soudé à la main) | 2 | 1000µ 16V | 1000 µF 16 V radial Ø10 × 20, pas de 5 mm (Nichicon UHE1C102MPD) |  | C1, C2 |
+| traversant (soudé à la main) | 9 | 7,5 A lame mini | Keystone 3568 (porte-fusible lame mini ATM, CI) |  | F1, F2, F3, F4, F5, F6, F7, F8, F9 |
+| traversant (soudé à la main) | 1 | Dalle 1 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J11 |
+| traversant (soudé à la main) | 1 | Dalle 2 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J12 |
+| traversant (soudé à la main) | 1 | Dalle 3 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J13 |
+| traversant (soudé à la main) | 1 | Dalle 4 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J14 |
+| traversant (soudé à la main) | 1 | Dalle 5 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J15 |
+| traversant (soudé à la main) | 1 | Dalle 6 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J16 |
+| traversant (soudé à la main) | 1 | Dalle 7 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J17 |
+| traversant (soudé à la main) | 1 | Dalle 8 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J18 |
+| traversant (soudé à la main) | 1 | Dalle 9 | Phoenix MSTBA 2,5/2-G-5,08 (1757242) + fiche MSTB 2,5/2-ST-5,08 (1757019), ou 2EDG 5,08 |  | J19 |
+| traversant (soudé à la main) | 1 | Pico 2 W — tête | 2 × barrette femelle 1×20, 2,54 mm (support de Pico) |  | U1 |
+| traversant (soudé à la main) | 1 | RESET tête | Bouton 6 × 6 mm traversant, 5 mm de haut au plus : la fiche USB des Pico passe au-dessus |  | SW1 |
+| traversant (soudé à la main) | 1 | Potentiomètre (option) | Barrette mâle 2,54 mm |  | J2 |
+| traversant (soudé à la main) | 1 | Extension tête | Barrette mâle 2,54 mm |  | J3 |
+| traversant (soudé à la main) | 1 | Pico 2 — nœud 0 | 2 × barrette femelle 1×20, 2,54 mm (support de Pico) |  | U2 |
+| traversant (soudé à la main) | 3 | G1 : GP1 \| GP15 | Barrette mâle 2,54 mm |  | JP1, JP2, JP3 |
+| traversant (soudé à la main) | 1 | HUB75 rangée haut (7-8-9) | Embase IDC 2×8 détrompée, 2,54 mm, droite (Würth 61201621621) |  | J4 |
+| traversant (soudé à la main) | 1 | RESET nœud 0 | Bouton 6 × 6 mm traversant, 5 mm de haut au plus : la fiche USB des Pico passe au-dessus |  | SW2 |
+| traversant (soudé à la main) | 1 | Pico 2 — nœud 1 | 2 × barrette femelle 1×20, 2,54 mm (support de Pico) |  | U3 |
+| traversant (soudé à la main) | 1 | HUB75 rangée milieu (4-5-6) | Embase IDC 2×8 détrompée, 2,54 mm, droite (Würth 61201621621) |  | J5 |
+| traversant (soudé à la main) | 1 | RESET nœud 1 | Bouton 6 × 6 mm traversant, 5 mm de haut au plus : la fiche USB des Pico passe au-dessus |  | SW3 |
+| traversant (soudé à la main) | 1 | Pico 2 — nœud 2 | 2 × barrette femelle 1×20, 2,54 mm (support de Pico) |  | U4 |
+| traversant (soudé à la main) | 1 | HUB75 rangée bas (1-2-3) | Embase IDC 2×8 détrompée, 2,54 mm, droite (Würth 61201621621) |  | J6 |
+| traversant (soudé à la main) | 1 | RESET nœud 2 | Bouton 6 × 6 mm traversant, 5 mm de haut au plus : la fiche USB des Pico passe au-dessus |  | SW4 |
+| traversant (soudé à la main) | 1 | Sonde analyseur logique | Barrette mâle 2,54 mm |  | J7 |
+| vrac | 8 | Barrette femelle 1×20, 2,54 mm (support de Pico) | support des 4 Pico, 2 par Pico |  |  |
+| vrac | 12 | Fusible lame mini (ATM) 7,5 A, marron | 9 en place + 3 de rechange |  |  |
+| vrac | 9 | Fiche Phoenix MSTB 2,5/2-ST-5,08 (1757019) ou 2EDGK 5,08 2 points | une par câble de dalle |  |  |
+| vrac | 3 | Cavalier 2,54 mm | sélection de G1 (JP1 à JP3) |  |  |

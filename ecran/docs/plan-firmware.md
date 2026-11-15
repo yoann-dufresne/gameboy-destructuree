@@ -107,6 +107,11 @@ La dalle n'est donc pas le facteur limitant.
 > ⚠️ Mesuré sur **une** dalle avec une nappe courte. Une chaîne de 3 ajoute deux
 > étages de tampons et deux sauts de nappe : le plafond peut baisser. À remesurer
 > en phase 5, quand la chaîne existera.
+>
+> ✅ **Remesuré le 26/10/2026 sur une chaîne de 3** : net jusqu'à **23,7 MHz**, parasites à
+> 26,9 MHz, image détruite à 29,6 MHz. Retenu 19,7 MHz (`HUB75_CLKDIV` 1,5), soit ≈ 175 Hz
+> en 10 plans. Le plafond a bien baissé, de 28 à moins de 26,9 MHz : la porte de sortie de la
+> phase 5c (≥ 25 MHz) n'est donc pas franchie avec marge.
 
 Le modèle théorique du tableau ci-dessus était **optimiste d'environ 50 %** : il ne
 comptait que le temps de décalage, en ignorant les gardes et la répartition des plans
@@ -305,7 +310,7 @@ dans l'autre sens.
 | GPIO | Usage v2 (nœud) | Usage v1, pour mémoire |
 |---|---|---|
 | GP14 | **RDY**, sortie vers la tête (§2.6) | strap d'identité |
-| GP15 | libre | strap d'identité |
+| GP15 | **G1 de rechange** : copie permanente de G1, pour un Pico dont GP1 est mort (29/10/2026) | strap d'identité |
 | GP16 | **VSYNC**, entrée depuis la tête | fil de synchro maître / esclaves |
 | GP17 | sortie de mesure : bascule au flip de tampon | idem |
 | GP18 | sortie de mesure : bascule au 1er octet reçu de la liaison | idem, 1er octet WiFi |
@@ -328,6 +333,8 @@ Le brochage de la **tête** est au §2.6 : elle ne porte aucune dalle.
 Commencer **en direct**, nappe courte. Le tampon 74HC245 5 V en entrée de dalle a un
 V_IH ≈ 3,15 V : le 3,3 V passe, de justesse. Si pixels fantômes, scintillement ou colonnes
 parasites → **2 × 74AHCT245** par chaîne, alimentés en 5 V, `DIR` au +5 V, `/OE` à la masse.
+La carte de l'écran (29/10/2026) les monte d'office, en **74AHCT541** : unidirectionnels, leurs
+entrées ne réalimentent pas la carte quand un Pico est en USB, bus éteint.
 
 ### 2.5 Alimentation
 
@@ -336,6 +343,14 @@ parasites → **2 × 74AHCT245** par chaîne, alimentés en 5 V, `DIR` au +5 V, 
 | Par dalle | 5 V, **4 A crête** (embase VH 3.96, sérigraphie `+ + - -`) |
 | Par rangée (3 dalles) | **12 A** |
 | Total 3×3 | **36 A ≈ 180 W crête** |
+
+> **Révision du 29/10/2026 — montage définitif** ([`materiel/`](../materiel/README.md)) : une
+> seule alimentation **5 V / 30 A**, celle en service, et non trois de 15 A. L'isolement des
+> pannes passe par la carte de l'écran : un départ par dalle, chacun protégé par un fusible de
+> 7,5 A, avec un voyant de fusible fondu. Les Pico tirent leur 5 V du même bus, par une diode
+> Schottky vers VSYS ; l'USB reste branchable pour flasher. 36 A de crête théorique pour
+> 30 A : le courant plein blanc se mesure à la mise en service, et la luminosité de base se
+> limite s'il dépasse 27 A. La liste ci-dessous reste celle du montage de preuve de concept.
 
 - Préférer **3 alimentations 5 V / 15 A**, une par rangée, plutôt qu'une seule 40 A : ça isole
   les pannes, ça raccourcit les câbles, et une rangée peut être testée seule.
@@ -355,6 +370,10 @@ GP16 des nœuds est conservé, mais c'est la tête qui le pilote.
 
 **Une nappe IDC 10 points par nœud**, en étoile depuis la tête. Point à point : une seule
 charge par ligne, et chaque nœud a son propre RDY.
+
+> **Révision du 29/10/2026** : sur la carte de l'écran ([`materiel/`](../materiel/README.md)),
+> les trois liaisons sont des pistes. Le brochage et les 33 Ω au départ ne changent pas ; les
+> nappes 10 points disparaissent.
 
 | Broche nappe | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -948,6 +967,9 @@ de filtrage par `node_id` : l'identité d'un nœud est son port sur la tête.
 | Câblage signal | 3 × (embase 2×8 mâle sur perfboard + nappes) — les dalles ont des embases **mâles** et les nappes fournies deux prises **femelles** : il faut l'embase intermédiaire |
 | Réseau | **une** IP, celle de la tête |
 
+> 29/10/2026 : ce chantier matériel est repris en entier par le montage définitif,
+> [`materiel/`](../materiel/README.md) — carte, cadre 2020, faisceau.
+
 **Mesures :** horloge pixel maximale stable sur une chaîne de 3 (§2.2, mesurée jusqu'ici sur
 une dalle seule), rafraîchissement effectif, durée de construction des plans de bits d'une
 rangée — celle qui décide combien d'images RDY fera sauter.
@@ -958,6 +980,15 @@ ligne de jonction plus claire ou plus sombre.
 **Porte de sortie :** si l'horloge pixel tient ≥ 25 MHz sur une chaîne de 3, une chaîne de 9
 sur un contrôleur unique redevient discutable — mais en connaissance de cause (§2.2 bis :
 la RAM et le temps de construction restent contre).
+
+🔨 **En cours au 26/10/2026** — rangées du haut et du milieu, 3 dalles chacune, alimentées par
+la Game Boy : 59,7 images/s publiées sur chaque rangée, 0 erreur de liaison, sur fils
+volants. Horloge pixel de la chaîne : nette jusqu'à 23,7 MHz, retenue à 19,7 MHz (§2.2) — la
+porte de sortie ci-dessus reste fermée. Le même jour, la robustesse aux débranchements :
+nœud hors tension écarté de la synchronisation par la tête, mode secours des nœuds sans
+VSYNC, réception qui se rattrape d'un message tronqué, sniffer qui se réassocie seul (journaux
+de la tête, du nœud et du module capture). Restent la rangée du bas, les nappes IDC 10 points
+à la place des fils volants, et la mécanique.
 
 ---
 
@@ -985,7 +1016,7 @@ plutôt que comme sa raison d'être.
 | 4 · Mesure | C++ + Python | — | ✅ ~8 ms de latence, 24,6 Mbit/s, 18/09/2026 | 2 j |
 | 5a · Tête seule | C++ | lwIP raw, cyw43 | ✅ IDX8 192×192 à 60 img/s, 0,003 % de perte, 29/09/2026 | 1 j |
 | 5b · Liaison, 1 nœud | C++ + PIO asm | PIO, DMA sans fin, CRC par table, 2 cœurs | 🔨 écrit ; ≤ 9 ms, 0 erreur CRC | 2–3 j |
-| 5c · Passage à 3×3 | C++ + mécanique | idem | 192×192 sans déchirure | 3–5 j |
+| 5c · Passage à 3×3 | C++ + mécanique | idem | ✅ les 9 dalles le 29/10/2026 ; montage définitif conçu ([`materiel/`](../materiel/README.md)) | 3–5 j |
 | 6 · Game Boy | — | — | 1:1, rien à écrire | — |
 
 ---
@@ -996,20 +1027,21 @@ plutôt que comme sa raison d'être.
 |---|---|---|---|
 | E1 | Seengreat RGB Matrix P3.0-64x64 | **9** | ~30 €/pièce |
 | E2 | Raspberry Pi Pico 2 W | **4** | 1 tête + 3 nœuds. Les nœuds n'utilisent pas le WiFi : un Pico 2 simple suffit, mais les 3 Pico 2 W déjà en main font l'affaire — **seule la tête est à acheter** |
-| E3 | Alimentation 5 V / 15 A | **3** | une par rangée |
-| E4 | Embase 2×8 mâle 2,54 + perfboard | 3 | interface Pico ↔ nappe |
+| E3 | Alimentation 5 V / 30 A | **1** | celle en service ; un départ fusiblé par dalle sur la carte (révision du 29/10/2026) |
+| E4 | Carte de l'écran | 1 | remplace embases, perfboard, nappes de liaison et bus barres : [`materiel/`](../materiel/README.md) |
 | E5 | Nappe IDC 16 pts | 9 | fournies avec les dalles (1 chacune) |
-| E6 | Câble d'alim VH 3.96 | 9 | fournis avec les dalles |
-| E7 | Nappe IDC 10 pts ≤ 50 cm + 2 embases 2×5 mâles | **3** | liaison tête → nœud (§2.6). Remplace le fil de synchro de la v1 |
-| E8 | Bus barres, fil 18 AWG, fusibles | — | distribution 12 A/rangée |
-| E9 | Cadre alu + visserie M3 | 1 | 576 × 576 mm |
+| E6 | Câble d'alim VH 3.96 | 9 | refaits à longueur, un par départ de la carte : [`faisceau.md`](../materiel/cadre/faisceau.md) |
+| E7 | ~~Nappe IDC 10 pts~~ | 0 | liaisons en pistes sur la carte (révision du 29/10/2026) |
+| E8 | Faisceau : câbles de dalle, 5 V, secteur | 1 | [`faisceau.md`](../materiel/cadre/faisceau.md) |
+| E9 | Cadre : profilés 2020, pièces imprimées, visserie | 1 | 576 × 576 mm : [`liste-materiel.md`](../materiel/liste-materiel.md) |
 | E10 | Potentiomètre 10 kΩ | **1** | luminosité de tout l'écran, GP26 de la tête |
-| E11 | 74AHCT245 | 0 ou 6 | **seulement si** ghosting constaté |
+| E11 | 74AHCT541 | 6 | montés d'office sur la carte : unidirectionnels, entrées sans diode vers VCC (révision du 29/10/2026) |
 | E12 | Raspberry Pi Debug Probe | 1 | fortement recommandé dès la phase 2 |
-| E13 | Résistance 33 Ω | 15 | série, sur les sorties de liaison de la tête |
+| E13 | Résistance 33 Ω | 15 | série, sur les sorties de liaison de la tête, sur la carte |
 
 Ordre de grandeur : **410–460 €** — la v2 ajoute une dizaine d'euros (un Pico 2 W, trois
-nappes) et en retire deux potentiomètres.
+nappes) et en retire deux potentiomètres. Le montage définitif ajoute **250 à 350 €** :
+carte, cadre, faisceau ([liste de matériel](../materiel/liste-materiel.md)).
 
 ---
 
@@ -1031,6 +1063,7 @@ ecran/
 │   ├── ecran/                              ← v1 : nœud WiFi autonome, phases 1–4
 │   ├── phase0-bringup/, phase1-clock-sweep/
 │   └── vendor/hub75-jupfu/                 ← + PROVENANCE.txt
+├── materiel/                               ← montage définitif : carte KiCad, cadre 2020, faisceau
 └── tools/
     └── pixelpush/                          ← émetteur Python : PXL2 (--cible) ou PXL1 (--layout)
 ```
@@ -1041,6 +1074,17 @@ ecran/
 
 | Date | Décision | Raison |
 |---|---|---|
+| 29/10/2026 | Carte : tampons **74AHCT541** au lieu de 74AHCT245 ; rappel du rail 3V3 des nœuds à 1 kΩ ; TVS d'entrée unidirectionnelle | Relecture indépendante avant commande. Un nœud alimenté par USB, bus éteint, réalimentait toute la carte par le port A du 245 ; le Pico d'un nœud retiré, la tête réalimentait son rail par les rappels de VSYNC et CS et la rangée n'était plus garantie noire ; J1 câblé à l'envers mettait −5 V sur les dalles |
+| 29/10/2026 | Écran posable **à plat sur le sol**, LED vers le haut : 4 patins arrière toujours en place, plan arrière à 105 mm ; les pieds servent sur une table | Précision de Yoann : « posé par terre » voulait dire à plat. Le sol prend la place du mur, mêmes appuis ; l'alimentation, de 45 mm d'épaisseur mesurés, garde 30 mm d'air |
+| 29/10/2026 | **Montage définitif** : une carte où s'enfichent les 4 Pico et toutes les nappes, un cadre en profilés 2020 et pièces imprimées, un câble fusiblé par dalle ([`materiel/`](../materiel/README.md)) | Demande de Yoann : le montage de preuve de concept s'affaissait (plaques de PLA), et l'alimentation passait par des fils volants et des cosses écrasées ensemble |
+| 29/10/2026 | Une alimentation 5 V / 30 A, celle en service, au lieu de trois de 15 A ; un fusible de 7,5 A par dalle sur la carte | Les fusibles isolent une dalle en panne, ce que devaient faire les trois alimentations, sans tripler le câblage secteur |
+| 29/10/2026 | Pico alimentés par le bus 5 V, une diode Schottky par Pico vers VSYS | Plus de câbles USB à demeure ; l'USB reste branchable pour flasher, sans alimenter le bus ni être alimenté par lui |
+| 29/10/2026 | Aucun connecteur de dalle masqué : montants à x = −214 et +170 mm, carte et alimentation dans les bandes libres, tracés des câbles calculés | Demande de Yoann. Vérifié par le générateur du cadre : 8 mm de marge autour de chaque connecteur, jusqu'au plan du mur |
+| 29/10/2026 | Écran noir quand la source se tait 1 s : la tête envoie `EFFACER`, répété chaque seconde ; le nœud publie du noir sur `EFFACER` | Demande de Yoann : Game Boy éteinte → écran noir, et non la dernière image figée. Décidé à la tête, qui voit la source se taire quelle qu'en soit la cause (console éteinte, sniffer débranché, WiFi perdu). La mire reste le signe d'une liaison perdue |
+| 29/10/2026 | G1 recopié en permanence sur GP15 (broche 20) du nœud, par une variante locale des programmes PIO du pilote ; contrôle des sorties de la dalle au démarrage | Un Pico dont la sortie GP1 ne redescend plus redevient un nœud en déplaçant un seul fil. Déplacer G1 seul est impossible au pilote d'origine (6 broches contiguës), et décaler tout le groupe coûtait une dizaine de fils |
+| 26/10/2026 | **Exigence de Yoann : tout reprend seul, quel que soit l'ordre des débranchements.** Nœud écarté par la tête après 5 abandons de suite, réintégré à son premier RDY ; mode secours du nœud après 8 images validées sans VSYNC ; resynchronisation d'un message resté incomplet 20 ms ; sniffer : association relancée après 8 s bloquée, réassociation après 10 s sans accusé | Ce jour-là, la tête redémarrée laissait le sniffer bloqué pour toujours, un nœud hors tension mais câblé figeait les trois rangées, un fil VSYNC délogé figeait sa rangée. Éprouvé ensuite en débranchant pour de vrai tête, nœuds, VSYNC et sniffer |
+| 26/10/2026 | Horloge pixel 19,7 MHz sur une chaîne de 3 dalles (`HUB75_CLKDIV` 1,5 par défaut dès que `CHAIN_LEN` > 1) | Nette jusqu'à 23,7 MHz, parasites à 26,9 MHz, image détruite à 29,6 MHz ; ≈ 175 Hz de rafraîchissement, au-dessus des 150 visés |
+| 26/10/2026 | Sniffer : le chemin d'interruption de la capture en RAM, gestionnaire brut à la priorité la plus haute | Un ajout sans rapport, en déplaçant le code en flash, faisait rater la relance du PIO à 6 % des images ; en RAM : 0 sur 3 802 |
 | 11/10/2026 | **Décision de Yoann** : dans l'installation, le sniffer émet le réseau « image » et la tête le rejoint en station ; jusqu'à 4 écrans, une copie par écran ; la tête garde le point d'accès pour être utilisée seule (§2.7, [`reseau.md`](../../reseau.md)) | Un microcontrôleur par type de périphérique sur la console, chacun point d'accès de son réseau : un seul saut radio partout, et plusieurs écrans pour une même partie. À appliquer après le banc de coexistence |
 | 16/09/2026 | Afficheur réseau générique d'abord, Game Boy ensuite | L'écran n'est pas lié à une console ; la GB devient un client du protocole |
 | 16/09/2026 | Grille 3×3 = 192×192 | Permet le 160×144 en **1:1** — supprime toute mise à l'échelle |

@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "carte-ecran")(type "KiCad")(uri "${KIPRJMOD}/carte-ecran.pretty")(options "")(descr "Empreintes propres à la carte"))
+)

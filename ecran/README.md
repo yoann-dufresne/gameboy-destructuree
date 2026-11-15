@@ -22,11 +22,11 @@ une marge libre de 16 pixels sur les côtés et de 24 en haut et en bas.
 ## Architecture
 
 ```
-            WiFi émis par l'écran     nappes 10 pts                  HUB75
+            WiFi émis par l'écran     pistes de la carte             HUB75
                                 ┌── L0 ──► [Pico 2 · nœud 0] ──► ▣▣▣  rangée 0
  Source ──PXL2──► [Pico 2 W] ───┼── L1 ──► [Pico 2 · nœud 1] ──► ▣▣▣  rangée 1
    en direct,      « tête »     └── L2 ──► [Pico 2 · nœud 2] ──► ▣▣▣  rangée 2
-   sans box      192.168.4.1       données + VSYNC ►  ◄ RDY, sur chaque nappe
+   sans box      192.168.4.1       données + VSYNC ►  ◄ RDY, sur chaque liaison
 ```
 
 - La **tête**, un Pico 2 W sans dalle, émet le réseau WiFi de l'écran et reçoit les images
@@ -59,11 +59,14 @@ architecture, dite v2, date du 29/09/2026. La v1, validée sur une dalle lors de
 | Dalle | **Seengreat RGB Matrix P3.0-64x64** | 9 | HUB75E, balayage 1/32, 192 × 192 mm, 5 V / 4 A |
 | Tête | **Raspberry Pi Pico 2 W** | 1 | le WiFi est indispensable ici |
 | Nœuds | Raspberry Pi Pico 2 (W) | 3 | le WiFi n'y sert pas : un Pico 2 simple suffit |
-| Alimentation | 5 V / 15 A | 3 | une par rangée, soit 36 A et environ 180 W au total |
-| Signal des dalles | nappe IDC 16 pts + embase 2×8 mâle | 3 | du nœud à l'entrée de la première dalle de sa chaîne |
-| Liaison | nappe IDC 10 pts | 3 | de la tête à chaque nœud : données, `VSYNC`, `RDY`, 4 masses |
+| Alimentation | 5 V / 30 A | 1 | 4 A par dalle en crête ; 9 départs protégés chacun par un fusible, sur la carte |
+| Carte de l'écran | 198 × 135 mm, 2 couches | 1 | les 4 Pico enfichés, liaisons tête → nœuds en pistes, tampons 74AHCT541, 3 embases HUB75, 9 départs d'alimentation ; les Pico tirent leur 5 V du même bus |
+| Signal des dalles | nappe IDC 16 pts | 3 | de la carte à l'entrée de la première dalle de chaque rangée |
+| Cadre | profilés aluminium 2020 et pièces imprimées | 1 | à plat sur le sol, debout sur une table ou au mur ; aucun connecteur de dalle masqué |
 
-Nomenclature complète et chiffrée : [§7 du plan](docs/plan-firmware.md).
+Le montage définitif — carte, cadre, faisceau, mise en service — est décrit dans
+[`materiel/`](materiel/README.md), avec sa [liste de matériel](materiel/liste-materiel.md).
+Nomenclature de l'électronique et des dalles : [§7 du plan](docs/plan-firmware.md).
 
 ## Construire, flasher, observer
 
@@ -100,12 +103,14 @@ cmake --build build
 |---|---|
 | [`firmware/phase0-bringup/`](firmware/phase0-bringup/README.md) | mires de validation du câblage d'une dalle |
 | [`firmware/phase1-clock-sweep/`](firmware/phase1-clock-sweep/README.md) | banc de mesure de l'horloge pixel, et diagnostic de l'écran noir |
+| [`firmware/recette-carte/`](firmware/recette-carte/README.md) | recette de la carte de l'écran : chaque Pico éprouve son support et les pistes, au montage |
 | [`firmware/ecran/`](firmware/ecran/README.md) | v1 : nœud WiFi autonome qui pilote une dalle, en PXL1 |
 | [`firmware/tete/`](firmware/tete/README.md) | v2 : la tête — réception PXL2 et PXL1, placement, découpe, relais vers les nœuds, synchronisation |
 | [`firmware/noeud/`](firmware/noeud/README.md) | v2 : un nœud d'affichage — liaison depuis la tête, publication au VSYNC |
 | [`firmware/commun/`](firmware/commun/) | `pxl1.h`, `pxl2.h` et `liaison.h`, les protocoles, qui font foi pour tout le projet ; `affichage/`, la façade d'affichage partagée par les nœuds |
 | [`firmware/vendor/hub75-jupfu/`](firmware/vendor/hub75-jupfu/PROVENANCE.txt) | pilote HUB75 de JuPfu (licence MIT), repris avec une modification signalée |
 | [`tools/pixelpush/`](tools/pixelpush/README.md) | émetteur pour PC : mires, images, GIF, vidéo, capture d'écran |
+| [`materiel/`](materiel/README.md) | le montage définitif : carte de l'écran (KiCad), cadre en profilés 2020 et pièces imprimées, faisceau, liste de matériel |
 | `tools/` | `flash.sh` et `console.py`, décrits ci-dessus |
 
 ## Documentation
@@ -132,4 +137,6 @@ cmake --build build
 | 5a · La tête seule | ✅ 29/09/2026 — IDX8 192 × 192 à 60 images/s sur une antenne, 0,003 % de perte |
 | 5b · Une liaison, un nœud | ✅ banc le 29/09/2026 — 0 erreur de CRC en 10 minutes, animation fluide ; latence à l'analyseur à relever |
 | Réseau émis par l'écran | 🔨 29/09/2026 — la box faisait geler l'image ; débit à remesurer dans ce mode |
-| 5c · Passage à 3 × 3 | à venir |
+| 5c · Passage à 3 × 3 | ✅ 29/10/2026 — les 9 dalles fonctionnent, sur le montage de preuve de concept : cadre v3 imprimé, fils volants. Le 26/10, rangées du haut et du milieu à 59,7 images/s ; horloge pixel ramenée à 19,7 MHz sur la chaîne |
+| Montage définitif | 🔨 05/11/2026 — conçu et vérifié par calcul : carte, cadre 2020, faisceau ([`materiel/`](materiel/README.md)) ; cartes reçues de JLCPCB, à monter : [`materiel/montage-carte.md`](materiel/montage-carte.md) |
+| Robustesse aux débranchements | ✅ 26/10/2026 — tête, nœuds, fils VSYNC et sniffer débranchés et rebranchés dans tous les ordres essayés : reprise seule, sans redémarrer aucun Pico |

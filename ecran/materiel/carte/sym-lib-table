@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "carte-ecran")(type "KiCad")(uri "${KIPRJMOD}/carte-ecran.kicad_sym")(options "")(descr "Symboles propres à la carte"))
+)
