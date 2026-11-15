@@ -20,6 +20,10 @@
  *
  * Sans nœud branché, les RDY sont tirés haut : la tête tourne seule, comme en
  * phase 5a, et l'accusé part au VSYNC.
+ *
+ * Un nœud qui fait abandonner ABANDONS_AVANT_ECART images de suite est écarté
+ * de l'attente, jusqu'à ce qu'il lève RDY de nouveau (26/10/2026) : un nœud en
+ * panne ou hors tension ne fige plus que sa propre rangée.
  */
 
 #include <cstdio>
@@ -65,6 +69,9 @@ struct Synchro {
     volatile uint64_t assemblage_somme; /* première → dernière tranche, en µs */
     volatile uint32_t assemblage_max;
     volatile uint32_t boucle_max;     /* plus long tour de boucle du cœur 1, en µs */
+    volatile bool ecarte[NB_RANGEES]; /* nœud que la synchronisation n'attend plus */
+    volatile uint32_t ecartements;
+    volatile uint32_t reintegrations;
     reseau::Image derniere;
 };
 
@@ -77,6 +84,7 @@ void coeur1() {
     reseau::Validation v{};
     uint64_t t_validation = 0;
     uint64_t t_tour = time_us_64();
+    uint8_t retards[NB_RANGEES] = {}; /* abandons de suite imputés à chaque nœud */
 
     while (true) {
         const uint64_t maintenant = time_us_64();
@@ -93,13 +101,27 @@ void coeur1() {
         }
 
         /* Le VALIDER doit avoir quitté la tête sur chaque liaison, et chaque
-         * nœud l'avoir accepté : alors seulement RDY a un sens. */
+         * nœud l'avoir accepté : alors seulement RDY a un sens. Un nœud écarté
+         * n'est pas attendu ; s'il lève RDY, il a validé une image depuis le
+         * dernier VSYNC (qui l'abaisse) : il revient. */
         bool prets = true;
-        for (uint8_t k = 0; k < NB_RANGEES && prets; ++k)
-            prets = lien::transmis(k, v.marques[k]) && lien::pret(k);
+        for (uint8_t k = 0; k < NB_RANGEES; ++k) {
+            if (synchro.ecarte[k]) {
+                if (lien::pret(k)) {
+                    synchro.ecarte[k] = false;
+                    retards[k] = 0;
+                    synchro.reintegrations = synchro.reintegrations + 1;
+                }
+                continue;
+            }
+            if (!lien::transmis(k, v.marques[k]) || !lien::pret(k))
+                prets = false;
+        }
         const uint64_t t = time_us_64();
         if (prets) {
             lien::vsync();
+            for (uint8_t k = 0; k < NB_RANGEES; ++k)
+                retards[k] = 0;
             reseau::conclure(v, true);
             const uint32_t attente = (uint32_t)(t - t_validation);
             const uint32_t assemblage = (uint32_t)(v.img.t_dernier_us - v.img.t_premier_us);
@@ -113,6 +135,20 @@ void coeur1() {
             synchro.vsync = synchro.vsync + 1;
             etat = Etat::REPOS;
         } else if (t - t_validation > GARDE_RDY_US) {
+            /* En retard : un nœud qui a reçu le VALIDER et n'a pas levé RDY.
+             * Un VALIDER encore dans l'anneau de la tête n'est pas sa faute. */
+            for (uint8_t k = 0; k < NB_RANGEES; ++k) {
+                if (synchro.ecarte[k])
+                    continue;
+                if (lien::transmis(k, v.marques[k]) && !lien::pret(k)) {
+                    if (++retards[k] >= ABANDONS_AVANT_ECART) {
+                        synchro.ecarte[k] = true;
+                        synchro.ecartements = synchro.ecartements + 1;
+                    }
+                } else {
+                    retards[k] = 0;
+                }
+            }
             reseau::conclure(v, false);
             synchro.abandons = synchro.abandons + 1;
             etat = Etat::REPOS;
@@ -125,10 +161,12 @@ void coeur1() {
 struct Releve {
     uint32_t vsync, abandons;
     uint64_t attente_somme, assemblage_somme;
+    uint32_t ecartements, reintegrations;
 };
 
 Releve relever() {
-    return {synchro.vsync, synchro.abandons, synchro.attente_somme, synchro.assemblage_somme};
+    return {synchro.vsync,           synchro.abandons,    synchro.attente_somme,
+            synchro.assemblage_somme, synchro.ecartements, synchro.reintegrations};
 }
 
 void rapport(const reseau::Stats &st, const reseau::Stats &avant, const lien::Stats &li,
@@ -159,6 +197,8 @@ void rapport(const reseau::Stats &st, const reseau::Stats &avant, const lien::St
            (unsigned long)(st.retardataires - avant.retardataires),
            (unsigned long)(st.resynchros - avant.resynchros),
            (unsigned long)(st.ctrl - avant.ctrl), (unsigned long)(st.pings - avant.pings));
+    if (reseau::ecran_noir())
+        printf("    ecran noir : aucune image depuis plus de %d ms\n", NOIR_APRES_MS);
     if (st.envois_echoues != avant.envois_echoues)
         printf("    ⚠ %lu accuses non emis par la tete\n",
                (unsigned long)(st.envois_echoues - avant.envois_echoues));
@@ -184,9 +224,16 @@ void rapport(const reseau::Stats &st, const reseau::Stats &avant, const lien::St
         if (li.debordements[k] != li_avant.debordements[k])
             printf(" ⚠ %lu debordements",
                    (unsigned long)(li.debordements[k] - li_avant.debordements[k]));
-        printf("  RDY %s", lien::pret((uint8_t)k) ? "haut" : "bas");
+        printf("  RDY %s%s", lien::pret((uint8_t)k) ? "haut" : "bas",
+               synchro.ecarte[k] ? " ECARTE" : "");
     }
     printf("\n");
+    if (sy.ecartements != sy_avant.ecartements || sy.reintegrations != sy_avant.reintegrations)
+        printf("    ⚠ noeuds ecartes de la synchro : %lu, reintegres : %lu  (%d abandons de "
+               "suite ecartent un noeud)\n",
+               (unsigned long)(sy.ecartements - sy_avant.ecartements),
+               (unsigned long)(sy.reintegrations - sy_avant.reintegrations),
+               ABANDONS_AVANT_ECART);
     synchro.attente_max = 0;
     synchro.boucle_max = 0;
 

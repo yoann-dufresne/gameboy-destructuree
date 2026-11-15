@@ -8,6 +8,7 @@
 #include "pico/sync.h"
 
 #include "hub75.pio.h"
+#include "hub75_rechange.pio.h" // AJOUT LOCAL
 
 #include "rul6024.h"
 #include "fm6126a.h"
@@ -303,7 +304,7 @@ void Hub75Driver<Cfg>::handle_bitplane_irq()
     {
         // Set shift to suit next bitplane
         uint shamt = BCM_SEQUENCE[bitplane_];
-        hub75_bitplane_setup_set_shift(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read, shamt);
+        regler_decalage(shamt); // AJOUT LOCAL — hub75_bitplane_setup_set_shift, ou sa variante de rechange
 
         // Prepare DMA channels for building next bitplane
         uint8_t *plane_dst = frame_buffer_ + (bitplane_ * (TOTAL_PIXELS >> 1));
@@ -318,7 +319,7 @@ void Hub75Driver<Cfg>::handle_bitplane_irq()
         // Reset shift for bitplane 0
         bitplane_ = 0;
         uint shamt = BCM_SEQUENCE[bitplane_];
-        hub75_bitplane_setup_set_shift(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read, shamt);
+        regler_decalage(shamt); // AJOUT LOCAL — hub75_bitplane_setup_set_shift, ou sa variante de rechange
 
         // frame_buffer_ rebuild is complete.
         // Signal to swap frame_buffer_
@@ -465,15 +466,20 @@ void Hub75Driver<Cfg>::configure_pio()
 
         PIO candidate = pio_get_instance(pio_index);
 
-        static constexpr uint32_t stream_lo = std::min(Cfg.pins.data_base_pin, Cfg.pins.clk_pin);
-        static constexpr uint32_t stream_hi = std::max(Cfg.pins.data_base_pin + Cfg.pins.data_n_pins - 1, Cfg.pins.clk_pin);
+        // AJOUT LOCAL : la broche de rechange de G1 entre dans la plage du flux.
+        static constexpr uint32_t stream_lo = AVEC_RECHANGE
+            ? std::min({Cfg.pins.data_base_pin, Cfg.pins.clk_pin, Cfg.pins.g1_rechange_pin})
+            : std::min(Cfg.pins.data_base_pin, Cfg.pins.clk_pin);
+        static constexpr uint32_t stream_hi = AVEC_RECHANGE
+            ? std::max({Cfg.pins.data_base_pin + Cfg.pins.data_n_pins - 1, Cfg.pins.clk_pin, Cfg.pins.g1_rechange_pin})
+            : std::max(Cfg.pins.data_base_pin + Cfg.pins.data_n_pins - 1, Cfg.pins.clk_pin);
 
         // gpio_count must span from the lowest to the highest GPIO actually used (out pins AND
         // side-set/CLK here), not just count them - pio_claim_free_sm_and_add_program_for_gpio_range()
         // uses it to pick/configure a PIO instance whose GPIO_BASE window covers both ends.
         bool stream_ok = hub75_claim_on_pio(candidate, [&] // λ-function - 	all variables used in the lambda are captured by reference
                                             { return pio_claim_free_sm_and_add_program_for_gpio_range(
-                                                  &hub75_bitplane_stream_program,
+                                                  &PROGRAMME_FLUX, // AJOUT LOCAL
                                                   &pio_config_.data_pio,
                                                   &pio_config_.sm_data,
                                                   &pio_config_.data_prog_offs,
@@ -504,7 +510,7 @@ void Hub75Driver<Cfg>::configure_pio()
                 break;
             }
 
-            pio_remove_program_and_unclaim_sm(&hub75_bitplane_stream_program, pio_config_.data_pio, pio_config_.sm_data, pio_config_.data_prog_offs);
+            pio_remove_program_and_unclaim_sm(&PROGRAMME_FLUX, pio_config_.data_pio, pio_config_.sm_data, pio_config_.data_prog_offs);
         }
 
         release_pio_block_for_row_stream(pio_index);
@@ -517,7 +523,11 @@ void Hub75Driver<Cfg>::configure_pio()
               (int)NUM_PIOS);
     }
 
-    hub75_bitplane_stream_program_init(pio_config_.data_pio, pio_config_.sm_data, pio_config_.data_prog_offs, Cfg.pins.data_base_pin, Cfg.pins.clk_pin, BITPLANE_STREAM_LENGTH);
+    // AJOUT LOCAL : variante qui double G1 sur la broche de rechange.
+    if constexpr (AVEC_RECHANGE)
+        hub75_bitplane_stream_rechange_program_init(pio_config_.data_pio, pio_config_.sm_data, pio_config_.data_prog_offs, Cfg.pins.data_base_pin, Cfg.pins.clk_pin, Cfg.pins.g1_rechange_pin, BITPLANE_STREAM_LENGTH);
+    else
+        hub75_bitplane_stream_program_init(pio_config_.data_pio, pio_config_.sm_data, pio_config_.data_prog_offs, Cfg.pins.data_base_pin, Cfg.pins.clk_pin, BITPLANE_STREAM_LENGTH);
 
     // Implementation of Pimoronis anti ghosting solution: https://github.com/pimoroni/pimoroni-pico/commit/9e7c2640d426f7b97ca2d5e9161d3f0a00f21abf
     // base_latch_wait_cycles passed as parameter to hub75_row program.
@@ -528,14 +538,28 @@ void Hub75Driver<Cfg>::configure_pio()
     // (see src/hub75.pio), so unlike stream/row it isn't restricted to any particular block or
     // exclusive to one instance - the plain claim call already searches every block itself.
     if (!pio_claim_free_sm_and_add_program(
-            &hub75_bitplane_setup_program,
+            &PROGRAMME_PLANS, // AJOUT LOCAL
             &pio_config_.pio_read,
             &pio_config_.sm_read,
             &pio_config_.offs_read))
     {
         panic("Failed to claim PIO SM for hub75_bitplane_setup_program\n");
     }
-    hub75_bitplane_setup_program_init(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read);
+    if constexpr (AVEC_RECHANGE) // AJOUT LOCAL
+        hub75_bitplane_setup_rechange_program_init(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read);
+    else
+        hub75_bitplane_setup_program_init(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read);
+}
+
+// AJOUT LOCAL (voir PROVENANCE.txt) — patche le decalage du programme de plans,
+// a un endroit pour l'original, a deux pour la variante de rechange.
+template <Hub75Config Cfg>
+void Hub75Driver<Cfg>::regler_decalage(uint shamt)
+{
+    if constexpr (AVEC_RECHANGE)
+        hub75_bitplane_setup_rechange_set_shift(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read, shamt);
+    else
+        hub75_bitplane_setup_set_shift(pio_config_.pio_read, pio_config_.sm_read, pio_config_.offs_read, shamt);
 }
 
 // Configures multiple DMA channels to transfer pixel data, dummy pixel data, and output

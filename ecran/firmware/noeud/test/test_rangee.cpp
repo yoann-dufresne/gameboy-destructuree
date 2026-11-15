@@ -45,6 +45,7 @@ struct Noeud {
     rangee::Rangee r;
     uint32_t erreurs = 0;
     int validations = 0;
+    int pixels_dans_valide = 0; /* PIXELS appliqués au tampon encore validé */
     std::vector<uint8_t> derniere; /* copie du dernier tampon validé */
 
     Noeud(uint16_t w, uint16_t h)
@@ -73,6 +74,8 @@ struct Noeud {
             }
             const auto effet = r.appliquer(e, reinterpret_cast<const uint8_t *>(msg) +
                                                   sizeof(liaison::Entete));
+            if (e.type == liaison::PIXELS && r.valide() == (e.tampon & 1))
+                ++pixels_dans_valide;
             if (effet == rangee::Effet::VALIDATION) {
                 ++validations;
                 const int b = r.valide();
@@ -291,6 +294,29 @@ int main() {
         t.corrompre = -1;
         t.image_complete(g, octets, 1400);
         VERIFIER(n.r.valide() >= 0, "l'image suivante n'est pas validée");
+    }
+
+    /* La tête abandonne une image validée (un autre nœud en retard) et reprend
+     * son tampon pour la suivante : dès la première tranche réécrite, l'image
+     * abandonnée ne doit plus être publiable. Sans VSYNC (mode secours), le
+     * nœud publierait sinon un tampon à moitié réécrit. */
+    std::printf("\nImage abandonnée, tampon repris :\n");
+    {
+        Noeud n(64, 64);
+        Tete t{{64, 64, 64}, {&n}};
+        t.hello();
+        decoupe::Geometrie g;
+        decoupe::placer(t.c, 64, 64, 4, g);
+        std::vector<uint8_t> a(g.taille, 1), b(g.taille, 2);
+        t.image_complete(g, a, 1400);
+        VERIFIER(n.r.valide() == 0, "image A non validée");
+        t.tampon ^= 1u; /* pas de VSYNC : la tête reprend le même tampon */
+        t.image_complete(g, b, 1400);
+        std::printf("    pixels écrits dans un tampon encore validé : %d, périmées %u\n",
+                    n.pixels_dans_valide, n.r.stats().perimees);
+        VERIFIER(n.pixels_dans_valide == 0, "tampon validé réécrit sans être invalidé");
+        VERIFIER(n.r.stats().perimees == 1, "image abandonnée non comptée");
+        VERIFIER(n.r.valide() == 0 && n.derniere[0] == 2, "l'image B n'est pas validée");
     }
 
     /* Vecteur de référence du CRC-16/CCITT-FALSE. */

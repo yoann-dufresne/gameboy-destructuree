@@ -8,6 +8,8 @@ add_library(hub75_jupfu STATIC
 )
 
 pico_generate_pio_header(hub75_jupfu ${CMAKE_CURRENT_LIST_DIR}/src/hub75.pio)
+# Ajout local : variante qui double G1 sur une broche de rechange (PROVENANCE.txt).
+pico_generate_pio_header(hub75_jupfu ${CMAKE_CURRENT_LIST_DIR}/src/hub75_rechange.pio)
 
 target_include_directories(hub75_jupfu PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 

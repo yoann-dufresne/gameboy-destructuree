@@ -1,0 +1,128 @@
+;
+; AJOUT LOCAL (29/10/2026) — voir PROVENANCE.txt. Pas un fichier de l'amont.
+;
+; G1 doublé sur une broche de rechange, pour un Pico dont la sortie GP1 est
+; morte. Le PIO n'écrit les couleurs que sur 6 broches CONTIGUËS (`out pins, 6`),
+; et les broches voisines GP6-GP13 sont tenues par hub75_row dans le même bloc
+; PIO : impossible d'élargir la fenêtre. La copie de G1 voyage donc dans les
+; 2 bits de bourrage de chaque octet de plan, et le flux la pose par
+; `set pins` sur la broche de rechange, choisie par un saut calculé (`out pc`).
+;
+; Les deux programmes remplacent ensemble hub75_bitplane_setup et
+; hub75_bitplane_stream. GP1 reste commandé comme avant : un Pico sain peut
+; garder G1 sur GP1, un Pico abîmé le prend sur la broche de rechange, avec le
+; même firmware.
+;
+.pio_version 0
+
+
+; =============================================================================
+; PROGRAM: hub75_bitplane_setup_rechange
+; =============================================================================
+; hub75_bitplane_setup déroulé (plus de boucle sur x), qui recopie G haut dans
+; les bits 6 et 7 au lieu de les laisser à zéro :
+;   octet = [G0 G0 B1 G1 R1 B0 G0 R0]   (bit 7 … bit 0)
+; Deux instructions à patcher par plan (shift0, shift1) au lieu d'une.
+;
+.program hub75_bitplane_setup_rechange
+.define BITPLANES 10
+
+.wrap_target
+public shift0:
+    pull                     ; mot du pixel haut ; patché en `out null, n`
+    in osr, 1                ; R haut -> bit 0
+    out null, BITPLANES
+    in osr, 1                ; G haut -> bit 1
+    mov y, osr               ; G haut gardé pour les bits 6 et 7
+    out null, BITPLANES
+    in osr, 1                ; B haut -> bit 2
+    out null, 32
+public shift1:
+    pull                     ; mot du pixel bas ; patché en `out null, n`
+    in osr, 1                ; R bas  -> bit 3
+    out null, BITPLANES
+    in osr, 1                ; G bas  -> bit 4
+    out null, BITPLANES
+    in osr, 1                ; B bas  -> bit 5
+    out null, 32
+    in y, 1                  ; G haut -> bit 6
+    in y, 1                  ; G haut -> bit 7 ; 4 octets : poussée automatique
+.wrap
+
+% c-sdk {
+static inline void hub75_bitplane_setup_rechange_program_init(PIO pio, uint sm, uint offset) {
+    pio_sm_config c = hub75_bitplane_setup_rechange_program_get_default_config(offset);
+    sm_config_set_out_shift(&c, true, true, 32);
+    sm_config_set_in_shift(&c, true, true, 32);
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_exec(pio, sm, offset);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline void hub75_bitplane_setup_rechange_set_shift(PIO pio, uint sm, uint offset, uint shamt) {
+    (void)sm;
+    const uint16_t instr = shamt == 0 ? pio_encode_pull(false, true) : pio_encode_out(pio_null, shamt);
+    pio->instr_mem[offset + hub75_bitplane_setup_rechange_offset_shift0] = instr;
+    pio->instr_mem[offset + hub75_bitplane_setup_rechange_offset_shift1] = instr;
+}
+%}
+
+
+; =============================================================================
+; PROGRAM: hub75_bitplane_stream_rechange
+; =============================================================================
+; hub75_bitplane_stream, plus la broche de rechange (SET, 1 broche).
+;
+; Par pixel, 9 cycles comme l'original, CLK bas 5 cycles puis haut 4 :
+;   out pins, 6   R0 G0 B0 R1 G1 B1 sur GP0..GP5        CLK bas
+;   out pc, 2     bits 6-7 = G haut, doublé : saut en 0 ou en 3
+;   set pins, G   copie de G haut sur la broche de rechange, 3 cycles avant le front
+;   jmp x--       CLK haut : la dalle échantillonne
+;
+; `out pc` saute à une adresse ABSOLUE : le programme doit être chargé à
+; l'adresse 0 du bloc PIO (.origin 0).
+;
+.program hub75_bitplane_stream_rechange
+.side_set 1
+.origin 0
+
+    set pins, 0    [2]  side 0     ; 0 : G haut = 0
+    jmp x-- pixel  [3]  side 1     ; 1 : CLK ↑
+    jmp fin             side 0     ; 2 : rangée finie (après un G à 0)
+    set pins, 1    [2]  side 0     ; 3 : G haut = 1
+    jmp x-- pixel  [3]  side 1     ; 4 : CLK ↑ ; rangée finie : on tombe sur `fin`
+fin:
+    irq nowait 0        side 0     ; prévient hub75_row : la rangée est chargée
+public entree:
+    mov x, y            side 0     ; largeur - 1
+    wait 1 irq 1        side 0     ; attend la demande de hub75_row
+pixel:
+    out pins, 6         side 0
+    out pc, 2           side 0
+
+% c-sdk {
+static inline void hub75_bitplane_stream_rechange_program_init(PIO pio, uint sm, uint offset, uint rgb_base_pin, uint clock_pin, uint rechange_pin, uint panel_width)
+{
+    pio_sm_set_consecutive_pindirs(pio, sm, rgb_base_pin, 6, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clock_pin, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, rechange_pin, 1, true);
+    for (uint i = rgb_base_pin; i < rgb_base_pin + 6; ++i)
+        pio_gpio_init(pio, i);
+    pio_gpio_init(pio, clock_pin);
+    pio_gpio_init(pio, rechange_pin);
+
+    pio_sm_config c = hub75_bitplane_stream_rechange_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, rgb_base_pin, 6);
+    sm_config_set_set_pins(&c, rechange_pin, 1);
+    sm_config_set_sideset_pins(&c, clock_pin);
+    sm_config_set_out_shift(&c, true, true, 8);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    pio_sm_init(pio, sm, offset + hub75_bitplane_stream_rechange_offset_entree, &c);
+
+    // Comme l'original : y = largeur - 1, injecté avant le démarrage.
+    pio_sm_exec(pio, sm, pio_encode_out(pio_y, 32));
+    pio_sm_put(pio, sm, panel_width - 1);
+
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

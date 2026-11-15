@@ -68,6 +68,22 @@
  * de bits prend jusqu'à ~17 ms pour une rangée de 192×64 (plan §2.2 bis). */
 #define GARDE_RDY_US 40000
 
+/* Un nœud qui fait abandonner autant d'images DE SUITE est écarté : la tête
+ * ne l'attend plus, et les autres rangées continuent. Il revient dès qu'il
+ * lève RDY, c'est-à-dire dès qu'il a validé une image. Sans cela, un nœud
+ * débranché de son alimentation mais encore câblé (son RDY lu bas) figeait
+ * l'écran entier. 5 × 40 ms : 0,2 s de gel au plus. */
+#define ABANDONS_AVANT_ECART 5
+
+/* Écran noir quand la source se tait (29/10/2026) : sans une tranche d'image
+ * pendant ce délai — Game Boy éteinte, sniffer débranché, WiFi perdu —, la
+ * tête fait afficher du noir à tous les nœuds (EFFACER), au lieu de laisser
+ * la dernière image figée. Répété chaque seconde tant que la source se tait,
+ * pour un nœud qui redémarre entre-temps. La première image qui revient
+ * remplace le noir. Les paquets de commande (géométrie toutes les 2 s) ne
+ * comptent pas : ils continuent sans Game Boy. */
+#define NOIR_APRES_MS 1000
+
 /* ------------------------------------------------ mesure (phase 4, 5) */
 #define PIN_MESURE_IMAGE 17 /* bascule à chaque image complète */
 #define PIN_MESURE_RX    18 /* bascule au premier octet d'une image */

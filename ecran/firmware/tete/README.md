@@ -14,6 +14,11 @@ l'architecture est décrit dans le [README du module](../../README.md#architectu
   publiées par seconde, 0 erreur de CRC en 10 minutes. Reste la latence à l'analyseur ;
 - **réseau émis par l'écran depuis le 29/09/2026** : débit de la phase 5a à remesurer dans ce
   mode ;
+- **deux rangées de 3 dalles le 26/10/2026**, alimentées par la Game Boy : 59,7 images/s sur
+  chaque rangée, 0 erreur de liaison ;
+- **robuste aux débranchements depuis le 26/10/2026** : un nœud hors tension n'arrête plus que
+  sa rangée, et la tête coupée puis rallumée retrouve sniffer et nœuds sans intervention
+  ([`JOURNAL.md`](JOURNAL.md)) ;
 - **à venir, décision du 11/10/2026** : dans l'installation, la tête rejoindra en station le
   réseau « image » émis par le sniffer ([`reseau.md`](../../../reseau.md)). Rien n'est changé
   avant le banc de coexistence.
@@ -92,11 +97,27 @@ pixels qu'il doit avoir reçus). Quand ce message a quitté la tête et que tous
 hauts, la tête impulse VSYNC : les nœuds publient ensemble. Un nœud qui n'a pas levé RDY au
 bout de 40 ms fait abandonner l'image à tous.
 
+Un nœud qui fait abandonner 5 images de suite (`ABANDONS_AVANT_ECART`) est **écarté** : la
+tête ne l'attend plus, les autres rangées continuent. Il revient dès qu'il lève RDY, c'est-à-
+dire dès qu'il a validé une image. C'est le cas d'un nœud hors tension mais encore câblé, dont
+le RDY est lu bas : sans cela, il figeait l'écran entier. Le rapport marque la liaison
+`ECARTE`.
+
 Cette boucle a son propre cœur, et ne prend jamais le verrou de lwIP : l'état des tampons et
 l'ajout d'un message dans un anneau ont chacun un verrou matériel, tenu quelques
 microsecondes. Seul l'accusé à l'émetteur passe par lwIP ; il part du cœur 0. La raison est
 mesurée, voir [`JOURNAL.md`](JOURNAL.md) : sous charge, la réception garde le verrou de lwIP
 jusqu'à 140 ms.
+
+## Écran noir quand la source se tait
+
+Sans une tranche d'image pendant 1 s (`NOIR_APRES_MS`), la tête envoie `EFFACER` à tous les
+nœuds, qui affichent du noir au lieu de figer la dernière image. Cela couvre la Game Boy
+éteinte, le sniffer débranché et le WiFi perdu. Les paquets de commande ne comptent pas : le
+sniffer renvoie sa géométrie toutes les 2 s, même sans Game Boy. `EFFACER` est répété chaque
+seconde tant que la source se tait, pour un nœud qui redémarre entre-temps. La première image
+qui revient remplace le noir. Le test et l'envoi se font sous le verrou de lwIP : un `EFFACER`
+ne peut pas tomber au milieu d'une image qui reprend.
 
 ## Tester la découpe sur PC
 

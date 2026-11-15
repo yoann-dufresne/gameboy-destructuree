@@ -99,6 +99,12 @@ uint32_t nb_offsets = 0;
 uint32_t pixels_image[NB_RANGEES];
 uint32_t segments_image = 0;
 
+/* Arrivée de la dernière tranche d'image acceptée, et écran mis au noir faute
+ * de source (NOIR_APRES_MS). Écrits par la réception et par l'entretien, tous
+ * deux sur le cœur 0. */
+volatile uint32_t t_derniere_tranche_ms = 0;
+volatile bool noir = false;
+
 /* Dernière géométrie vue, pour signaler un changement. */
 decoupe::Geometrie geo_connue;
 bool geo_a_signaler = false;
@@ -463,6 +469,8 @@ void recevoir_tranche(pbuf *p, const Tranche &t, const ip_addr_t *source, u16_t 
         });
     octets_image += t.charge;
     compteurs.octets += t.charge;
+    t_derniere_tranche_ms = to_ms_since_boot(get_absolute_time());
+    noir = false;
 
     if (octets_image < geo_courante.taille)
         return;
@@ -709,7 +717,28 @@ void entretenir_liaisons() {
         a_tous(liaison::PALETTE, palette, PXL2_PALETTE_OCTETS);
         cyw43_arch_lwip_end();
     }
+
+    /* Source muette : écran noir, puis rappel chaque seconde. Sous le verrou
+     * de lwIP, la réception ne peut pas glisser une tranche entre le test et
+     * l'envoi : un EFFACER n'efface jamais une image qui vient de reprendre. */
+    static uint32_t t_noir = 0;
+    bool extinction = false;
+    cyw43_arch_lwip_begin();
+    const uint32_t t = to_ms_since_boot(get_absolute_time()); /* après toute tranche déjà reçue */
+    if (t - t_derniere_tranche_ms >= NOIR_APRES_MS && (!noir || t - t_noir >= 1000u)) {
+        extinction = !noir;
+        if (extinction)
+            compteurs.extinctions++;
+        noir = true;
+        t_noir = t;
+        a_tous(liaison::EFFACER, nullptr, 0);
+    }
+    cyw43_arch_lwip_end();
+    if (extinction) /* hors verrou : la console USB peut bloquer */
+        printf("  plus d'image depuis %d ms : ecran noir\n", NOIR_APRES_MS);
 }
+
+bool ecran_noir() { return noir; }
 
 bool valider_prochaine(Validation &v) {
     if (!complete_en_attente)

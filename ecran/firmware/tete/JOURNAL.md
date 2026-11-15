@@ -164,3 +164,43 @@ et le tampon d'émission du noyau (≈ 200 ko par défaut) débordait au premier
 Le socket étant non bloquant, l'exception arrêtait l'émetteur. Tampon porté à 1 Mo ; un envoi
 refusé attend 50 ms que le tampon se vide, puis le paquet est abandonné et compté. Aucun
 abandon constaté ensuite, en 10 minutes.
+
+## Un nœud hors tension ne fige plus l'écran — 26/10/2026
+
+Exigence du jour : **l'écran reprend seul, quel que soit l'ordre des débranchements**. Côté
+tête, un blocage : un nœud débranché de son alimentation mais encore câblé peut présenter un
+RDY lu **bas** (la broche d'un RP2350 hors tension tire la ligne malgré le pull-up de la
+tête). La tête l'attendait alors à chaque image, abandonnait toutes les images au bout des
+40 ms de garde, et **les trois rangées** restaient figées tant qu'il n'était pas rallumé.
+
+Correction : un nœud qui fait abandonner `ABANDONS_AVANT_ECART` (5) images de suite, en ayant
+reçu son VALIDER, est **écarté** : la synchronisation ne l'attend plus. Il est réintégré dès
+qu'il lève RDY, c'est-à-dire dès qu'il a validé une image depuis le dernier VSYNC (qui
+l'abaisse). Un VALIDER encore dans l'anneau de la tête n'est pas imputé au nœud. Coût : 5 ×
+40 ms, soit 0,2 s de gel au plus. Le rapport l'affiche : `RDY bas ECARTE` sur la liaison, et
+une ligne `noeuds ecartes de la synchro : n, reintegres : m`.
+
+Éprouvé sur le montage (deux rangées de 3 dalles, Game Boy allumée), en lisant ensemble les
+consoles de la tête, des nœuds et du sniffer :
+
+| Test | Résultat |
+|---|---|
+| Tête reflashée en marche | nœuds sur leur mire, sniffer réassocié seul (il restait bloqué avant sa propre correction), deux rangées à 59,7 images/s ~33 s après la coupure |
+| USB du nœud 0 débranché, fils en place | RDY lu bas : 5 abandons, `L0 … ECARTE`, la rangée 1 continue (58 images/s) ; réintégré à son retour |
+| USB du nœud 1 débranché, fils en place | RDY lu **haut** cette fois : rien à écarter, la rangée 0 continue |
+| Fil VSYNC du nœud 1 retiré, puis remis | le nœud passe en mode secours ([journal du nœud](../noeud/JOURNAL.md)) ; la tête n'est pas retenue |
+| Alimentation de la tête coupée 20 s | sniffer réassocié 7 s environ après son retour ; 597 images publiées sur 597, 0 abandon, nœuds à 59,7 images/s, 0 erreur |
+
+Après chaque test, aucun Pico n'a eu à être redémarré à la main.
+
+## Écran noir quand la Game Boy s'éteint — 29/10/2026
+
+Demande de Yoann : Game Boy éteinte, l'écran doit passer au noir au lieu de figer la dernière
+image. Sans tranche d'image pendant `NOIR_APRES_MS` (1 s), la tête envoie `EFFACER` à tous
+les nœuds, répété chaque seconde ; le nœud publie du noir à la réception. Voir le README.
+
+Éprouvé sur l'écran complet, consoles écoutées en direct : Game Boy éteinte, la tête annonce
+« plus d'image depuis 1000 ms : ecran noir ». Chaque nœud reçoit 4 `EFFACER` (un par seconde)
+et ne publie le noir qu'une fois. L'écran est vu noir, puis l'image revient seule au rallumage.
+Au retour, une image abandonnée et deux supplantées, le temps que la source reparte ; aucune
+erreur de liaison.

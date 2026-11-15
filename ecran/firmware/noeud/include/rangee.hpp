@@ -30,6 +30,7 @@ struct Stats {
     uint32_t format_inconnu;
     uint32_t validations;    /* VALIDER acceptés */
     uint32_t refus;          /* VALIDER refusés : pixels manquants */
+    uint32_t perimees;       /* images validées puis réécrites avant leur VSYNC */
     uint32_t effacements;
     uint32_t hellos;
 };
@@ -119,6 +120,14 @@ private:
         if (image_[b] != e.image) {
             image_[b] = e.image; /* première tranche de cette image ici */
             recus_[b] = 0;
+            /* Une image validée dont le tampon reçoit une autre image ne sera
+             * jamais publiée : la tête l'a abandonnée (un nœud en retard) et a
+             * repris le tampon. La garder validée exposerait un tampon à moitié
+             * réécrit à toute publication sans VSYNC (mode secours). */
+            if (valide_ == b) {
+                valide_ = -1;
+                stats_.perimees++;
+            }
         }
         recus_[b] += e.n;
         stats_.pixels += e.n;

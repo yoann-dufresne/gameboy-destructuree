@@ -17,7 +17,7 @@ Le pilote est compilé avec USE_PICO_GRAPHICS=0, ce qui neutralise la seule
 dépendance à Pimoroni (la surcharge update(PicoGraphics*)). On alimente le
 pilote par update_bgr(const uint8_t*).
 
-Fichiers non modifiés. Le src/hub75.pio dérive lui-même de l'exemple
+Fichiers de l'amont non modifiés, hors les ajouts locaux listés plus bas. Le src/hub75.pio dérive lui-même de l'exemple
 pio/hub75 de raspberrypi/pico-examples (BSD-3-Clause, Copyright (c) 2020
 Raspberry Pi (Trading) Ltd.), mention conservée dans son en-tête.
 
@@ -45,3 +45,31 @@ Nous publions a l'arrivee du dernier paquet reseau, donc par rafales : d'ou
 la necessite de savoir si une construction est en cours.
 
 L'ajout est purement passif : il n'altere aucun comportement du pilote.
+
+------------------------------------------------------------------------
+MODIFICATIONS LOCALES (29/10/2026) — G1 de rechange
+
+Pour un Pico dont la sortie GP1 (G1) est morte : le pilote peut recopier G1
+sur une seconde broche, choisie par Hub75PinConfig::g1_rechange_pin. Valeur
+par defaut HUB75_SANS_RECHANGE : pilote d'origine, programmes d'origine.
+
+  src/hub75_rechange.pio — nouveau fichier : variantes de
+                           hub75_bitplane_setup (G haut recopie dans les
+                           2 bits de bourrage de chaque octet) et de
+                           hub75_bitplane_stream (pose cette copie par
+                           `set pins` apres un saut calcule `out pc`, a
+                           9 cycles par pixel comme l'original)
+  hub75-jupfu.cmake      — en-tete PIO du nouveau fichier
+  include/hub75.hpp      — champ g1_rechange_pin, constante
+                           HUB75_SANS_RECHANGE, choix des programmes
+                           (AVEC_RECHANGE, PROGRAMME_FLUX, PROGRAMME_PLANS),
+                           inclusion des en-tetes PIO
+  include/hub75.tpp      — configure_pio() charge et initialise la variante ;
+                           les deux patchs de decalage passent par
+                           regler_decalage()
+
+Pourquoi pas autrement : `out pins, 6` impose 6 broches contigues, et les
+voisines GP6-GP13 appartiennent a hub75_row dans le meme bloc PIO ; deplacer
+le groupe entier aurait demande de recabler une dizaine de fils.
+La variante de flux est chargee a l'adresse 0 de son bloc (.origin 0), car
+`out pc` saute a une adresse absolue.

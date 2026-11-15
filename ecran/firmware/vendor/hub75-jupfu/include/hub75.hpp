@@ -11,6 +11,10 @@
 #include "pico/critical_section.h"
 #include "pico/time.h"
 
+// AJOUT LOCAL : les programmes PIO sont nommes dans la classe (variante de rechange).
+#include "hub75.pio.h"
+#include "hub75_rechange.pio.h"
+
 #ifndef USE_PICO_GRAPHICS
 #define USE_PICO_GRAPHICS true
 #endif
@@ -120,7 +124,14 @@ struct Hub75PinConfig
     uint32_t clk_pin = 11;
     uint32_t strobe_pin = 12;
     uint32_t oen_pin = 13;
+    // AJOUT LOCAL (voir PROVENANCE.txt) — broche qui recoit une copie de G1
+    // (vert de la moitie haute), pour un Pico dont la sortie G1 est morte.
+    // HUB75_SANS_RECHANGE : pilote d'origine, inchange.
+    uint32_t g1_rechange_pin = 0xFFFFFFFFu;
 };
+
+// AJOUT LOCAL — valeur de g1_rechange_pin qui laisse le pilote d'origine.
+inline constexpr uint32_t HUB75_SANS_RECHANGE = 0xFFFFFFFFu;
 
 // Bit depth and color correction.
 //
@@ -324,6 +335,16 @@ public:
     bool occupe() const { return build_actif_; }
 
 private:
+    // AJOUT LOCAL (voir PROVENANCE.txt) — G1 double sur une broche de rechange :
+    // programmes de plans et de flux remplaces par leurs variantes de
+    // src/hub75_rechange.pio.
+    static constexpr bool AVEC_RECHANGE = Cfg.pins.g1_rechange_pin != HUB75_SANS_RECHANGE;
+    static constexpr const pio_program_t &PROGRAMME_FLUX =
+        AVEC_RECHANGE ? hub75_bitplane_stream_rechange_program : hub75_bitplane_stream_program;
+    static constexpr const pio_program_t &PROGRAMME_PLANS =
+        AVEC_RECHANGE ? hub75_bitplane_setup_rechange_program : hub75_bitplane_setup_program;
+    void regler_decalage(uint shamt);
+
     // --- panel/addressing constants -----------------------------------------------------------
     static constexpr uint32_t ADDR_PINS = Cfg.pins.rowsel_n_pins;
     static constexpr uint32_t ADDR_MASK = (1u << ADDR_PINS) - 1u;

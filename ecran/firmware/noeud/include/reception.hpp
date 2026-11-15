@@ -18,13 +18,15 @@ struct Stats {
     uint32_t messages;
     uint64_t octets;
     uint32_t erreurs;    /* en-tête impossible ou CRC faux */
+    uint32_t inacheves;  /* message entamé resté incomplet : alignement perdu */
     uint32_t resynchros;
 };
 
 void init();
 
 /* Extrait le prochain message complet. ERREUR : la réception est déjà
- * resynchronisée quand cette fonction rend la main. */
+ * resynchronisée quand cette fonction rend la main. Un message entamé qui
+ * reste incomplet plus de MESSAGE_INACHEVE_US est traité de même. */
 liaison::Lecteur::Resultat lire(uint32_t *message, liaison::Entete &e);
 
 const Stats &stats();

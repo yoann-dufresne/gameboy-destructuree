@@ -42,6 +42,7 @@ struct Stats {
     uint32_t supplantees_reception, supplantees_validation;
     uint32_t relais_perdus;    /* images perdues : un anneau de liaison plein */
     uint32_t deconnexions, reconnexions;
+    uint32_t extinctions;      /* passages à l'écran noir : source muette */
 };
 
 /* Associe au WiFi et arme la réception. Faux si l'association échoue. */
@@ -65,8 +66,12 @@ struct Image {
 void annoncer();
 
 /* HELLO toutes les secondes, palette toutes les 2 s : un nœud qui redémarre
- * retrouve seul sa rangée et ses couleurs. Ne bloque jamais. */
+ * retrouve seul sa rangée et ses couleurs. Et, la source muette depuis
+ * NOIR_APRES_MS, EFFACER chaque seconde : écran noir. Ne bloque jamais. */
 void entretenir_liaisons();
+
+/* Vrai tant que l'écran est mis au noir faute de source. */
+bool ecran_noir();
 
 /* Une image validée auprès des nœuds : VALIDER est parti sur chaque liaison. */
 struct Validation {

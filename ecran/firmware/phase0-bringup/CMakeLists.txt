@@ -30,3 +30,11 @@ pico_generate_pio_header(phase0_diag_adresse ${CMAKE_CURRENT_LIST_DIR}/hub75.pio
 
 # 3. Diagnostic : continuite fil par fil, au multimetre
 ecran_cible(phase0_walk_gpio walk_gpio.c)
+
+# 4. Diagnostic : trois niveaux fixes sur R1, G1, B1, au multimetre
+ecran_cible(phase0_niveaux_rgb1 niveaux_rgb1.c)
+target_link_libraries(phase0_niveaux_rgb1 PRIVATE hardware_pwm)
+
+# 5. Diagnostic : autotest des broches (tenue a la masse, sortie qui ne descend
+#    plus, ponts de soudure), verdict sur la console, sans multimetre
+ecran_cible(phase0_test_broches test_broches.c)

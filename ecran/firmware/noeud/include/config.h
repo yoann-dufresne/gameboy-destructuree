@@ -18,6 +18,15 @@
 #define PIN_LAT         12
 #define PIN_OE          13  /* actif bas */
 
+/* Broche de rechange de G1 (29/10/2026). Le pilote y recopie G1 en permanence,
+ * en plus de GP1 : sur un Pico dont la sortie GP1 est morte, on déplace le seul
+ * fil du trou 2 de la nappe de la patte 2 (GP1) à la patte 20 (GP15), sans
+ * changer de firmware. GP15 est la seule broche libre du côté des fils de la
+ * dalle : GP14 et GP16 sont RDY et VSYNC de la liaison. Le nœud vérifie GP0 à
+ * GP13 au démarrage et désigne la broche à déplacer (rapport toutes les 10 s). */
+#define PIN_G1_RECHANGE   15
+#define PATTE_G1_RECHANGE 20  /* numéro de patte du Pico, pour les messages */
+
 /* ------------------------------------------------ liaison (plan §2.6) */
 /* D0, D1, CLK, CS sur quatre GPIO contigus : `in pins, 2`, et CLK et CS lus
  * par `wait pin` relativement à la même base. */
@@ -32,7 +41,11 @@
 /* ------------------------------------------------------------- géométrie */
 #define PANEL_W      64
 #define PANEL_H      64
-#define CHAIN_LEN     1  /* dalles par chaîne — 1 au banc de la phase 5b, 3 en 5c */
+/* Dalles par chaîne : 1 au banc de la phase 5b, 3 en 5c. Option CMake du même
+ * nom (-DCHAIN_LEN=3), pour construire les deux sans toucher à ce fichier. */
+#ifndef CHAIN_LEN
+#define CHAIN_LEN     1
+#endif
 
 #define DISPLAY_W  (PANEL_W * CHAIN_LEN)
 #define DISPLAY_H   PANEL_H
@@ -49,3 +62,16 @@
 /* Sans message de la tête pendant ce délai, le nœud affiche sa mire
  * « pas de liaison ». La tête envoie un HELLO par seconde. */
 #define SILENCE_MS 2500
+
+/* Mode secours : après autant d'images validées sans un seul VSYNC (fil VSYNC
+ * débranché, tête qui abandonne tout), le nœud publie lui-même chaque image
+ * validée et tient RDY haut pour ne pas retenir les autres rangées. Le premier
+ * VSYNC l'en fait sortir. 8 images : ~0,13 s à 60 images/s, au-delà des
+ * 5 abandons qui font écarter un nœud en retard côté tête. */
+#define VALIDATIONS_AVANT_SECOURS 8
+
+/* Un message entamé dans l'anneau et toujours incomplet après ce délai trahit
+ * une perte d'alignement (tête redémarrée en plein message) : la réception
+ * repart d'un début de message. Un message plein passe en 0,35 ms à 16 MHz,
+ * en 5,6 ms à 1 MHz. */
+#define MESSAGE_INACHEVE_US 20000

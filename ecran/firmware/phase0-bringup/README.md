@@ -1,13 +1,13 @@
 # Phase 0 — validation du câblage
 
-Trois petits programmes pour vérifier qu'un Pico 2 W est correctement câblé à une dalle HUB75
+Quelques petits programmes pour vérifier qu'un Pico 2 W est correctement câblé à une dalle HUB75
 64 × 64, avant d'écrire le moindre pilote. Aucun réseau, aucun `secrets.h`.
 
 ## Construire
 
 Procédure générique : [README du module](../../README.md#construire-flasher-observer). La
-construction produit trois cibles : `phase0_bringup.uf2`, `phase0_diag_adresse.uf2` et
-`phase0_walk_gpio.uf2`. Le programme PIO `hub75.pio` est celui de `pico-examples`, repris sans
+construction produit cinq cibles : `phase0_bringup.uf2`, `phase0_diag_adresse.uf2`,
+`phase0_walk_gpio.uf2`, `phase0_niveaux_rgb1.uf2` et `phase0_test_broches.uf2`. Le programme PIO `hub75.pio` est celui de `pico-examples`, repris sans
 modification ([`PROVENANCE.txt`](PROVENANCE.txt)). L'exemple d'origine n'a pas été utilisé tel
 quel : il affiche une image de 128 × 64 qu'on ne peut pas simplement recadrer, et une photo ne
 dit pas quel fil est mal branché.
@@ -64,3 +64,35 @@ s'allume pendant le test.
 
 Fil coupé : 0 V. Fils inversés : 3,3 V sur la mauvaise broche. Court-circuit : 3,3 V sur deux
 broches.
+
+## `phase0_niveaux_rgb1` — trois niveaux fixes, sans suivre la console
+
+Pour une moitié de dalle allumée d'une couleur en continu. Le programme fixe trois niveaux
+différents, LED éteintes (/OE haut) : R1 (GP0, trou 1) ≈ 1,6 V (signal carré à 50 %, que le
+multimètre moyenne), **G1 (GP1, trou 2) à 0 V**, B1 (GP2, trou 3) à 3,3 V. On mesure côté
+Pico (broches 1, 2, 4) puis côté dalle : un écart entre les deux désigne le fil, un mauvais
+niveau dès le Pico désigne le Pico. G1 est à 0 V exprès : une broche qui ne sait plus
+redescendre ne se voit qu'ainsi. Le 26/10/2026, il a désigné un Pico dont GP1 restait à 2,6 V
+même débranché.
+
+## `phase0_test_broches` — autotest des broches, sans multimètre
+
+Le Pico se teste seul, nappe débranchée, et rend son verdict sur la console USB chaque seconde.
+Pour chaque broche libre (GP0-22, GP26-28), il vérifie trois choses :
+
+- au repos, tirée vers le haut, elle ne doit pas être tenue à la masse ;
+- commandée à 0, elle doit se relire à 0, à 2 mA puis à 12 mA ;
+- commandée à 1, elle doit se relire à 1.
+
+Toute autre broche qui suit une broche commandée à 0 lui est reliée : c'est un pont de soudure.
+
+La relecture se fait dans la puce : l'autotest ne voit pas une patte mal soudée. Pour éprouver
+une patte, posez un fil entre elle et une voisine. La liaison doit apparaître, et chaque paire
+reliée est basculée des milliers de fois par seconde ; une bascule ratée en remuant la patte
+trahit une soudure capricieuse.
+
+Le 29/10/2026, sur le Pico écarté pour GP1, le défaut a été localisé dans le RP2350, après que
+la patte avait été ressoudée : GP1 commandé à 0, même à 12 mA, se relit à 1 à chaque tour. Il
+sait monter à 1, mais ne redescend plus. Comme l'autotest laisse les broches tirées vers le
+haut, il voit ce défaut. Un contrôle qui partirait de 0 avec le tirage par défaut (vers le
+bas) le manquerait.

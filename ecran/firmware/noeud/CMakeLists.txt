@@ -47,4 +47,21 @@ target_link_libraries(noeud PRIVATE
 pico_enable_stdio_usb(noeud 1)
 pico_enable_stdio_uart(noeud 0)
 
+# Dalles par chaine : 1 au banc de la phase 5b, 3 en 5c (-DCHAIN_LEN=3).
+set(CHAIN_LEN 1 CACHE STRING "Nombre de dalles de la chaine")
+# Diviseur de l'horloge pixel, fractionnaire possible : 1 = 29,6 MHz, 1.25 = 23,7 MHz,
+# 1.5 = 19,7 MHz, 2 = 14,8 MHz. Mesure du 26/10/2026 sur une chaine de 3 dalles :
+# net jusqu'a 23,7 MHz, parasites a 26,9 MHz, image detruite a 29,6. Une dalle
+# seule reste nette a 29,6 MHz (16/09/2026).
+if(CHAIN_LEN GREATER 1)
+    set(HUB75_CLKDIV_DEFAUT 1.5)
+else()
+    set(HUB75_CLKDIV_DEFAUT 1)
+endif()
+set(HUB75_CLKDIV ${HUB75_CLKDIV_DEFAUT} CACHE STRING "Diviseur de l'horloge pixel des dalles")
+# Mire d'attente remplacee par des bandes de couleur : diagnostic des colonnes.
+option(MIRE_COLONNES "Mire de diagnostic des colonnes" OFF)
+target_compile_definitions(noeud PRIVATE CHAIN_LEN=${CHAIN_LEN} HUB75_CLKDIV=${HUB75_CLKDIV}
+    MIRE_COLONNES=$<BOOL:${MIRE_COLONNES}>)
+
 pico_add_extra_outputs(noeud)

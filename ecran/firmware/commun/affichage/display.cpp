@@ -26,6 +26,13 @@ namespace {
  *     DISPLAY_HEIGHT = matrix_panel_height * chain_rows
  * C'est donc `chain_cols` qui compte l'horizontale. On suit le code, pas le
  * commentaire. Sans effet tant que CHAIN_LEN vaut 1, déterminant en phase 5. */
+/* Diviseur de l'horloge pixel (clk_sys / 9 / diviseur). 1 = 29,6 MHz, mesuré net
+ * sur une dalle seule ; une chaîne de 3 ajoute deux étages de tampons et peut
+ * exiger moins (plan §2.2). Option CMake HUB75_CLKDIV du nœud. */
+#ifndef HUB75_CLKDIV
+#define HUB75_CLKDIV 1.0
+#endif
+
 constexpr Hub75Config CFG = {
     .panel = {
         .matrix_panel_width = PANEL_W,
@@ -36,7 +43,7 @@ constexpr Hub75Config CFG = {
         .panel_kind = RowMapping::Standard, /* scan 1/32, deux lignes allumées */
         .panel_chip = Hub75PanelChip::GENERIC,
         .inverted_stb = false,
-        .sm_clockdiv_factor = 1.0f,
+        .sm_clockdiv_factor = static_cast<float>(HUB75_CLKDIV),
         .base_latch_ns = 80,
         .base_addr_ns = 160,
     },
@@ -51,6 +58,9 @@ constexpr Hub75Config CFG = {
         .clk_pin = PIN_CLK,
         .strobe_pin = PIN_LAT,
         .oen_pin = PIN_OE,
+#ifdef PIN_G1_RECHANGE
+        .g1_rechange_pin = PIN_G1_RECHANGE, /* G1 recopié sur une seconde broche */
+#endif
     },
     .color = {
         .bitplanes = BCM_PLANES,

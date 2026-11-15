@@ -7,6 +7,7 @@
 
 #include "hardware/dma.h"
 #include "hardware/pio.h"
+#include "hardware/timer.h"
 
 #include "lien_rx.pio.h"
 
@@ -25,6 +26,7 @@ uint sm, offset;
 uint dma;
 liaison::Lecteur lecteur(anneau, ANNEAU_MOTS);
 reception::Stats compteurs{};
+uint64_t t_entame_us = 0; /* des mots attendent sans former de message : depuis quand */
 
 /* Position, en mots, où le DMA écrira le prochain mot. */
 uint32_t ecriture() {
@@ -75,13 +77,29 @@ void init() {
 }
 
 liaison::Lecteur::Resultat lire(uint32_t *message, liaison::Entete &e) {
-    const auto r = lecteur.lire(ecriture(), message, e);
+    const uint32_t w = ecriture();
+    const auto r = lecteur.lire(w, message, e);
     if (r == liaison::Lecteur::Resultat::MESSAGE) {
         compteurs.messages++;
         compteurs.octets += liaison::mots(e.lg) * 4u;
+        t_entame_us = 0;
     } else if (r == liaison::Lecteur::Resultat::ERREUR) {
         compteurs.erreurs++;
         resynchroniser();
+        t_entame_us = 0;
+    } else if (((w - lecteur.position()) & (ANNEAU_MOTS - 1u)) == 0) {
+        t_entame_us = 0; /* rien en attente : la nappe est au repos */
+    } else if (t_entame_us == 0) {
+        t_entame_us = time_us_64();
+    } else if (time_us_64() - t_entame_us > MESSAGE_INACHEVE_US) {
+        /* La tête envoie chaque message d'un trait : des mots qui attendent
+         * encore la suite au bout de ce délai sont un faux début de message,
+         * lu après une perte d'alignement. Sans cela, la réception attendait
+         * jusqu'à 1 400 octets de plus : plus d'une minute quand seuls les
+         * HELLO circulent. */
+        compteurs.inacheves++;
+        resynchroniser();
+        t_entame_us = 0;
     }
     return r;
 }
