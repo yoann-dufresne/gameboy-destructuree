@@ -6,3 +6,6 @@
 .idea/
 .DS_Store
 *.swp
+
+# Marqueurs de téléchargement que Windows laisse à côté des fichiers copiés
+*Zone.Identifier

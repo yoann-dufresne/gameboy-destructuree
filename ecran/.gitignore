@@ -20,3 +20,10 @@ __pycache__/
 
 # Identifiants WiFi : jamais versionnés
 secrets.h
+
+# KiCad : sauvegardes et état local
+*-backups/
+_autosave-*
+*.kicad_prl
+*.lck
+fp-info-cache
