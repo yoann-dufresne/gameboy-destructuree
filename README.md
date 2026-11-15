@@ -26,6 +26,16 @@ Sur la console, chaque module a son microcontrôleur, qui émet son propre rése
 quatre écrans, haut-parleurs ou manettes s'y connectent en direct. Le plan d'ensemble est dans
 [`reseau.md`](reseau.md).
 
+## Installer les outils
+
+[`installer.sh`](installer.sh) installe, sur Ubuntu ou Debian, ce que tous les modules demandent :
+`arm-none-eabi-gcc`, CMake, Ninja, `g++` pour les tests sur PC, le pico-sdk 2.3.1 dans
+`~/pico/pico-sdk`, picotool, les outils Python et `sigrok-cli`. Il se relance sans danger.
+
+Sous WSL2, l'USB passe par `usbipd-win` côté Windows ; le script affiche à la fin les commandes
+à y taper. Les `tools/flash.sh` des modules reconnaissent WSL2 : ils flashent par picotool si le
+Pico est attaché à WSL, sinon par le lecteur `RP2350` que voit Windows.
+
 ## Documents de conception
 
 | Document | Contenu |
