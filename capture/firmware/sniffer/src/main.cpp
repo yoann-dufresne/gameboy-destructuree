@@ -65,8 +65,12 @@ void afficher_stats() {
     printf("  trames           %6lu\n", (unsigned long)s.trames);
     printf("  lignes/trame     %6lu        (attendu %d)\n",
            (unsigned long)s.lignes_derniere, LIGNES_VISIBLES);
-    printf("  trames douteuses %6lu %s\n", (unsigned long)s.trames_douteuses,
-           s.trames_douteuses ? "  <-- lignes != 144" : "");
+    printf("  trames douteuses %6lu ", (unsigned long)s.trames_douteuses);
+    if (s.trames_douteuses)
+        printf("  <-- lignes != 144 (la derniere : %lu), rejetees\n",
+               (unsigned long)s.lignes_douteuse);
+    else
+        printf("\n");
     printf("  mots restants    %6lu %s\n", (unsigned long)s.mots_restants,
            s.mots_restants ? "  <-- fronts d'horloge pixel manquants" : "");
     printf("  trames incompl.  %6lu %s\n", (unsigned long)s.trames_incompletes,
@@ -76,7 +80,7 @@ void afficher_stats() {
     printf("  trames rejetees  %6lu        (mal capturees : ni emises ni publiees)\n",
            (unsigned long)s.rejetees);
     printf("  debordements FIFO%6lu %s\n", (unsigned long)s.debordements,
-           s.debordements ? "  <-- le DMA ne suit pas" : "");
+           s.debordements ? "  <-- trop de pixels pour la trame (trop de lignes ?)" : "");
     printf("  trames perdues   %6lu        (non lues par la boucle)\n",
            (unsigned long)s.perdues);
     printf("  tranches perdues %6lu %s\n", (unsigned long)s.tranches_perdues,

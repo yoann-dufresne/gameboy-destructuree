@@ -54,6 +54,15 @@ bool associe = false;
 bool association_en_cours = false;
 char ip_texte[16] = "0.0.0.0";
 uint32_t t_surveillance_ms = 0;
+uint32_t t_debut_association_ms = 0;
+
+/* Le récepteur répond-il ? Relevé par surveiller_lien(), une fois par
+ * seconde : de quoi voir un lien que le pilote croit vivant alors que le
+ * récepteur nous a oubliés. */
+bool accuse_depuis_association = false;
+uint32_t accuses_vus = 0;
+uint32_t trames_au_dernier_accuse = 0;
+uint32_t t_dernier_accuse_ms = 0;
 
 Stats compteurs{};
 
@@ -415,8 +424,37 @@ void surveiller_lien() {
             noter_ip();
             associe = true;
             association_en_cours = false;
+            accuse_depuis_association = false;
+            t_dernier_accuse_ms = maintenant;
             compteurs.reconnexions++;
             printf("\n  reseau RETABLI : %s\n", ip_texte);
+        }
+
+        /* Filet de bout en bout, ajouté le 26/10/2026 : un récepteur qui a
+         * déjà accusé des trames et n'en accuse plus aucune depuis
+         * SILENCE_ACCUSES_MS, alors qu'elles partent, nous a oubliés — la
+         * tête a redémarré sans que le pilote voie tomber le lien. On se
+         * réassocie. Un récepteur qui n'accuse jamais (un PC qui ne fait
+         * qu'afficher) ne déclenche rien, ni une console éteinte. */
+        constexpr uint32_t SILENCE_ACCUSES_MS = 10000;
+        constexpr uint32_t TRAMES_SANS_ACCUSE = 60; /* une seconde d'émission */
+        if (compteurs.accuses != accuses_vus) {
+            accuses_vus = compteurs.accuses;
+            trames_au_dernier_accuse = compteurs.trames;
+            t_dernier_accuse_ms = maintenant;
+            accuse_depuis_association = true;
+        } else if (accuse_depuis_association &&
+                   compteurs.trames - trames_au_dernier_accuse > TRAMES_SANS_ACCUSE &&
+                   maintenant - t_dernier_accuse_ms > SILENCE_ACCUSES_MS) {
+            printf("\n  plus aucun accuse depuis %lu s alors que %lu trames sont parties :\n"
+                   "  le recepteur nous a oublies, on se reassocie\n",
+                   (unsigned long)((maintenant - t_dernier_accuse_ms) / 1000u),
+                   (unsigned long)(compteurs.trames - trames_au_dernier_accuse));
+            cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+            associe = false;
+            association_en_cours = false;
+            accuse_depuis_association = false;
+            compteurs.deconnexions++;
         }
         return;
     }
@@ -428,11 +466,26 @@ void surveiller_lien() {
                "  tentative de reassociation toutes les secondes\n", etat);
     }
 
-    /* CYW43_LINK_JOIN / NOIP : une association est déjà en cours, on attend.
-     * Les états négatifs sont des échecs : on relance. */
+    /* CYW43_LINK_JOIN / NOIP : une association est déjà en cours, on attend,
+     * mais pas plus de ATTENTE_ASSOCIATION_MS. Les états négatifs sont des
+     * échecs : on relance.
+     *
+     * ⚠️ Le délai de garde date du 26/10/2026. Quand le point d'accès
+     * disparaît (la tête de l'écran redémarre), le pilote baisse le lien mais
+     * laisse son état d'association à « actif » : il rapporte JOIN
+     * indéfiniment, et sans ce délai le sniffer attendait pour toujours. Il
+     * fallait le redémarrer à la main pour qu'il retrouve l'écran. */
+    constexpr uint32_t ATTENTE_ASSOCIATION_MS = 8000;
     if (etat == CYW43_LINK_JOIN || etat == CYW43_LINK_NOIP) {
-        association_en_cours = true;
-        return;
+        if (!association_en_cours) {
+            association_en_cours = true;
+            t_debut_association_ms = maintenant;
+        }
+        if (maintenant - t_debut_association_ms < ATTENTE_ASSOCIATION_MS)
+            return;
+        printf("  association bloquee depuis %lu s (etat %d) : on la relance\n",
+               (unsigned long)((maintenant - t_debut_association_ms) / 1000u), etat);
+        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
     }
     association_en_cours = false;
     cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD,

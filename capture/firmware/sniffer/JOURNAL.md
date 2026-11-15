@@ -520,3 +520,89 @@ après la modification, `sniffer.bin` est identique octet pour octet (même empr
 1,6 ms : 0,39 ms par paquet mesurées en phase 4 D, fois quatre. Il doit rester sous les
 3,8 ms qui séparent deux tranches, sinon la file déborde et des tranches se perdent.
 
+
+## Ne jamais rester bloqué : la tête de l'écran redémarre — 26/10/2026
+
+Exigence du jour, pour toute l'installation : **chaque maillon reprend seul, quel que soit
+l'ordre des débranchements**. Le sniffer en était le premier point faible.
+
+### Le sniffer attendait pour toujours une association qui ne venait pas
+
+La tête de l'écran débranchée puis rebranchée, le sniffer ne la retrouvait jamais : il fallait
+le redémarrer à la main. Cause, dans le pilote `cyw43` : quand le point d'accès disparaît,
+l'événement de lien baisse l'interface réseau mais laisse l'état d'association à « actif ».
+`cyw43_tcpip_link_status()` rend alors `CYW43_LINK_JOIN` indéfiniment, et `surveiller_lien()`
+prenait JOIN pour une association en cours, qu'il attendait sans jamais la relancer.
+
+Correction : JOIN ou NOIP plus de 8 s (`ATTENTE_ASSOCIATION_MS`) → `cyw43_wifi_leave()` puis
+nouvelle association. Si l'événement de désassociation arrive après la relance, l'état
+retombe à DOWN et la surveillance relance une fois de plus : le défaut se rattrape seul.
+Une association complète, DHCP compris, a pris 4,9 s dans ce montage.
+
+Mesuré, tête reflashée en pleine émission : lien vu perdu à 14,7 s, association relancée par
+le délai de garde à 22,7 s, `reseau RETABLI` à 27,6 s, deux rangées de nouveau à 59,7
+images/s. Entre-temps, la boucle a été bloquée ≈ 9,6 s dans l'émission
+(`[CYW43] STALL … timeout`, `send_ethernet failed`) : 575 trames non lues, sans autre
+conséquence, l'écran étant de toute façon éteint.
+
+### Un filet de bout en bout : les accusés
+
+Le pilote pourrait aussi croire le lien vivant alors que la tête, redémarrée, a oublié le
+sniffer. Si un récepteur qui a déjà accusé des trames n'en accuse plus aucune depuis 10 s
+alors que plus de 60 trames sont parties, le sniffer se réassocie. Un récepteur qui n'accuse
+jamais (un PC qui ne fait qu'afficher), ou une Game Boy éteinte, ne déclenchent rien. Un
+récepteur qui accusait et se tait (l'écran virtuel du PC qu'on ferme) fait réassocier le
+sniffer toutes les quinze secondes environ, sans autre effet ; les accusés revenus, il se
+tient tranquille.
+
+### 6 % d'images rejetées pour un ajout sans rapport : la capture passe en RAM
+
+Le firmware avec ce filet rejetait **6 % des images** (« relances tardives » : le PIO repart
+après le début de la ligne 0), et la tête en voyait autant d'incomplètes, alors que la
+version précédente, qui ne différait que par le délai de garde, n'en rejetait aucune. Le code
+ajouté ne s'exécute pas pendant la capture : il avait seulement **déplacé le reste du
+programme en flash**. Le chemin de l'interruption (répartiteur GPIO du SDK, `sur_gpio`,
+`sur_vsync`) tournait depuis la flash, à la merci du cache XIP : la marge de la relance du
+PIO dépendait de l'emplacement du code.
+
+Correction : un gestionnaire brut de la banque GPIO, `__not_in_flash_func`, en tête de la
+chaîne des gestionnaires et à la priorité d'interruption la plus haute, à la place du
+répartiteur du SDK. Même ordre que lui : ST (GP3) puis S (GP4), chacun acquitté avant d'être
+traité. Vérifié au désassemblage : tout le chemin, relance du PIO comprise, est en RAM
+(`0x20000120`) et n'appelle plus aucune fonction.
+
+| | Relances tardives | Perte vue par la tête |
+|---|---|---|
+| Interruption en flash, avec le filet | ≈ 6 % des images | 5,7 à 6,2 % |
+| Interruption en RAM | **0** sur 3 802 images | 0,00 à 0,16 % |
+
+À retenir : une capture dont la marge se compte en microsecondes ne doit pas dépendre du
+cache. Tout ajout au firmware pouvait la faire basculer.
+
+
+## Débordements du FIFO au rallumage de la console — 29/10/2026
+
+Vu sur l'écran complet : « debordements FIFO » montait par à-coups (18, puis 21 à 23), chaque
+fois avec une « trame douteuse » de plus. Ces images n'étaient pas rejetées : elles partaient
+à l'écran.
+
+Mesures, compteurs remis à zéro :
+
+| Situation | Images | Douteuses | Débordements |
+|---|---|---|---|
+| Jeu continu, 4 minutes | ≈ 15 000 | 0 | 0 |
+| Console éteinte puis rallumée | 30 s suivantes | 5 | 5 |
+| Idem, après la correction | — | 1, de **215 lignes**, rejetée | 1 |
+
+Cause : une image interrompue par l'extinction laisse ses lignes dans le compteur (ici 71),
+puis la première image après le rallumage n'est pas annoncée par `P2-S`. Ses 144 lignes
+s'ajoutent : 71 + 144 = 215 avant le premier `P2-S`. Le DMA s'arrête au bout d'une trame, le
+PIO continue de pousser, et le FIFO déborde. Les 5 cas du premier essai suivent sans doute la
+même règle, le jeu éteignant et rallumant l'écran entre deux scènes (12 images manquent au
+même moment). Ce n'était donc pas un DMA trop lent, contrairement à ce que disait la console.
+
+Correction : une image qui n'a pas exactement 144 lignes est rejetée, comme une image
+incomplète ou relancée tard ; l'écran garde la précédente pendant 1/60 s. Le compte de lignes
+de la dernière image douteuse est affiché. La capture reste en RAM (gestionnaire en
+`0x20000120`).
+

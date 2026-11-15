@@ -76,7 +76,11 @@ de sortie si le WiFi bloque le démarrage : on garde de quoi reflasher sans avoi
 appuyer sur BOOTSEL.
 
 Ensuite, le Pico s'associe au WiFi et commence à émettre. S'il perd le réseau, il tente
-de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capture et
+de se réassocier chaque seconde, sans interrompre la capture. Une association bloquée plus
+de 8 s est abandonnée et relancée : quand la tête de l'écran redémarre, le pilote WiFi
+restait sinon dans l'état « association en cours » pour toujours. Et si l'écran, qui
+accusait les images, n'en accuse plus aucune depuis 10 s alors qu'elles partent, le Pico se
+réassocie aussi (26/10/2026, voir le [journal](JOURNAL.md)). Compteurs de capture et
 état du réseau s'affichent toutes les 5 secondes.
 
 ## Commandes de la console
@@ -104,12 +108,12 @@ de se réassocier chaque seconde, sans interrompre la capture. Compteurs de capt
 |---|---|---|
 | `cadence` | 59,73 img/s | 29,86 : la capture se déclenche sur un signal à mi-fréquence |
 | `lignes/trame` | 144 | `P2-ST` manque des impulsions, ou en invente |
-| `trames douteuses` | 0 | idem, cumulé sur toutes les images |
+| `trames douteuses` | 0 | idem, cumulé sur toutes les images ; le compte de lignes de la dernière est affiché. Rejetées depuis le 29/10/2026 |
 | `mots restants` | 0 | des fronts d'horloge pixel ont été manqués : mauvais front ou délai d'échantillonnage |
 | `trames incompl.` | 0 | idem, cumulé sur toutes les images |
 | `relances tard.` | 0 | le PIO est reparti après le début de la ligne 0 : l'image en a manqué le début |
-| `trames rejetees` | 0 | images incomplètes ou relancées tard : ni émises ni publiées, l'écran garde la précédente |
-| `debordements FIFO` | 0 | le DMA ne suit pas le PIO |
+| `trames rejetees` | 0 | images incomplètes, relancées tard ou douteuses : ni émises ni publiées, l'écran garde la précédente |
+| `debordements FIFO` | 0 | plus de pixels que la trame n'en contient : en pratique, une image douteuse à trop de lignes |
 | `trames perdues` | — | des images capturées n'ont pas été lues par la boucle principale |
 | `tranches perdues` | 0 | en mode pipeliné, la file des paquets à émettre a débordé |
 
@@ -118,7 +122,10 @@ et géométrie), état du lien, déconnexions et reconnexions, accusés reçus d
 et aller-retour minimal, moyen et maximal.
 
 Au démarrage, ou quand la console est rallumée, quelques images douteuses sont
-normales : la capture a repris au milieu d'une image. `r` remet les compteurs à zéro ;
+normales : la capture a repris au milieu d'une image. Console rallumée, la première image
+n'est pas annoncée par `P2-S` : ses lignes s'ajoutent à celles de l'image interrompue par
+l'extinction (215 = 71 + 144, mesuré le 29/10/2026), et le FIFO déborde. Ces images sont
+rejetées. `r` remet les compteurs à zéro ;
 une erreur qui apparaît ensuite est réelle. La table symptôme → cause complète est dans
 [`docs/etapes-detaillees.md`](../../docs/etapes-detaillees.md) §D.10.
 
@@ -139,7 +146,7 @@ La palette `diag` rend visible au premier coup d'œil une erreur d'ordre des bit
 | `include/config.h` | tout ce qui vient d'une mesure, avec la mesure qui le justifie |
 | `include/pxl1.h` | le protocole, copié du module écran (voir `PROVENANCE.txt`) |
 | `src/capture.pio` | le programme PIO : une ligne à la fois, calée sur `P2-ST` |
-| `src/capture.hpp`, `src/capture.cpp` | PIO, DMA, interruptions, double tampon, file des tranches |
+| `src/capture.hpp`, `src/capture.cpp` | PIO, DMA, interruptions (gestionnaire en RAM, priorité la plus haute), double tampon, file des tranches |
 | `src/net/reseau.hpp`, `src/net/reseau.cpp` | WiFi, émission `PXL1`, accusés, reconnexion, mesure de latence |
 | `src/net/lwipopts.h` | configuration de la pile réseau lwIP |
 | `src/main.cpp` | démarrage, boucle principale, console |

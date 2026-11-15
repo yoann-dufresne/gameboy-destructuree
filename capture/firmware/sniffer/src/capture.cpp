@@ -58,8 +58,14 @@ Stats compteurs{};
  * attendus. Sur 60 s, la résolution tombe à 0,017 img/s. */
 uint64_t t_depart = 0;
 
-void pousser(const uint8_t *d, uint16_t offset, uint16_t taille,
-             uint16_t fid, bool derniere) {
+/* Le chemin des interruptions — pousser, armer_dma, sur_ligne, sur_vsync et
+ * le gestionnaire brut — est en RAM (26/10/2026). En flash, il dépendait du
+ * cache XIP : un ajout sans rapport ailleurs dans le firmware a suffi à
+ * déplacer le code et à faire rater la relance du PIO à 6 % des images
+ * (« relances tardives »). En RAM, son temps ne dépend plus de l'emplacement
+ * du reste. */
+void __not_in_flash_func(pousser)(const uint8_t *d, uint16_t offset, uint16_t taille,
+                                  uint16_t fid, bool derniere) {
     const uint8_t suivant = (uint8_t)((file_tete + 1) % FILE_N);
     if (suivant == file_queue) {
         compteurs.tranches_perdues++;
@@ -71,7 +77,7 @@ void pousser(const uint8_t *d, uint16_t offset, uint16_t taille,
 
 /* ──────────────────────────────────────────────────────────── armement DMA */
 
-void armer_dma(uint8_t idx) {
+void __not_in_flash_func(armer_dma)(uint8_t idx) {
     dma_channel_set_write_addr(canal, trame[idx], false);
     dma_channel_set_trans_count(canal, MOTS_TRAME, true); /* true = démarre */
 }
@@ -90,15 +96,18 @@ void armer_dma(uint8_t idx) {
  *     repartait en dernier, après la tranche finale et la publication, et une
  *     image sur dix environ perdait son premier pixel — décalée d'un cran.
  */
-void sur_vsync() {
+void __not_in_flash_func(sur_vsync)() {
     /* 1. intégrité : P2-ST doit avoir battu exactement 144 fois. Une de plus :
      *    l'interruption a été servie si tard que le ST de la ligne 0 de l'image
      *    SUIVANTE l'a précédée — le gestionnaire du SDK traite les broches dans
      *    l'ordre, et ST (GP3) passe avant S (GP4). */
     const bool ligne0_deja_vue = lignes == LIGNES_VISIBLES + 1;
     compteurs.lignes_derniere = ligne0_deja_vue ? LIGNES_VISIBLES : lignes;
-    if (compteurs.lignes_derniere != LIGNES_VISIBLES)
+    const bool douteuse = compteurs.lignes_derniere != LIGNES_VISIBLES;
+    if (douteuse) {
         compteurs.trames_douteuses++;
+        compteurs.lignes_douteuse = lignes;
+    }
 
     /* 2. arrêter le DMA, et relever ce qu'il n'a pas eu le temps d'écrire */
     dma_channel_abort(canal);
@@ -107,10 +116,16 @@ void sur_vsync() {
         compteurs.trames_incompletes++;
 
     /* Une image mal capturée n'est pas émise : relancée trop tard, son PIO en
-     * a manqué le début ; incomplète, des fronts d'horloge lui manquent.
-     * Sans sa dernière tranche, le module écran ne la voit jamais complète et
-     * garde la précédente — une image sautée plutôt qu'une image fausse. */
-    const bool rejetee = trame_suspecte || compteurs.mots_restants != 0;
+     * a manqué le début ; incomplète, des fronts d'horloge lui manquent ;
+     * douteuse, elle n'a pas ses 144 lignes entre deux VSYNC. Sans sa dernière
+     * tranche, le module écran ne la voit jamais complète et garde la
+     * précédente — une image sautée plutôt qu'une image fausse.
+     *
+     * Douteuse (29/10/2026) : vu seulement dans les secondes qui suivent
+     * l'allumage de la console, avec à chaque fois un débordement du FIFO —
+     * trop de lignes, donc trop de pixels pour le tampon. Ces images
+     * partaient à l'écran. */
+    const bool rejetee = trame_suspecte || compteurs.mots_restants != 0 || douteuse;
 
     /* 3. remettre le PIO à zéro : FIFO, mais aussi compteurs de décalage de
      *    l'ISR — une ligne tronquée y laisserait un mot partiel qui décalerait
@@ -167,24 +182,35 @@ void sur_vsync() {
     gpio_xor_mask(1u << PIN_MESURE_VSYNC);
 }
 
-void sur_gpio(uint gpio, uint32_t evenements) {
-    if (gpio == PIN_LIGNE && (evenements & GPIO_IRQ_EDGE_RISE)) {
-        lignes = lignes + 1;
-        /* Une tranche est complète dès que ses 35 lignes sont capturées : on
-         * n'attend pas la fin de la trame pour l'émettre. Le découpage tombe
-         * sur une frontière de ligne, d'où ce test. */
-        if (pipeline_on && (lignes % LIGNES_PAR_TRANCHE) == 0) {
-            const uint32_t k = lignes / LIGNES_PAR_TRANCHE - 1;
-            if (k < TRANCHES_PAR_TRAME - 1) {
-                const uint16_t off = (uint16_t)(k * OCTETS_TRANCHE);
-                pousser(trame[idx_capture] + off, off, OCTETS_TRANCHE,
-                        id_trame, false);
-            }
+/* Front montant de P2-ST : une ligne de plus. */
+void __not_in_flash_func(sur_ligne)() {
+    lignes = lignes + 1;
+    /* Une tranche est complète dès que ses 35 lignes sont capturées : on
+     * n'attend pas la fin de la trame pour l'émettre. Le découpage tombe
+     * sur une frontière de ligne, d'où ce test. */
+    if (pipeline_on && (lignes % LIGNES_PAR_TRANCHE) == 0) {
+        const uint32_t k = lignes / LIGNES_PAR_TRANCHE - 1;
+        if (k < TRANCHES_PAR_TRAME - 1) {
+            const uint16_t off = (uint16_t)(k * OCTETS_TRANCHE);
+            pousser(trame[idx_capture] + off, off, OCTETS_TRANCHE,
+                    id_trame, false);
         }
-        return;
     }
-    if (gpio == PIN_VSYNC && (evenements & GPIO_IRQ_EDGE_RISE))
+}
+
+/* Gestionnaire brut de la banque GPIO, à la place du répartiteur du SDK, qui
+ * tourne en flash. Même ordre que lui : ST (GP3) avant S (GP4), chacun
+ * acquitté avant d'être traité — sur_vsync() compte sur cet ordre pour
+ * reconnaître un ST de ligne 0 déjà passé. */
+void __not_in_flash_func(sur_io_bank0)() {
+    if (gpio_get_irq_event_mask(PIN_LIGNE) & GPIO_IRQ_EDGE_RISE) {
+        gpio_acknowledge_irq(PIN_LIGNE, GPIO_IRQ_EDGE_RISE);
+        sur_ligne();
+    }
+    if (gpio_get_irq_event_mask(PIN_VSYNC) & GPIO_IRQ_EDGE_RISE) {
+        gpio_acknowledge_irq(PIN_VSYNC, GPIO_IRQ_EDGE_RISE);
         sur_vsync();
+    }
 }
 
 } // namespace
@@ -229,9 +255,17 @@ void init() {
     channel_config_set_bswap(&c, true);
     dma_channel_configure(canal, &c, trame[0], &pio->rxf[sm], MOTS_TRAME, false);
 
-    gpio_set_irq_enabled_with_callback(PIN_LIGNE, GPIO_IRQ_EDGE_RISE, true,
-                                       &sur_gpio);
+    /* Gestionnaire brut, en tête de la chaîne de la banque GPIO (la puce WiFi
+     * y a aussi le sien), et la banque à la priorité la plus haute : ni l'USB
+     * ni le DMA du WiFi ne retardent la relance du PIO. Le travail fait ici
+     * se compte en microsecondes. */
+    gpio_set_irq_enabled(PIN_LIGNE, GPIO_IRQ_EDGE_RISE, true);
     gpio_set_irq_enabled(PIN_VSYNC, GPIO_IRQ_EDGE_RISE, true);
+    gpio_add_raw_irq_handler_with_order_priority_masked(
+        (1u << PIN_LIGNE) | (1u << PIN_VSYNC), sur_io_bank0,
+        PICO_SHARED_IRQ_HANDLER_HIGHEST_ORDER_PRIORITY);
+    irq_set_priority(IO_IRQ_BANK0, PICO_HIGHEST_IRQ_PRIORITY);
+    irq_set_enabled(IO_IRQ_BANK0, true);
 
     armer_dma(idx_capture);
     pio_sm_set_enabled(pio, sm, true);
