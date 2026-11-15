@@ -1,0 +1,21 @@
+Provenance : YAPoco ("Yet Another Pocket Color"), de Natalie the Nerd
+Source     : https://github.com/nataliethenerd/YAPoco
+Commit     : c903361156c350275f2bc03400a8ca110de55148 (2026-01-17)
+Fichier    : KiCad Files/YAPoco.kicad_pcb
+Licence    : Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+             https://creativecommons.org/licenses/by-sa/4.0/
+Extrait le : 2026-11-15, par extrait_yapoco.py
+
+Ce qui est repris :
+  - contour.json : le contour de la carte (Edge.Cuts), ses trous, et les découpes des prises DC
+    et casque de YAPoco (pièces P4 et P5) ;
+  - pieces.json : la place des pastilles de la croix, de A, B, Select et Start, des contacts de
+    piles, de l'interrupteur et de la molette de gauche ; le centre des tétons de la molette de
+    droite (J1) et celui de la LED d'alimentation (D4) ;
+  - ../carte-manette.pretty/YAPoco_*.kicad_mod : les empreintes correspondantes. Celle de
+    l'interrupteur a ses pastilles renumérotées (C devient 2, l'ancienne 2 n'a plus de numéro).
+
+Modifications : coordonnées ramenées au coin haut-gauche du contour ; empreintes ramenées sur la
+face avant, sans modèle 3D ni équipotentielle.
+
+La carte de la manette, qui en dérive, est publiée sous la même licence, CC BY-SA 4.0.

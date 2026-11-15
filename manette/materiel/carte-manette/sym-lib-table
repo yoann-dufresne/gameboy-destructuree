@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "carte-manette")(type "KiCad")(uri "${KIPRJMOD}/carte-manette.kicad_sym")(options "")(descr "Symboles propres à la carte"))
+)

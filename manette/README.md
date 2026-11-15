@@ -1,4 +1,4 @@
-# Manette — une Game Boy Pocket devenue manette WiFi
+# Manette : une Game Boy Pocket devenue manette WiFi
 
 Ce module transforme une seconde Game Boy Pocket en manette sans fil. Elle ne joue plus :
 plus de processeur, plus d'écran allumé. Elle garde ce qu'on touche : la croix, les boutons, les
@@ -36,7 +36,9 @@ Posée, la manette dort : seul un accéléromètre veille, et elle ne consomme p
 en main, elle se réveille et rejoint la console avant qu'on bascule l'interrupteur : la console
 démarre alors aussitôt. Interrupteur sur arrêt et immobile depuis une minute, elle se rendort.
 Sa LED, une LED RGB à la place de l'originale, est rouge quand elle est en marche et appairée à
-la console, bleue et pulsée tant que la console ne répond pas, éteinte sur arrêt.
+la console, bleue et pulsée tant que la console ne répond pas, éteinte sur arrêt. Derrière ses
+boutons transparents, huit autres LED RGB prennent les couleurs que choisit son Pico, seul ou
+sur ordre reçu par le WiFi.
 
 La manette ne parle qu'à la console : l'injecteur émet le réseau des manettes, et jusqu'à
 quatre manettes peuvent s'y joindre. C'est l'injecteur qui transmet la marche, l'arrêt et les
@@ -46,7 +48,7 @@ molettes au reste de la console, par un bus filaire ; voir le [document réseau]
 
 | Rôle | Pièce |
 |---|---|
-| Manette | une Game Boy Pocket, sa carte remplacée par une carte maison qui porte un Pico 2 W ; les molettes, l'interrupteur et les contacts de piles d'origine ou de rechange |
+| Manette | une Game Boy Pocket, sa carte remplacée par une carte maison qui porte un Pico 2 W, sous un cache noir à la place de l'écran, et neuf LED RGB ; croix, boutons et membranes transparents ; l'interrupteur, les molettes et les contacts de piles de rechange ([carte](docs/carte.md)) |
 | Injecteur | un Pico 2 W ; 8 photoMOS de faible capacité (AQY221N2S) et 8 diodes ; un connecteur JST-SH 6 points dans la console principale ; un régulateur 3,0 V commandé, vers la prise DC de la console |
 | Mesure | un multimètre, l'analyseur logique du module capture |
 
@@ -89,11 +91,14 @@ réseau simulé qui perd 5 % des paquets dans chaque sens : aucun bouton ne rest
 |---|---|
 | [`docs/plan.md`](docs/plan.md) | l'analyse et les décisions : la lecture des boutons par la console, l'injection, la marche et l'arrêt, la carte maison, le protocole `MAN1`, le réseau, la latence, l'autonomie, les risques |
 | [`docs/etapes.md`](docs/etapes.md) | les phases pas à pas, leurs tests et leurs critères de sortie ; la fiche de la phase 0, à remplir |
+| [`docs/carte.md`](docs/carte.md) | la carte de la manette : décisions, géométrie reprise de YAPoco, électronique, brochage, lumières, étapes de conception, achats et devis |
 
 ## État
 
 Rien n'est construit. Le module s'ouvre le 11/10/2026. Le protocole, les automates et les
-outils du PC sont écrits et éprouvés sur PC, sans matériel.
+outils du PC sont écrits et éprouvés sur PC, sans matériel. La carte de la manette est en
+conception depuis le 15/11/2026 : son schéma est fait, sa géométrie posée, et son gabarit
+attend l'essai en carton ([`materiel/carte-manette/`](materiel/carte-manette/README.md)).
 
 | Phase | État |
 |---|---|
@@ -102,5 +107,5 @@ outils du PC sont écrits et éprouvés sur PC, sans matériel.
 | 2 · La manette parle au PC | à venir |
 | 3 · L'injecteur sur une fausse console | à venir |
 | 4 · L'injecteur dans la console principale | à venir |
-| 5 · La carte maison | à venir |
+| 5 · La carte maison | plan écrit ([carte](docs/carte.md)) ; schéma fait, géométrie posée ; relevés, placement et routage à faire |
 | 6 · Intégration | à venir |

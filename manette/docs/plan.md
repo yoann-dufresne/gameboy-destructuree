@@ -1,18 +1,22 @@
-# Module MANETTE — plan de réalisation
+# Module MANETTE : plan de réalisation
 
 *Sous-projet « manette » de la Game Boy Pocket déstructurée.*
-Version 3 — 11/10/2026 : la manette dort posée, se réveille au mouvement et rejoint la console
+Version 4, 15/11/2026 : la carte de la manette se dessine, avec neuf LED RGB derrière des
+boutons transparents. Elle a son propre plan, [`carte.md`](carte.md).
+Version 3, 11/10/2026 : la manette dort posée, se réveille au mouvement et rejoint la console
 avant qu'on bascule l'interrupteur.
 
 **Le « pourquoi » est ici.** Le pas à pas, ses tests et ses critères de sortie :
-[`etapes.md`](etapes.md).
+[`etapes.md`](etapes.md). La carte de la manette, de sa conception à ses achats :
+[`carte.md`](carte.md).
 
 ---
 
 ## 0. Décisions
 
-Les sept premières lignes et les deux dernières sont tes décisions. Les autres sont des
-propositions : la dernière colonne dit quel test les confirme ou les renverse.
+La dernière colonne dit qui a tranché : toi, à une date, ou le test qui confirme ou renverse
+une proposition. La carte de la manette a ses propres décisions, au §0 de
+[`carte.md`](carte.md).
 
 | Sujet | Décision ou proposition | Tranchée par |
 |---|---|---|
@@ -21,17 +25,20 @@ propositions : la dernière colonne dit quel test les confirme ou les renverse.
 | **Marche et arrêt** | l'interrupteur de la manette allume et éteint la console ; la console allume et éteint l'écran et le son. Les Pico de la console, de l'écran et du son ne s'éteignent jamais ; seul celui de la manette s'éteint | toi, 11/10/2026 |
 | **Molettes** | le volume règle le son, le contraste devient la luminosité de l'écran, par l'intermédiaire de la console | toi, 11/10/2026 |
 | **Rien sans marche** | interrupteur sur arrêt, la manette ne transmet rien : ni boutons, ni molettes. Seul l'ordre « arrêt » part, au moment où on bascule | toi, 11/10/2026 |
-| **LED** | une LED RGB à l'emplacement de la LED d'origine. Interrupteur sur arrêt : éteinte. Sur marche et appairée à la console, c'est-à-dire quand la console répond : rouge fixe, comme sur la console d'origine. Sur marche sans réponse de la console : bleu, pulsé lentement, le temps de chercher le réseau et la console | toi, 11/10/2026 |
+| **LED** | une LED RGB à l'emplacement de la LED d'origine. Interrupteur sur arrêt : éteinte. Sur marche et appairée à la console, c'est-à-dire quand la console répond : rouge fixe, comme sur la console d'origine. Sur marche sans réponse de la console : bleu, pulsé lentement, le temps de chercher le réseau et la console. Elle est la première des neuf LED de la ligne « Lumières » | toi, 11/10/2026 |
 | **Sommeil et réveil** | posée, la manette dort et ne consomme presque rien. Un mouvement la réveille : elle rejoint la console avant qu'on bascule l'interrupteur, qui démarre alors la console aussitôt. Elle se rendort interrupteur sur arrêt, immobile depuis 1 minute | toi, 11/10/2026 |
-| **La manette** | une seconde Game Boy Pocket. On garde la coque, la croix, les boutons et leurs membranes, les deux molettes, l'interrupteur et les piles. Sa carte est remplacée par une carte maison : plus de processeur, plus d'écran allumé | phases 0 et 5 |
-| **Contrôleur** | un Pico 2 W, comme les autres modules, soudé à plat sur la carte maison | T0.4 (la place), T5.2 (l'antenne) |
-| **Alimentation de la manette** | les deux piles AAA, sans convertisseur. **Dormir, c'est être hors tension** : un accéléromètre alimenté en permanence rallume le Pico, qui se coupe lui-même pour se rendormir | T1.6, T1.7, T2.6 |
+| **La manette** | une seconde Game Boy Pocket, qui paraît normale sauf qu'elle n'a pas d'écran. On garde la coque, la vitre et les piles ; la croix, les boutons et leurs membranes deviennent transparents ; l'interrupteur, les molettes et les contacts de piles sont des pièces de rechange. Sa carte est remplacée par une carte maison, sans processeur ni écran : [`carte.md`](carte.md) | toi, 14/11/2026 |
+| **Contrôleur** | un Pico 2 W, comme les autres modules, soudé à plat sur la carte maison, à la place de l'écran, sous un cache noir | toi, 15/11/2026 (la place) ; C0.2 de [`carte.md`](carte.md) (la hauteur), T5.2 (l'antenne) |
+| **Alimentation de la manette** | les deux piles AAA. Le Pico n'a pas de convertisseur ajouté ; les LED ont un élévateur de tension, que le Pico coupe ([`carte.md`](carte.md) §4). **Dormir, c'est être hors tension** : un accéléromètre alimenté en permanence rallume le Pico, qui se coupe lui-même pour se rendormir | T1.6, T1.7, T2.6 |
 | **Lecture** | une broche par bouton, pas de matrice : tous les appuis simultanés sont lus | T1.1, T1.2 |
 | **Protocole** | `MAN1` sur UDP, port 4244 ; chaque paquet porte l'état complet ; la console accuse réception | T2.2, T2.3 |
 | **Boutons de la console** | 8 photoMOS de faible capacité, chacun avec sa diode, en parallèle des boutons ; 6 fils soudés | T0.7, T4.2 |
 | **Alimentation de la console** | par sa prise DC, en 3,0 V, que l'injecteur établit et coupe ; l'interrupteur de la console reste sur marche | T0.8, T4.7 |
 | **Manette perdue** | les boutons sont relâchés après 200 ms ; un message par-dessus l'image du jeu dit qu'aucune manette n'est connectée ; le sniffer l'ajoute ; la console s'éteint après 15 minutes d'absence | toi, 11/10/2026 |
 | **Plusieurs manettes** | le volume et la luminosité sont la moyenne des molettes des manettes en marche. Une manette qui revient sur marche rallume une console éteinte faute de manette | toi, 11/10/2026 |
+| **Lumières** | neuf LED RGB : quatre sous la croix, une par direction ; une sous A, B, Start et Select ; et la LED d'alimentation. Le Pico de la manette décide des couleurs, seul et sur ordre reçu par le WiFi | toi, 15/11/2026 |
+| **Aucune ouverture ajoutée** | pas de port à l'extérieur : le firmware se met à jour par le WiFi, l'USB du Pico ne sert qu'en secours. La fente de cartouche et les trous du port link, de la prise casque et de la prise DC restent vides | toi, 15/11/2026 |
+| **Quatre manettes** | à terme | toi, 15/11/2026 |
 
 ---
 
@@ -264,17 +271,22 @@ pas dans celui-ci.
 
 ## 5. La manette
 
+**Depuis le 15/11/2026, la carte a son propre plan, [`carte.md`](carte.md)** : il précise ce
+paragraphe et l'emporte là où ils diffèrent, pour la place du Pico, les LED, les molettes et
+le brochage.
+
 ### 5.1 Ce qu'on garde de la console distante
 
 | Pièce | Devenir |
 |---|---|
-| Coque, vitre, croix, boutons, membranes | gardés tels quels |
+| Coque, vitre | gardées telles quelles |
+| Croix, boutons, membranes | remplacés par des pièces transparentes, éclairées par en dessous (décision du 15/11/2026) |
 | Molette de volume, VR1 | gardée ; devient un capteur. Une seule des deux pistes sert |
 | Molette de contraste, VR2 | gardée ; devient un capteur, la « luminosité » |
 | Interrupteur SW1 | gardé ; marche et arrêt de la console, et réveil de la manette (§4.2) |
 | Contacts de piles | gardés |
 | LED d'alimentation | remplacée par une LED RGB, au même endroit (§5.6) |
-| Écran | éteint. Collé en place pour l'aspect, ou retiré pour mettre la LED derrière la vitre : choix de la phase 5 |
+| Écran | retiré : un cache noir prend sa place, et le Pico se loge dessous (décision du 15/11/2026) |
 | Processeur, mémoire, amplificateur, convertisseur, prise casque, port link, connecteur de cartouche, prise DC | partent avec la carte d'origine |
 
 Sur la MGB-ECPU-01, Gekkio relève VR1 = 2 × 10 kΩ et VR2 = 30 kΩ, et note que les premières
@@ -355,6 +367,10 @@ carte, dont la manette n'a plus l'usage, loin des piles ; ou **derrière la vitr
 de l'écran. T0.4 les mesure ; le gabarit de la phase 5 tranche avant toute commande.
 L'accès au port USB se décide en même temps.
 
+**Tranché le 15/11/2026 : derrière la vitre**, sous un cache noir. Aucun port n'est ajouté à la
+coque : le firmware se met à jour par le WiFi, et l'USB du Pico ne sert qu'en secours, la carte
+sortie de la coque ([`carte.md`](carte.md) §3).
+
 ---
 
 ### 5.6 La LED
@@ -364,20 +380,21 @@ coque. Elle ne dépend que de l'interrupteur et de l'appairage avec la console :
 
 | Interrupteur | Console | LED |
 |---|---|---|
-| arrêt | — | éteinte, que la manette dorme ou soit éveillée |
+| arrêt | - | éteinte, que la manette dorme ou soit éveillée |
 | marche | appairée : ses accusés arrivent | **rouge fixe**, comme la LED d'origine |
 | marche | pas d'accusé depuis 500 ms : réseau absent, console injoignable ou pas encore jointe | **bleu, pulsé lentement** : la manette cherche le réseau ou la console |
 
-Trois broches du Pico en PWM, une résistance par couleur ; le rouge et le bleu se règlent pour
-que leur éclat ressemble à celui de la LED d'origine. Alimentée par le 3,3 V du Pico, elle ne
-faiblit pas avec les piles. Le rouge allumé pendant toute une partie coûte quelques
+**Depuis le 15/11/2026**, c'est une LED adressable, la première de la chaîne des neuf LED de la
+manette, alimentée comme elles par l'élévateur ([`carte.md`](carte.md) §4) : plus de broche par
+couleur. Le rouge et le bleu se règlent pour que leur éclat ressemble à celui de la LED
+d'origine ; elle ne faiblit pas avec les piles. Le rouge allumé pendant toute une partie coûte quelques
 milliampères : peu, à côté de la radio.
 
 Les premières cartes MGB n'avaient pas de LED d'alimentation (note de Gekkio) : si la coque de
 la console distante n'a pas de fenêtre, T0.1 le dit, et il faudra en percer une ou choisir une
 autre place.
 
-## 6. Le protocole `MAN1` — proposition
+## 6. Le protocole `MAN1` - proposition
 
 Mêmes conventions que `PXL1` et `SON1` : champs en little-endian, nombre magique en tête.
 UDP, port **4244**.
@@ -498,6 +515,7 @@ manette/
 ├── docs/
 │   ├── plan.md                    ← ce document
 │   ├── etapes.md                  ← le pas à pas, ses tests ; la fiche de la phase 0
+│   ├── carte.md                   ← la carte de la manette : décisions, conception, achats
 │   └── releves/                   ← scans, photos, captures de l'analyseur
 ├── firmware/
 │   ├── commun/                    ← partagé par la manette, l'injecteur et les tests sur PC ✅
@@ -541,12 +559,12 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 | A13 | Fiche DC 2,35 × 0,75 mm, centre positif, avec son câble | 1 | vers la prise DC de la console |
 | A14 | Connecteur JST-SH 6 points, avec embase | 1 paire | les six fils des boutons de la console |
 | A15 | Fil Kynar, colle | | |
-| A16 | Interrupteur, molettes de volume et de contraste, contacts de piles de Game Boy Pocket | 1 jeu | en pièces de rechange ; sinon, ceux de la carte d'origine |
-| A17 | Carte maison | 5 | épaisseur 1,2 mm comme l'originale, finition or (ENIG) pour les pastilles des boutons ; 5 est le minimum courant des fabricants |
+| A16 | Interrupteur, molettes de volume et de contraste, contacts de piles de Game Boy Pocket | 4 jeux | en pièces de rechange : [`carte.md`](carte.md) §8 |
+| A17 | Carte maison | 5 | [`carte.md`](carte.md) : épaisseur de la carte d'origine, finition or (ENIG) pour les pastilles des boutons, composants CMS posés par le fabricant ; 5 est le minimum courant des fabricants |
 | A18 | Plaque d'essai, fils de liaison, plaquette à trous | | |
 | A19 | Accéléromètre ADXL362 : un module pour le banc, la puce seule pour la carte maison | 1 + 1 | réveil ; module sans régulateur ni LED, qui consommeraient en sommeil |
 | A20 | Adaptateur de niveaux 4 voies | 2 | SPI entre l'accéléromètre, à la tension des piles, et le Pico |
-| A21 | LED RGB, au diamètre de la LED d'origine, et 3 résistances | 2 | banc et carte maison ; diamètre relevé en T0.1 |
+| A21 | LED RGB adressables | 9 par manette | posées par le fabricant de la carte ; quelques-unes de plus pour le banc ([`carte.md`](carte.md) §4) |
 | T1 | Multimètre | 1 | déjà là |
 | T2 | Analyseur logique | 1 | celui du module capture |
 | T3 | Alimentation de laboratoire | 1 | celle du module capture |
@@ -601,3 +619,9 @@ Seuls les éléments marqués ✅ sont écrits : les autres naîtront avec la ph
 | 11/10/2026 | **Décision de Yoann** : après un temps d'absence de la manette, la console s'éteint ; un message par-dessus l'image du jeu dit qu'aucune manette n'est connectée | Ne pas laisser tourner une console abandonnée, et dire au joueur pourquoi ses boutons ne répondent plus. 15 minutes ; le sniffer incruste le message |
 | 11/10/2026 | **Décision de Yoann** : à plusieurs manettes, le volume et la luminosité sont la moyenne des molettes des manettes en marche | Remplace la règle provisoire « les molettes de la dernière manette entendue » |
 | 11/10/2026 | **Décision de Yoann** : une manette qui revient sur marche rallume une console éteinte faute de manette | La console reste allumée tant qu'une manette la veut ; qui gagne quand deux joueurs appuient en même temps reste à décider |
+| 14/11/2026 | **Décision de Yoann** : la manette est une vraie coque de Pocket, qui paraît normale sauf qu'elle n'a pas d'écran ; une carte dessinée pour elle lit les boutons et les molettes et les envoie par le Pico 2 W ; deux piles AAA | Rouvre la carte maison du §5.2 |
+| 14/11/2026 | Carte dessinée plutôt que carte d'origine modifiée | Le processeur reste sur les lignes des boutons ; des LED derrière les boutons ne se câblent pas proprement sur la carte d'origine ; une carte dessinée se refait pour chaque manette |
+| 15/11/2026 | **Décision de Yoann** : neuf LED RGB derrière des boutons et des membranes transparents ; le Pico décide des couleurs, seul et sur ordre reçu par le WiFi | |
+| 15/11/2026 | **Décision de Yoann** : un cache noir derrière la vitre, le Pico dessous ; aucun port ajouté à la coque, mises à jour par le WiFi | La console garde son aspect ; l'antenne en haut, loin des piles |
+| 15/11/2026 | **Décision de Yoann** : la carte part des fichiers KiCad de YAPoco, de Natalie the Nerd, et passe sous CC BY-SA 4.0 | Contour, vis et pastilles déjà placés pour une coque de Pocket |
+| 15/11/2026 | **Décision de Yoann** : quatre manettes à terme ; le dessin d'abord, puis le comparatif des devis de JLCPCB et PCBWay, port et frais d'importation compris | 25 € de frais de dédouanement DHL, en plus de la TVA, sur une commande précédente chez JLCPCB |

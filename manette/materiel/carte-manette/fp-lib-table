@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "carte-manette")(type "KiCad")(uri "${KIPRJMOD}/carte-manette.pretty")(options "")(descr "Empreintes propres à la carte, dont celles reprises de YAPoco (CC BY-SA 4.0)"))
+)

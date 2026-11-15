@@ -13,7 +13,7 @@ documentation, et il sert à quelque chose en dehors de la Game Boy.
 | [`capture/`](capture/) | Espionne le bus LCD d'une vraie Game Boy Pocket et diffuse son image en UDP, sans perturber la console. |
 | [`ecran/`](ecran/) | Afficheur réseau sur matrices LED, 192×192 pixels visés. Il affiche toute image qu'on lui envoie en UDP, quelle qu'en soit la source. |
 | [`son/`](son/) | Prend le son d'une Game Boy Pocket avant son bouton de volume et le diffuse en UDP ; un haut-parleur réseau le joue. Phase 0 prête : banc de mesure, plan, tests et points de prise. |
-| [`manette/`](manette/) | Une seconde Game Boy Pocket devenue manette WiFi : ses boutons, ses molettes et son interrupteur partent en UDP vers la console principale, où un injecteur appuie sur les boutons et l'allume ou l'éteint. Plan écrit, rien de construit. |
+| [`manette/`](manette/) | Une seconde Game Boy Pocket devenue manette WiFi : ses boutons, ses molettes et son interrupteur partent en UDP vers la console principale, où un injecteur appuie sur les boutons et l'allume ou l'éteint. Plan écrit, rien de construit ; sa carte, avec neuf LED derrière des boutons transparents, est en conception. |
 | [`cartouche/`](cartouche/) | La cartouche dans une fente à part : un lecteur la lit à l'insertion et en envoie la copie en WiFi à une doublure branchée sur la console principale, qui tient le rôle de la cartouche. Les sauvegardes reviennent à la vraie cartouche. Plan écrit, rien de construit. |
 
 Les modules ne partagent que des protocoles réseau sur UDP : `PXL1` pour l'image ; `SON1`
@@ -62,3 +62,6 @@ Le contenu tiers garde sa licence d'origine :
   repris ou dérivés du pico-sdk et de pico-examples de Raspberry Pi : licence BSD-3-Clause.
 - `ecran/docs/seengreat-rgb-matrix-p3-64x64/` : documentation et codes de démonstration du
   fabricant Seengreat, archivés pour référence ; ils restent la propriété de leurs auteurs.
+- `manette/materiel/carte-manette/` et `manette/docs/releves/yapoco-echelle-1.pdf` : la carte de la
+  manette et son point de départ, dérivés de [YAPoco](https://github.com/nataliethenerd/YAPoco), de
+  Natalie the Nerd, licence CC BY-SA 4.0.

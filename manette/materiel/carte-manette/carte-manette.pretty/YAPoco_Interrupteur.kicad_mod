@@ -1,0 +1,174 @@
+(footprint "YAPoco_Interrupteur"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "YAPoco (Natalie the Nerd), CC BY-SA 4.0, https://github.com/nataliethenerd/YAPoco, empreinte \"Switch CGB\"")
+	(property "Reference" "REF**"
+		(at 0 -0.5 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "c55736a9-6154-450a-826b-f52264a841fe")
+		(effects
+			(font
+				(size 0.55 0.55)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "YAPoco_Interrupteur"
+		(at 0 1 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "4a49e642-101a-4490-8a22-de1a7b6fc380")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 180)
+		(unlocked yes)
+		(layer "B.Fab")
+		(hide yes)
+		(uuid "53ca69dc-29b3-4619-8e0a-cf874900d4e7")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+			(justify mirror)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 180)
+		(unlocked yes)
+		(layer "B.Fab")
+		(hide yes)
+		(uuid "6aed46d5-ca23-40ad-a361-85df686d4063")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+			(justify mirror)
+		)
+	)
+	(sheetname "/CGB_Power/")
+	(sheetfile "cgb_power.kicad_sch")
+	(attr smd exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_poly
+		(pts
+			(xy 2.54225 17.472505) (xy 1.544586 17.472505) (xy 1.544586 19.386942) (xy -1.448408 19.386942) (xy -1.448408 17.364649)
+			(xy -2.5 17.364649) (xy -2.5 5.15) (xy -1.551208 5.15) (xy -1.556264 3.154671) (xy 1.544586 3.154671)
+			(xy 1.544586 5.15) (xy 2.488322 5.15) (xy 2.488322 6.201592) (xy 3.998301 6.201592) (xy 3.998301 12.376327)
+			(xy 2.488322 12.376327) (xy 2.488322 14.236836) (xy 3.998301 14.236836) (xy 3.998301 16.420913) (xy 2.54225 16.420913)
+		)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "f4695f42-2a15-4a7b-b56d-5c42945ef2d5")
+	)
+	(fp_text user "C"
+		(at 3.968377 12.063244 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "5784da65-9d5a-4e04-9429-4b2e54ee6ab6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left bottom)
+		)
+	)
+	(fp_text user "3"
+		(at 4 8 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "5d4448d7-0105-4beb-b37a-61e2042bcdb3")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left bottom)
+		)
+	)
+	(fp_text user "2"
+		(at 4 10 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "32696c44-e463-47be-8158-e74292431ca9")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left bottom)
+		)
+	)
+	(fp_text user "1"
+		(at 4 16 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "23484e49-8996-4b89-8b83-d0a2c2303a9c")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left bottom)
+		)
+	)
+	(pad "" smd rect
+		(at 0.095275 4.570275)
+		(size 2.170595 2.170595)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "2f55d114-84fb-4592-84a2-4830bc039632")
+	)
+	(pad "" smd rect
+		(at 0.095275 17.964596)
+		(size 2.170595 2.170594)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "87a12623-b607-4bff-a433-6fc69c6a11cf")
+	)
+	(pad "" smd rect
+		(at 2.784924 9.342887)
+		(size 1.725688 1.37516)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "b0b9c007-b8e1-451e-8d27-f7aac38790b1")
+	)
+	(pad "1" smd rect
+		(at 2.784922 15.274946)
+		(size 1.725684 1.375159)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "fe0417d3-d61f-418f-ad36-e7c03e06e3a7")
+	)
+	(pad "2" smd rect
+		(at 2.784925 11.446071)
+		(size 1.72569 1.375159)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "16404ff0-01cd-45a1-a173-aa7692eb19f8")
+	)
+	(pad "3" smd rect
+		(at 2.78492 7.276061)
+		(size 1.72568 1.447877)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(thermal_bridge_angle 45)
+		(uuid "8f3c17d9-c6c2-465b-96c5-3fae22a04891")
+	)
+	(embedded_fonts no)
+)

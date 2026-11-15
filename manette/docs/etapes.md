@@ -1,7 +1,9 @@
-# Module MANETTE — les étapes
+# Module MANETTE : les étapes
 
 *Ce qu'on fait, dans quel ordre, ce qu'on vérifie, et quand on passe à la suite.*
-Version 2 — 11/10/2026 : marche et arrêt depuis la manette ; réseau quelconque au banc.
+Version 3, 15/11/2026 : la carte de la manette se dessine sans attendre la phase 1, d'après son
+plan, [`carte.md`](carte.md) ; ses premières cartes servent de plaque d'essai.
+Version 2, 11/10/2026 : marche et arrêt depuis la manette ; réseau quelconque au banc.
 
 Le pourquoi des choix est dans [`plan.md`](plan.md). Trois règles, héritées des modules
 capture et son :
@@ -23,8 +25,11 @@ capture et son :
 ## Ordre de travail
 
 Deux moitiés indépendantes, la manette et l'injecteur, et une attente : la fabrication de la
-carte maison, une à trois semaines. Le dessin de la carte commence dès que la phase 1 a fixé le
-brochage, et la fabrication court pendant les phases 2 à 4.
+carte maison, une à trois semaines. **Depuis le 15/11/2026, le dessin de la carte n'attend plus
+la phase 1** : il suit [`carte.md`](carte.md), qui fixe le brochage. Les premières cartes
+tiennent lieu de plaque d'essai, et T1.1 à T1.6 se font sur elles ; la plaque d'essai reste
+utile pendant la fabrication, pour éprouver le maintien et le réveil. Le schéma ci-dessous est
+celui du 11/10.
 
 ```
  Phase 0 ── relevés sur les deux consoles ; rien de soudé
@@ -44,7 +49,7 @@ brochage, et la fabrication court pendant les phases 2 à 4.
 
 ---
 
-## Phase 0 — relever, sans rien souder
+## Phase 0 : relever, sans rien souder
 
 **Objectif :** tout ce que les phases suivantes supposent, mesuré sur les deux consoles. Les
 résultats vont dans la [fiche](#fiche), en fin de document ; scans, photos et captures dans
@@ -73,7 +78,7 @@ résultats vont dans la [fiche](#fiche), en fin de document ; scans, photos et c
 
 ---
 
-## Phase 1 — la manette sur plaque d'essai
+## Phase 1 : la manette sur plaque d'essai
 
 **Objectif :** lire proprement les boutons et les molettes, vivre sur deux piles, dormir et se
 réveiller. Sans réseau.
@@ -82,22 +87,9 @@ réveiller. Sans réseau.
 potentiomètres, le boîtier 2 × AAA, le maintien d'alimentation, transistors sur adaptateurs
 SOT-23, et un module ADXL362 alimenté par les piles, relié au Pico par un adaptateur de
 niveaux ([plan](plan.md) §4.2 et §5.3). L'interrupteur du boîtier reste sur marche : c'est un
-interrupteur à glissière sur la plaque d'essai qui joue celui de la manette. Brochage
-proposé, que la carte maison reprendra :
-
-| Rôle | GPIO | Broche du Pico |
-|---|---|---|
-| Droite, Gauche, Haut, Bas | GP2, GP3, GP4, GP5 | 4, 5, 6, 7 |
-| A, B, Select, Start | GP6, GP7, GP8, GP9 | 9, 10, 11, 12 |
-| Volume, curseur | GP26 · ADC0 | 31 |
-| Contraste, curseur | GP27 · ADC1 | 32 |
-| Extrémités des potentiomètres | `ADC_VREF`, `AGND` | 35, 33 |
-| Interrupteur, lecture | GP10 | 14 |
-| LED RGB : rouge, vert, bleu | GP20, GP21, GP22 | 26, 27, 29 |
-| Maintien d'alimentation | GP11 | 15 |
-| Accéléromètre, SPI : MISO, CS, SCK, MOSI | GP16, GP17, GP18, GP19 | 21, 22, 24, 25 |
-| Générateur d'appuis pour T3.4 | GP15 | 20 |
-| Piles, après l'interrupteur et la diode | VSYS, GND | 39, 38 |
+interrupteur à glissière sur la plaque d'essai qui joue celui de la manette. **Le brochage est
+celui de la carte**, au §5 de [`carte.md`](carte.md), qui fait foi depuis le 15/11/2026 : la LED
+d'alimentation y devient une LED adressable, sur une seule broche.
 
 **Le firmware :** `firmware/manette`, première version. Il affiche l'état sur la console USB,
 compte les appuis, tient le maintien, règle l'accéléromètre et se rendort.
@@ -117,7 +109,7 @@ commencer (phase 5a).
 
 ---
 
-## Phase 2 — la manette parle au PC
+## Phase 2 : la manette parle au PC
 
 **Objectif :** `MAN1` de bout en bout, la marche et l'arrêt, et les chiffres de la radio :
 pertes, trous, consommation.
@@ -143,7 +135,7 @@ T2.5. T2.5 peut tourner pendant la phase 3.
 
 ---
 
-## Phase 3 — l'injecteur sur une fausse console
+## Phase 3 : l'injecteur sur une fausse console
 
 **Objectif :** l'injecteur complet, sans toucher la console principale.
 
@@ -174,7 +166,7 @@ son adresse comme destination.
 
 ---
 
-## Phase 4 🔴 — l'injecteur dans la console principale
+## Phase 4 🔴 : l'injecteur dans la console principale
 
 **Objectif :** jouer à la console principale depuis la manette.
 
@@ -198,30 +190,27 @@ la console sur marche, les piles retirées.
 
 ---
 
-## Phase 5 — la carte maison
+## Phase 5 : la carte maison
 
 **Objectif :** la manette dans sa coque, sur sa propre carte.
 
-**5a — Dessin, dans KiCad**, d'après les scans et les mesures de la phase 0 : contour, trous de
-vis, pastilles des boutons au bon endroit ; molettes, interrupteur et contacts de piles sur leurs
-empreintes ; le Pico 2 W soudé à plat, antenne au bord au-dessus d'une découpe sans cuivre de
-14 × 9 mm ; le maintien d'alimentation et l'accéléromètre, sauf si T1.7 les a rendus
-superflus ; P-MOSFET de l'USB et protection contre l'inversion des piles ; la LED RGB à l'emplacement de l'originale ; accès au port USB ;
-points de test sur une ligne de bouton et sur GP15, pour refaire T3.4. Épaisseur 1,2 mm, finition
-or (ENIG). Des cartes au format de la Game Boy Pocket ont déjà été publiées, pour y loger un
-Raspberry Pi par exemple : les chercher avant de tout relever soi-même.
+**5a : relevés, dessin et devis.** Leur pas à pas est au §7 de [`carte.md`](carte.md), de C0 à
+C5 : les relevés qui manquent, le schéma, la géométrie reprise de YAPoco (une carte au format
+de la Game Boy Pocket, publiée sous licence libre), le placement, le routage et le comparatif
+des devis.
 
-**5b — Gabarit.** Imprimer la carte à l'échelle 1, la coller sur un carton, découper. Dans la
+**5b : gabarit.** Imprimer la carte à l'échelle 1, la coller sur un carton, découper. Dans la
 coque, avec les membranes : les trous tombent en face des vis, les pastilles en face des
 boutons, le Pico a sa place, la coque ferme. **Pas de commande avant.**
 
-**5c — Fabrication.**
+**5c : fabrication**, chez celui des deux fabricants que le comparatif désigne ; les composants
+CMS y sont posés.
 
-**5d 🔴 — Assemblage.** Le Pico soudé à plat ; l'interrupteur, les molettes et les contacts de
-piles, neufs ou dessoudés de la carte d'origine. Dessoudés, la console distante ne redevient
-plus une Game Boy sans eux.
+**5d 🔴 : assemblage.** Le Pico soudé à plat ; l'interrupteur, les molettes et les contacts de
+piles, neufs ou dessoudés d'une Pocket donneuse : dessoudés, elle ne redevient plus une Game
+Boy sans eux. Le pas à pas : C7 de [`carte.md`](carte.md).
 
-**5e — Essais dans la coque :** T1.1 à T1.4 repris sur la carte, puis :
+**5e : essais dans la coque.** T1.1 à T1.6 repris sur la carte, puis :
 
 | Test | Ce que tu fais | Ce que tu dois trouver |
 |---|---|---|
@@ -229,12 +218,13 @@ plus une Game Boy sans eux.
 | **T5.2** 🔬 L'antenne | La force du signal que la manette rapporte, coque ouverte puis fermée, piles en place ; puis T2.3 repris coque fermée | quelques dB perdus au plus ; les pertes et les trous de T2.3 tiennent leur critère |
 | **T5.3** 🔬 Autonomie et sommeil | T2.5 repris dans la coque ; puis le courant de la manette endormie, au µA, piles en place | au moins 6 heures ; endormie, quelques µA au plus |
 | **T5.4** 🔬 Latence | T3.4 repris, sur les points de test | les chiffres de T3.4 |
+| **T5.5** Les lumières | Chaque LED en rouge, en vert, en bleu, puis les neuf en blanc. Puis chaque bouton enfoncé, LED allumées | chaque LED à sa place et dans sa couleur, vue à travers son bouton ; aucun appui manqué ni fantôme, LED allumées |
 
-✅ **Critère de sortie :** T5.1 à T5.4.
+✅ **Critère de sortie :** T5.1 à T5.5.
 
 ---
 
-## Phase 6 — intégration
+## Phase 6 : intégration
 
 **Objectif :** la manette dans l'installation.
 
@@ -259,7 +249,7 @@ plus une Game Boy sans eux.
 ---
 
 <a id="fiche"></a>
-## Fiche de la phase 0 — à remplir pendant la séance, pas après
+## Fiche de la phase 0 : à remplir pendant la séance, pas après
 
 Date : `__/__/____`
 
